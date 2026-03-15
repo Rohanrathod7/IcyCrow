@@ -1,0 +1,75 @@
+## Project: IcyCrow
+Tagline: The Zero-Token, Memory-Efficient Browser Agent.
+
+1. Unified AI & Cross-Tab Intelligence
+Multi-Tab Context Reasoning: Synthesizes information across all open tabs (e.g., "Compare the API docs in Tab 1 with the code in Tab 2").
+
+Workspace-Aware Chat: Maintains distinct AI chat histories and personas for different projects (e.g., Data Science vs. Full-stack).
+
+Open CLW (Command Line Workspace): A Ctrl+K global command bar to search tab content, launch AI tasks, or switch spaces via natural language.
+
+2. Advanced Tab & Space Management
+AI-Driven Tab Grouping: Automatically categorizes messy tabs into semantic "Stacks" based on their content topics.
+
+Dynamic Hibernation: Automatically detects inactive tabs and offloads them from RAM while keeping them visible for quick access.
+
+Visual Knowledge Map: Generates a 2D graph showing how your open tabs and research topics are interconnected.
+
+3. Workspace (Space) Persistent Logic
+One-Click Restore: Instantly re-opens an entire project session (group of tabs) exactly where you left off.
+
+Live Sync (Updated URL): Real-time monitoring that updates your saved "Space" automatically if you navigate to a new URL within a tab.
+
+Radical Memory Optimization: Opens restored tabs in a "discarded" state, ensuring the browser consumes near-zero resources until you click a tab.
+
+4. The "Capture & Process" Engine
+Live-Stream Highlight Replication: A sidebar that chronologically lists every highlight you make across the web for instant reference.
+
+Select-Box & Ask AI (RPA): Draw a box over any UI element to trigger Headless Automation; the extension uses the Gemini tab to "read" the screen and execute browser actions (clicks/typing).
+
+Integrated Markdown Notes: A built-in editor to convert highlights and AI responses into structured documentation or YouTube scripts.
+
+Web & PDF Annotator: Layered annotation tools (inspired by Memex/Drawboard) to draw, comment, and "mark up" both live webpages and PDF files.
+
+5. Smart "Read-it-Later" & Archiving
+Contextual Save: Saves the full-text content of a page along with the AI’s summary and your personal notes.
+
+Semantic Search Archive: Uses vector embeddings to let you search your history by meaning (e.g., "Find that article about Python memory leaks") rather than just keywords.
+
+Offline AI Access: Integration with local LLMs (via Ollama) to allow you to query your archived material without an internet connection.
+
+The Technical "Secret Sauce"
+Zero-Cost Engine: IcyCrow functions as a bridge. It scrapes context from your active tabs and "types" it into a pinned Gemini web tab. It then scrapes Gemini's response and brings it back to your workspace—giving you high-end AI agent capabilities with $0 API costs.
+
+
+1. The "Privacy-First" Architecture (Security)
+In a world of data leaks, a professional tool must address security.
+
+Local-First Processing: Explicitly state that all tab scraping and "Live Sync" data stays on the user's local machine (chrome.storage.local) and is only sent to the user's own Gemini tab. No third-party servers see the data.
+
+Zero-Knowledge Archiving: Emphasize that the "Read-it-Later" archive is encrypted locally.
+
+2. Intelligent Rate Limiting & "Human-Mimicry" (Robustness)
+Since you are using a web-tab automation (Headless RPA) instead of an API, Google might detect "bot" behavior.
+
+Anti-Detection Engine: Mention that IcyCrow uses randomized typing delays and "jitter" movement when interacting with the Gemini tab to mimic human behavior, preventing account flagging.
+
+Task Queueing: If the user asks 5 questions at once, the extension manages a "First-In-First-Out" (FIFO) queue so the Gemini tab doesn't crash or get overwhelmed.
+
+3. Developer-Centric Features (The "MCA" Edge)
+Since you are a developer, add features that help you.
+
+Auto-Documentation: A feature that takes a "Space" of tabs (like a Spring Boot project documentation) and uses the AI to generate a Project README.md automatically based on the open pages.
+
+Code-Context Injection: If a tab contains a GitHub or StackOverflow link, IcyCrow automatically prioritizes "Code Snippets" when sending context to Gemini.
+
+Updated "Technical Specification" Section
+Add this to your project documentation to make it look industry-ready:
+
+Technical Constraints & Performance Specs:
+
+Latency Management: Background scripts handle message passing with a target latency of <100ms between research tab and AI processor.
+
+Resource Governance: Total extension memory footprint capped at <50MB (excluding the Gemini tab itself) through aggressive use of chrome.tabs.discard().
+
+Cross-Platform Sync: (Optional future scope) Potential for syncing "Spaces" via a Nest.js/PostgreSQL backend for multi-device support.
