@@ -1,9 +1,9 @@
 # IcyCrow — Product Requirements Document (PRD)
 
-**Version:** 2.0
-**Date:** 2026-03-15
-**Author:** AI-Generated (Technical PM & Enterprise Architect)
-**Status:** Draft v2 — Enhanced for Vibe-Coding Workflow
+**Version:** 3.1 — Local-First Architecture (Audit Hardened)
+**Date:** 2026-03-16
+**Author:** AI-Generated (Principal Systems Architect & Lead PM)
+**Status:** Draft v3.1 — Audit fixes applied for 22 findings
 
 ---
 
@@ -246,14 +246,26 @@ The MVP is organised into **five epics**. Each epic contains granular, actionabl
 
 | # | Anti-Goal | Rationale |
 |---|---|---|
-| 🚫 1 | **Cloud Sync / Multi-Device Sync** | Requires a backend (NestJS + PostgreSQL). Defer until user base validates demand. |
-| 🚫 2 | **Mobile Browser Support** | Chrome extension APIs are desktop-only. No mobile shim. |
-| 🚫 3 | **Support for AI providers other than Gemini** | The Zero-Cost Engine is purpose-built for Gemini's DOM. Multi-provider support adds massive complexity. |
-| 🚫 4 | **Monetisation / Payments / Subscription Tiers** | Build value first; monetise later. |
-| 🚫 5 | **Collaborative / Multi-User Workspaces** | Requires auth, permissions, and real-time sync — all backend dependencies. |
-| 🚫 6 | **Browser Extension Store Publishing Pipeline** | Focus on local development and manual install (developer mode) for MVP. |
-| 🚫 7 | **Visual Knowledge Map (2D Graph)** | Complex visualisation library dependency (e.g., D3/Cytoscape). Defer to v2. |
-| 🚫 8 | **Select-Box & Ask AI (RPA)** | Screen-reading + headless automation is a high-risk, high-complexity feature. Defer to v2. |
+| 🚫 1 | **Any Cloud Backend / Server Infrastructure** | IcyCrow is 100% local-first. Zero remote servers, zero cloud databases, zero hosted authentication. All persistence is browser-local. |
+| 🚫 2 | **Cloud-Based Authentication (OAuth, JWT against our servers)** | No user accounts. No login. The user’s Chrome profile IS their identity boundary. |
+| 🚫 3 | **Mobile Browser Support** | Chrome extension APIs are desktop-only. No mobile shim. |
+| 🚫 4 | **Support for AI providers other than Gemini** | The Zero-Cost Engine is purpose-built for Gemini’s DOM. Multi-provider support adds massive complexity. |
+| 🚫 5 | **Monetisation / Payments / Subscription Tiers** | Build value first; monetise later. |
+| 🚫 6 | **Real-Time Collaborative / Multi-User Workspaces** | Requires server-side state, permissions, and conflict resolution. Fundamentally incompatible with local-first. |
+| 🚫 7 | **Browser Extension Store Publishing Pipeline** | Focus on local development and manual install (developer mode) for MVP. |
+| 🚫 8 | **Visual Knowledge Map (2D Graph)** | Complex visualisation library dependency (e.g., D3/Cytoscape). Defer to v2. |
+| 🚫 9 | **Select-Box & Ask AI (RPA)** | Screen-reading + headless automation is a high-risk, high-complexity feature. Defer to v2. |
+
+### 5.1 Compromised Features — Serverless Strategies
+
+> [!NOTE]
+> The following features would traditionally require a cloud backend. Below is the **local-first product strategy** that solves these needs with zero infrastructure.
+
+| Feature | Cloud Approach (Rejected) | Local-First Strategy |
+|---|---|---|
+| **Cross-Device Sync** | Cloud DB + real-time sync | **File-based Export/Import:** One-click export of entire workspace (Spaces, chat history, highlights, archive) to a single encrypted `.icycrow` JSON bundle. Import on another device. User can store the file in their own Google Drive, Dropbox, or USB drive. |
+| **Data Backup & Recovery** | Server-side automated backups | **Scheduled Local Backups:** Extension auto-exports a backup file to a user-specified directory via the File System Access API (`showSaveFilePicker`). Configurable interval (daily/weekly). Backup files are AES-GCM-256 encrypted. |
+| **Data Sharing** | Shared workspace via collaboration server | **Selective Export:** User can export individual Spaces, highlight collections, or note bundles as `.icycrow` snippet files. Recipients import into their own extension instance. No real-time collaboration — asynchronous sharing only. |
 
 ---
 
@@ -398,19 +410,47 @@ sequenceDiagram
     },
     "archive": {
       "embeddingModel": "all-MiniLM-L6-v2",
+      "embeddingModelVersion": 1,
       "ollamaEndpoint": "http://localhost:11434"
+    },
+    "gemini": {
+      "urlPattern": "*://gemini.google.com/*",
+      "customUrl": null
+    },
+    "encryption": {
+      "enabled": false,
+      "autoLockMinutes": 30
+    },
+    "backup": {
+      "enabled": true,
+      "intervalDays": 7,
+      "maxBackups": 5,
+      "lastSuccessAt": null
     }
   }
 }
 
-// KEY: "highlights"
+// KEY: "highlights:<SHA256(canonicalUrl)>"  — one key per URL (hashed to avoid collisions)
 {
   "highlights": [
     {
       "id": "uuid",
       "url": "https://...",
       "text": "selected text",
-      "surroundingContext": "...before...{text}...after...",
+      "anchor": {
+        "type": "TextQuoteSelector",
+        "exact": "the selected text verbatim",
+        "prefix": "50 chars before selection",
+        "suffix": "50 chars after selection",
+        "xpathFallback": "/html/body/div[2]/p[3]",
+        "cssFallback": "div.article > p:nth-child(3)",
+        "startOffset": 42,
+        "endOffset": 67
+      },
+      "pageMeta": {
+        "title": "Page Title",
+        "domFingerprint": "SHA256 of first 500 chars of body.innerText"
+      },
       "createdAt": "ISO-8601",
       "spaceId": "uuid | null"
     }
@@ -420,29 +460,55 @@ sequenceDiagram
 
 #### IndexedDB — `IcyCrowDB`
 
+> [!NOTE]
+> **Schema Migration Strategy (G-1):** IndexedDB uses integer versioning. The extension starts at version 1. Every schema change bumps the version. An `onupgradeneeded` handler runs sequential migration functions (v1→v2, v2→v3, etc.). All migration functions are preserved in `lib/idb-migrations.js` indefinitely.
+
 | Object Store | Key Path | Indexes | Record Shape |
 |---|---|---|---|
-| `articles` | `id` | `url`, `savedAt`, `spaceId` | `{ id, url, title, fullText, aiSummary, userNotes, savedAt, spaceId }` |
-| `embeddings` | `articleId` | — | `{ articleId, vector: Float32Array, modelVersion }` |
+| `articles` | `id` | `url`, `savedAt`, `spaceId` | `{ id, url, title, fullText, aiSummary, userNotes, savedAt, spaceId, encrypted: bool }` |
+| `embeddings` | `articleId` | `modelVersion` | `{ articleId, vector: Float32Array, modelVersion: int, createdAt }` |
 | `annotations` | `id` | `url` | `{ id, url, type: "drawing"|"comment"|"shape", data: {...}, createdAt }` |
 | `taskQueue` | `id` | `status`, `createdAt` | `{ id, prompt, contextTabs, status: "pending"|"active"|"completed"|"failed", result, createdAt }` |
+| `onnxModelCache` | `modelName` | — | `{ modelName, modelData: ArrayBuffer, version: int, cachedAt }` |
+| `backupManifest` | `id` | `createdAt` | `{ id, timestamp, fileSize, checksum, location }` |
 
 ---
 
-## 7. Security & Non-Functional Requirements
+## 7. Security & Non-Functional Requirements (Local-First Model)
 
-### 7.1 Security Requirements
+> [!IMPORTANT]
+> IcyCrow has **zero cloud infrastructure**. There are no remote servers, no hosted databases, and no user accounts. The security model is therefore fundamentally different from a SaaS application. The threat surface is the **user's local browser environment**, not the network.
 
-| # | Requirement | Implementation |
+### 7.1 Security Principles
+
+| # | Principle | Implementation |
 |---|---|---|
-| **S-1** | **Local-Only Data** | ALL user data (Spaces, chat, archive, highlights) is stored exclusively in `chrome.storage.local` and IndexedDB. Zero network requests to third-party servers. |
-| **S-2** | **Zero-Knowledge Archiving** | Archived articles and notes are encrypted using `SubtleCrypto.encrypt()` (AES-GCM-256) with a user-derived key before writing to IndexedDB. |
-| **S-3** | **Content Security Policy** | Manifest declares strict CSP: `script-src 'self'; object-src 'none'`. No inline scripts, no `eval()`. |
-| **S-4** | **Minimal Permissions** | Request only required Chrome permissions: `tabs`, `storage`, `sidePanel`, `activeTab`, `scripting`, `idle`. No `<all_urls>` unless user grants optional host permissions for specific sites. |
-| **S-5** | **Input Sanitization** | All user-provided text (notes, highlights, chat input) is sanitised with DOMPurify before rendering to prevent XSS (OWASP A7). |
-| **S-6** | **No Remote Code Execution** | No dynamic script loading. All code is bundled at build time. Prevents OWASP A8 (Software & Data Integrity Failures). |
+| **S-1** | **Absolute Data Locality** | ALL user data is stored exclusively in `chrome.storage.local` and IndexedDB. The extension makes **zero outbound network requests** except to: (1) the Gemini tab (same browser, via DOM), and (2) optionally `localhost:11434` (Ollama). No telemetry, no analytics, no third-party calls. |
+| **S-2** | **At-Rest Encryption (Opt-In)** | Encryption is **opt-in**. By default, data is stored in plaintext. When the user sets a passphrase in Settings, sensitive data (articles, notes, annotations, chat histories) is encrypted with AES-GCM-256. The `CryptoKey` is derived via PBKDF2 (100,000 iterations, SHA-256) and held **only** in the Service Worker's closure scope — never serialised, never sent via `sendMessage()`. |
+| **S-3** | **Encryption Key Lifecycle** | The derived `CryptoKey` is **auto-wiped** from memory after 30 minutes of idle (no storage operations). User must re-enter the passphrase to unlock. This limits the window of exposure if a content script is compromised. Per-record encryption is atomic (one record per `SubtleCrypto.encrypt()` call) to survive Service Worker termination. |
+| **S-4** | **Passphrase Strength Enforcement** | Export/backup passwords enforce minimum 8 characters with at least 1 number and 1 special character. A strength meter is shown in the UI. At-rest encryption passphrases display a strength meter with a warning on weak passphrases but do not block (to reduce friction). |
+| **S-5** | **Export/Backup Encryption** | `.icycrow` export files use AES-GCM-256 (authenticated encryption — the GCM tag provides integrity). The HMAC-SHA256 checksum covers the **unencrypted metadata** fields (format, version, exportedAt) to detect header tampering. Encryption key and HMAC key are derived from the same password using **separate PBKDF2 salts**. |
+| **S-6** | **Content Security Policy** | Manifest declares strict CSP: `script-src 'self'; object-src 'none'; connect-src 'self' http://localhost:11434`. No inline scripts, no `eval()`, no remote script loading. |
+| **S-7** | **Minimal Permissions** | Request only required Chrome permissions: `tabs`, `storage`, `unlimitedStorage`, `sidePanel`, `activeTab`, `scripting`, `idle`. No `<all_urls>` — use optional host permissions that the user grants per-site. |
+| **S-8** | **Input Sanitisation** | All user-provided text (notes, highlights, chat input) is sanitised with DOMPurify before DOM injection. All AI-generated responses from the Gemini scrape are also sanitised to prevent injection (OWASP A7). |
+| **S-9** | **No Remote Code Execution** | No dynamic script loading. All code is bundled at build time. No CDN loads, no `fetch()` for JS. Prevents OWASP A8. |
+| **S-10** | **Chrome Profile as Identity Boundary** | There are no user accounts. The Chrome user profile is the security boundary. Switching Chrome profiles switches IcyCrow data completely. This leverages Chrome's existing isolation model. |
+| **S-11** | **Bulk Crypto in Workers Only** | All bulk encryption/decryption (export, import, batch re-encryption) runs in `export-worker.js`, never in the Service Worker. This prevents MV3's 30-second idle termination from interrupting crypto operations and leaving data in a partially-encrypted state. |
 
-### 7.2 Anti-Detection & Rate Limiting
+### 7.2 Local-First Threat Model
+
+| # | Threat | Attack Vector | Severity | Mitigation |
+|---|---|---|---|---|
+| **T-1** | **Physical Device Access** | Attacker gains access to the user's unlocked machine and reads IndexedDB directly. | 🟠 High | At-rest encryption (§7.1 S-2). Without the passphrase, raw IndexedDB entries are AES-GCM-256 ciphertext. Auto-lock wipes key from memory after 30 min idle. |
+| **T-2** | **Malicious Extension Cross-Read** | Another installed extension attempts to read IcyCrow's storage. | 🟡 Medium | Chrome's extension sandboxing prevents cross-extension storage access by default. Each extension has its own isolated `chrome.storage.local` and IndexedDB namespace. No additional mitigation required. |
+| **T-3** | **XSS via Scraped Content** | A malicious webpage contains script tags in its text that IcyCrow scrapes and renders in the Side Panel. | 🔴 Critical | DOMPurify sanitises ALL scraped content before rendering. CSP blocks inline script execution. Content scripts run in an isolated world, separate from the page's JS context. |
+| **T-4** | **Gemini Response Injection** | Gemini's response contains malicious HTML/JS that IcyCrow renders in the chat panel. | 🔴 Critical | AI responses are scraped as text → sanitised with DOMPurify → rendered via `marked.js` with `sanitize: true`. No raw HTML injection path exists. |
+| **T-5** | **Export File Tampering** | Attacker modifies a `.icycrow` export file and the user imports it. | 🟡 Medium | AES-GCM authentication tag rejects tampered ciphertext. HMAC-SHA256 (separate key) covers unencrypted metadata. Tampered files are rejected with specific error messages. |
+| **T-6** | **Service Worker State Poisoning** | A compromised content script sends malformed messages to the Service Worker. | 🟡 Medium | The Service Worker validates ALL inbound messages against a strict schema (sender origin check + payload shape validation via Zod). Unknown message types are dropped. |
+| **T-7** | **CryptoKey Exfiltration via Message Channel** | Compromised content script requests key material via `sendMessage()`. | 🟠 High | `CryptoKey` is non-extractable (`extractable: false` in `deriveKey()`). Even if referenced, it cannot be serialised or sent via `postMessage()`. No message handler ever returns key material. |
+| **T-8** | **Storage Write Race Condition** | Rapid concurrent `chrome.storage.local` writes corrupt data (read-modify-write race). | 🟡 Medium | All writes to the same storage key are serialised through a per-key `Promise` chain mutex in the Service Worker. Concurrent writes queue rather than race. |
+
+### 7.3 Anti-Detection & Rate Limiting
 
 | # | Requirement | Implementation |
 |---|---|---|
@@ -452,7 +518,7 @@ sequenceDiagram
 | **R-4** | **FIFO Queue with Back-Pressure** | Queue depth capped at 20. New requests after cap are rejected with a user-visible warning. |
 | **R-5** | **Retry with Exponential Back-Off** | If Gemini returns an error or rate-limit signal, retry up to 3 times with 5s → 15s → 45s delays. |
 
-### 7.3 Non-Functional Requirements
+### 7.4 Non-Functional Requirements
 
 | Category | Requirement | Target |
 |---|---|---|
@@ -460,11 +526,30 @@ sequenceDiagram
 | **Performance** | Message-passing latency (content script ↔ service worker) | < 100 ms |
 | **Performance** | Time to render chat response after scrape completes | < 200 ms |
 | **Performance** | Semantic search query time (10,000 articles) | < 500 ms |
+| **Performance** | Embedding generation (single article, Web Worker) | < 2 seconds |
+| **Performance** | Content script injection | Only injected into **active or recently-active tabs** (max ~10 concurrent instances). Hibernated/discarded tabs have no content script until activated via `chrome.tabs.onActivated`. |
 | **Reliability** | Service worker crash recovery | Auto-restart; pending queue persisted in `chrome.storage.local` |
+| **Reliability** | Auto-backup monitoring | `backup.lastSuccessAt` tracked. If last backup > 2× interval, warning banner shown. On handle permission loss, `chrome.notifications` prompts re-auth. Fallback: `chrome.downloads.download()` if File System Access API unavailable. |
 | **Usability** | First-time setup steps | ≤ 3 (install, open Gemini tab, pin extension) |
+| **Usability** | Zero-account design | No registration, no login. Works immediately on install. |
+| **Usability** | Diagnostic export | "Export Debug Log" in Settings. Collects: storage key sizes (not values), IDB record counts, SW uptime/restart count, last 50 message types, ONNX model status, extension/Chrome/OS versions. |
 | **Accessibility** | Keyboard navigation for all UI panels | Full `Tab`/`Enter`/`Esc` support; ARIA labels on all interactive elements |
 | **Maintainability** | Module coupling | Each manager (AI, Space, Hibernate, Archive) is a self-contained ES module with a defined public API |
 | **Testability** | Unit test coverage for business logic modules | ≥ 80% |
+
+### 7.5 Data Sizing Estimates
+
+> [!NOTE]
+> These estimates help users understand storage capacity and inform the soft-cap warning threshold in Settings.
+
+| Data Type | Avg. Record Size | 1,000 Records | 10,000 Records |
+|---|---|---|---|
+| Highlight (with TextQuoteSelector anchor) | ~2 KB | ~2 MB | ~20 MB |
+| Article (full text + AI summary) | ~50 KB | ~50 MB | ~500 MB |
+| Embedding (384-dim Float32Array) | ~1.5 KB | ~1.5 MB | ~15 MB |
+| Chat message | ~1 KB | ~1 MB | ~10 MB |
+| Space (10 tabs) | ~5 KB | ~5 MB | ~50 MB |
+| **Total (power user: 1k articles, 5k highlights, 10k chats)** | | **~80 MB** | |
 
 ---
 
@@ -499,6 +584,33 @@ sequenceDiagram
 | **L-10** | **ONNX Model Size (~23 MB)** — `all-MiniLM-L6-v2` significantly inflates the extension bundle. | Slow initial load; high disk usage. | Load the ONNX model **lazily on first search**, not on extension install. Store the model in IndexedDB after first download. Show a one-time "Downloading search model..." progress bar. |
 | **L-11** | **Cosine Similarity at Scale** — Brute-force cosine similarity over 10,000+ embeddings is O(n). | Semantic search degrades beyond ~15,000 articles. | For MVP, brute-force is acceptable (target < 500 ms for 10k articles). Post-MVP: integrate an approximate nearest-neighbour (ANN) index like HNSW, or paginate search results. |
 | **L-12** | **Message Passing Serialisation** — `chrome.runtime.sendMessage` serialises payloads via the structured clone algorithm. Large payloads (e.g., full page text) incur serialisation cost. | Latency spike on large content scrapes (> 100 KB of text). | Chunk large payloads into ≤ 50 KB segments. Use `chrome.runtime.Port` for streaming large responses instead of one-shot `sendMessage`. |
+| **L-13** | **No Server-Side Compute** — All processing (embeddings, encryption, search, text parsing) must run in the browser. | Heavy compute can freeze the UI if run on the main thread. | See §8.4 below — strict Web Worker offloading for all CPU-intensive operations. |
+
+### 8.4 Heavy Client-Side Compute Strategy
+
+> [!IMPORTANT]
+> Since there is **no remote server** to offload compute, every CPU-intensive operation must be explicitly routed to a **Web Worker** or **Service Worker** to keep the Side Panel UI and content scripts completely non-blocking.
+
+| Task | Compute Intensity | Execution Context | Strategy |
+|---|---|---|---|
+| **Vector Embedding Generation** | 🔴 Heavy (~1–2s per article) | Dedicated Web Worker (`embedding-worker.js`) | ONNX Runtime Web (WASM-only build) loads `all-MiniLM-L6-v2` once, keeps it in memory. Articles are sent to the worker via `postMessage()`. Embeddings are returned as `Float32Array` and stored in IndexedDB. |
+| **Cosine Similarity Search** | 🟠 Medium (~100–500ms for 10k vectors) | Same Web Worker (`embedding-worker.js`) | Query embedding computed in-worker. Brute-force cosine similarity loops over IndexedDB cursor. Top-K results returned to the Service Worker. |
+| **AES-GCM-256 Encryption/Decryption** | 🟡 Low–Medium (~5–50ms per record) | Service Worker | `SubtleCrypto` is hardware-accelerated in modern browsers. Encrypt/decrypt operations run in the Service Worker before IndexedDB writes. Batched for bulk export. |
+| **Full Workspace Export** | 🔴 Heavy (depends on data volume) | Dedicated Web Worker (`export-worker.js`) | Reads all IndexedDB stores. Serialises to JSON. Encrypts with user password. Computes HMAC-SHA256 integrity signature. Returns Blob to Service Worker for File System Access API download. |
+| **Full Workspace Import** | 🔴 Heavy | Dedicated Web Worker (`export-worker.js`) | Verifies HMAC signature. Decrypts with user password. Validates schema with Zod. Writes to IndexedDB in batched transactions (≤ 50 records). Reports progress via `postMessage()`. |
+| **PDF Text Extraction** | 🟠 Medium | Dedicated Web Worker (`pdf-worker.js`) | Uses `pdf.js` (Mozilla’s PDF parser) in worker mode. Extracts text page-by-page. Returns concatenated text to Service Worker. |
+| **Large Page Content Scraping** | 🟡 Low | Content Script → Service Worker | Content script extracts text synchronously (DOM is fast). Sends to Service Worker via `chrome.runtime.Port` in ≤ 50 KB chunks for streaming. |
+
+```
+UI Main Thread (Side Panel)        Service Worker              Web Workers
+┌──────────────────────────┐    ┌──────────────────────┐    ┌──────────────────────┐
+│  ZERO heavy compute.   │    │  Lightweight routing  │    │  ALL heavy compute   │
+│  Renders UI only.      │    │  + state management   │    │  runs here.           │
+│  Never blocks > 16ms.  │───▶│  + SubtleCrypto       │───▶│  • embedding-worker.js │
+│                        │    │  + message validation │    │  • export-worker.js   │
+│                        │◀───│                      │◀───│  • pdf-worker.js      │
+└──────────────────────────┘    └──────────────────────┘    └──────────────────────┘
+```
 
 ---
 
@@ -521,7 +633,7 @@ sequenceDiagram
 | Vector Embeddings | **ONNX Runtime Web** (WASM build) | ≥ 1.17 | Run `all-MiniLM-L6-v2` in a Web Worker for semantic search |
 | Encryption | **Web Crypto API** (`SubtleCrypto`) | Browser-native | AES-GCM-256 encryption + PBKDF2 key derivation |
 | Fuzzy Search | **Fuse.js** | ≥ 7.x (~5 KB) | CLW command palette fuzzy matching |
-| Testing | **Jest** + `jest-chrome` | ≥ 29.x | Unit tests with mocked Chrome APIs |
+| Testing | **Vitest** + `jest-chrome` | ≥ 2.x | Unit tests with mocked Chrome APIs (Vite-native test runner) |
 | Linting | **ESLint** + `eslint-plugin-jsdoc` | ≥ 9.x | Code quality and JSDoc enforcement |
 
 ### 9.2 Feature → Technology → Chrome API Matrix
@@ -561,17 +673,19 @@ icycrow/
 ├── package.json
 ├── src/
 │   ├── background/
-│   │   ├── service-worker.js          # Entry point, lifecycle handlers
+│   │   ├── service-worker.js          # Entry point, lifecycle, message router
 │   │   ├── task-queue.js              # FIFO queue engine
 │   │   ├── gemini-detector.js         # Detects / manages Gemini tab
 │   │   ├── space-manager.js           # Space CRUD + Live Sync
 │   │   ├── hibernation-manager.js     # Tab discard logic
-│   │   └── article-saver.js           # Save + summarise articles
+│   │   ├── article-saver.js           # Save + summarise articles
+│   │   ├── crypto-manager.js          # Key derivation, auto-lock, encrypt/decrypt
+│   │   └── export-controller.js       # Orchestrates export/import via workers
 │   ├── content-scripts/
 │   │   ├── gemini-bridge.js           # Types into Gemini, scrapes response
 │   │   ├── anti-detection.js          # Human-mimicry typing/clicking
 │   │   ├── content-scraper.js         # Extracts clean text from pages
-│   │   └── highlighter.js             # Text highlighting overlay
+│   │   └── highlighter.js             # Text highlighting + TextQuoteSelector anchoring
 │   ├── side-panel/
 │   │   ├── index.html                 # Side Panel entry
 │   │   ├── index.js                   # Preact app root
@@ -588,21 +702,31 @@ icycrow/
 │   │       ├── useStorage.js
 │   │       └── useQueue.js
 │   ├── workers/
-│   │   └── embedding-worker.js        # ONNX Runtime Web in Web Worker
+│   │   ├── embedding-worker.js        # ONNX Runtime Web (embed + search)
+│   │   ├── export-worker.js           # Serialise, encrypt, sign backups
+│   │   └── pdf-worker.js              # Mozilla pdf.js text extraction
 │   ├── lib/
 │   │   ├── storage.js                 # Abstraction over chrome.storage + IDB
+│   │   ├── storage-mutex.js           # Per-key write queue (prevents races)
+│   │   ├── idb-migrations.js          # Sequential IDB schema migration runner
 │   │   ├── context-builder.js         # Concatenate + budget multi-tab context
 │   │   ├── semantic-search.js         # Cosine similarity engine
-│   │   ├── crypto-utils.js            # AES-GCM encrypt/decrypt wrappers
-│   │   └── gemini-selectors.js        # Centralised Gemini DOM selectors
+│   │   ├── crypto-utils.js            # AES-GCM encrypt/decrypt + PBKDF2 wrappers
+│   │   ├── gemini-selectors.js        # Centralised Gemini DOM selectors
+│   │   ├── zod-schemas.js             # All message type Zod schemas
+│   │   ├── url-utils.js               # Canonical URL normalisation + SHA256 hashing
+│   │   └── diagnostics.js             # Debug log collector for export
 │   └── assets/
 │       └── icons/
 ├── tests/
 │   ├── storage.test.js
+│   ├── storage-mutex.test.js
 │   ├── task-queue.test.js
 │   ├── space-manager.test.js
 │   ├── anti-detection.test.js
-│   └── semantic-search.test.js
+│   ├── semantic-search.test.js
+│   ├── crypto-utils.test.js
+│   └── idb-migrations.test.js
 └── models/
     └── all-MiniLM-L6-v2/              # ONNX model files (lazy-loaded)
 ```
@@ -791,4 +915,4 @@ icycrow/
 
 ---
 
-> **End of PRD v2.0** — This document is the single source of truth for all IcyCrow development. AI coding agents should reference this document for requirements, architecture decisions, technology choices, and implementation order.
+> **End of PRD v3.1 — Local-First Architecture (Audit Hardened)** — This document is the single source of truth for all IcyCrow development. AI coding agents should reference this document for requirements, architecture decisions, technology choices, and implementation order. There are **zero cloud dependencies**.
