@@ -1,0 +1,19 @@
+﻿
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90mB:/PROGRAMMER_AREA/DEVELOPER/09_Products/IcyCrow[39m
+
+ [31mΓ¥»[39m tests/background/crypto-manager.test.ts [2m([22m[2m7 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 608[2mms[22m[39m
+   [32mΓ£ô[39m CryptoManager[2m > [22munlock[2m > [22mshould derive a non-extractable key and update session state[32m 113[2mms[22m[39m
+   [32mΓ£ô[39m CryptoManager[2m > [22mencryption/decryption[2m > [22mshould perform round-trip encryption[32m 95[2mms[22m[39m
+   [32mΓ£ô[39m CryptoManager[2m > [22mencryption/decryption[2m > [22mshould throw if encryption is attempted while locked[32m 3[2mms[22m[39m
+   [32mΓ£ô[39m CryptoManager[2m > [22mencryption/decryption[2m > [22mshould throw if decryption is attempted while locked[32m 1[2mms[22m[39m
+[31m   [31m├ù[31m CryptoManager[2m > [22mlock[2m > [22mshould wipe the key and update session state[39m[32m 118[2mms[22m[39m
+[31m     ΓåÆ expected true to be false // Object.is equality[39m
+[31m   [31m├ù[31m CryptoManager[2m > [22mauto-lock[2m > [22mshould auto-lock after specified minutes[39m[32m 118[2mms[22m[39m
+[31m     ΓåÆ expected true to be false // Object.is equality[39m
+   [32mΓ£ô[39m CryptoManager[2m > [22mauto-lock[2m > [22mshould NOT auto-lock if used within threshold[32m 156[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 18:34:09
+[2m   Duration [22m 1.62s[2m (transform 99ms, setup 0ms, collect 119ms, tests 608ms, environment 0ms, prepare 366ms)[22m
+
