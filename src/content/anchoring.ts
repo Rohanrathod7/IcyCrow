@@ -55,11 +55,35 @@ export function restoreAnchor(anchor: TextQuoteAnchor): Range | null {
   if (s3) return s3;
 
   // Strategy 4: Fuzzy Search
-  const s4 = restoreByFuzzy(anchor.exact);
+  const s4 = restoreByFuzzy(anchor);
   return s4;
 }
 
 // --- Internal Helpers ---
+
+function getFallbackNode(anchor: TextQuoteAnchor): Node {
+  let node: Node | null = null;
+  try {
+    if (anchor.xpathFallback) {
+      const result = document.evaluate(anchor.xpathFallback, document, null, (window as any).XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+      node = result.singleNodeValue;
+    }
+  } catch { }
+
+  try {
+    if (!node && anchor.cssFallback) {
+      node = document.querySelector(anchor.cssFallback);
+    }
+  } catch { }
+
+  let current = node as Element | null;
+  const targetLen = anchor.exact.length + 1000;
+  while (current && current.parentElement && (current.textContent?.length || 0) < targetLen) {
+      if (current.tagName === 'BODY') break;
+      current = current.parentElement;
+  }
+  return current || document.body;
+}
 
 function getAdjacentText(range: Range, isPrefix: boolean): string {
   const maxLength = 50;
@@ -161,10 +185,14 @@ function restoreByCSS(selector: string): Range | null {
   }
 }
 
-function restoreByFuzzy(exact: string): Range | null {
-  const fullText = document.body.textContent || '';
-  if (fullText.length > 20000) return null; // tighter cap for O(N*M) search
+function restoreByFuzzy(anchor: TextQuoteAnchor): Range | null {
+  const rootNode = getFallbackNode(anchor);
+  let fullText = rootNode.textContent || '';
+  if (fullText.length > 3000) {
+     fullText = fullText.substring(0, 3000); 
+  }
 
+  const exact = anchor.exact;
   const threshold = Math.max(1, Math.floor(exact.length * 0.3));
   let bestDist = threshold + 1;
   let bestIndex = -1;
@@ -187,7 +215,7 @@ function restoreByFuzzy(exact: string): Range | null {
   }
 
   if (bestIndex !== -1) {
-    return createRangeFromOffset(bestIndex, bestIndex + bestLen);
+    return createRangeFromOffset(bestIndex, bestIndex + bestLen, rootNode);
   }
   return null;
 }
@@ -208,8 +236,8 @@ function levenshtein(a: string, b: string): number {
   return tmp[a.length][b.length];
 }
 
-function createRangeFromOffset(start: number, end: number): Range | null {
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+function createRangeFromOffset(start: number, end: number, rootNode: Node = document.body): Range | null {
+  const walker = document.createTreeWalker(rootNode, NodeFilter.SHOW_TEXT, null);
   let currentPos = 0;
   const range = document.createRange();
   let startNode: Text | null = null;

@@ -5,6 +5,19 @@ import { cryptoManager } from './crypto-manager';
 
 console.log('IcyCrow MV3 Service Worker installed.');
 
+/**
+ * Handle hotkey commands
+ * Following Phase 4 Wiring Rules
+ */
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === 'highlight-selection') {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'COMMAND_HIGHLIGHT' });
+    }
+  }
+});
+
 chrome.runtime.onInstalled.addListener(async (details) => {
   if (details.reason === 'install') {
     const existing = await chrome.storage.local.get('settings');

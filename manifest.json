@@ -13,6 +13,22 @@
   "permissions": [
     "tabs",
     "storage",
-    "activeTab"
-  ]
+    "activeTab",
+    "scripting"
+  ],
+  "content_scripts": [
+    {
+      "js": ["src/content/index.ts"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "highlight-selection": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+H",
+        "mac": "MacCtrl+Shift+H"
+      },
+      "description": "Highlight current selection"
+    }
+  }
 }
