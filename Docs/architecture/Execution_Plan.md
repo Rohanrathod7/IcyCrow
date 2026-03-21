@@ -427,11 +427,10 @@ DO:
 - [x] `swRestartCount` increments on each manual SW restart
 - [x] `chrome.runtime.onInstalled` creates default settings
 
----
-
-#### S4 — Crypto Engine
+#### ✅ COMPLETED: S4 — Crypto Engine
 
 **Goal:** Encrypt/decrypt records, auto-lock after idle, passphrase strength validation.
+**Implementation Summary:** Implemented `CryptoManager` using native Web Crypto API (`crypto.subtle`). Key derivation via PBKDF2 (100k iterations) and AES-GCM (256-bit) encryption. Integrated into SW router and alarms. Verified with 21 tests.
 
 ```
 DO:
@@ -443,11 +442,11 @@ DO:
 ```
 
 **Acceptance Criteria:**
-- [ ] `unlock('MyP@ss123')` → key derived, `cryptoKeyUnlocked = true`
-- [ ] `encrypt('hello') → decrypt() → 'hello'` round-trip works
-- [ ] After 30 min idle (simulated), key is wiped, `cryptoKeyUnlocked = false`
-- [ ] `unlock('1234')` is rejected (weak passphrase) for export context
-- [ ] CryptoKey is non-extractable (`extractable: false`)
+- [x] `unlock('MyP@ss123')` → key derived, `cryptoKeyUnlocked = true`
+- [x] `encrypt('hello') → decrypt() → 'hello'` round-trip works
+- [x] After 30 min idle (simulated), key is wiped, `cryptoKeyUnlocked = false`
+- [x] `unlock('1234')` is rejected (weak passphrase) for export context
+- [x] CryptoKey is non-extractable (`extractable: false`)
 
 ---
 
