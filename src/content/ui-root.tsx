@@ -1,3 +1,6 @@
+import { render } from 'preact';
+import { HighlightTooltip } from './components/HighlightTooltip';
+
 /**
  * Initialize the IcyCrow UI Root in the host page
  * Following content-script-css SKILL and LLD §5
@@ -43,6 +46,8 @@ export function initUiRoot(): HTMLElement {
   const mountPoint = document.createElement('div');
   mountPoint.id = 'icycrow-mount';
   shadow.appendChild(mountPoint);
+
+  render(<HighlightTooltip />, mountPoint);
 
   document.documentElement.appendChild(host);
   return mountPoint;
