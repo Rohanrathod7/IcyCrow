@@ -1,6 +1,7 @@
 import { DEFAULT_SETTINGS } from '@lib/constants';
 import type { SessionState } from '@lib/types';
 import { InboundMessageSchema, type ValidatedInboundMessage } from '@lib/zod-schemas';
+import { cryptoManager } from './crypto-manager';
 
 console.log('IcyCrow MV3 Service Worker installed.');
 
@@ -17,6 +18,8 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'keepalive') {
     // No-op to reset SW idle timer
+  } else if (alarm.name === 'crypto-autolock') {
+    cryptoManager.checkAutoLock();
   }
 });
 
@@ -43,6 +46,7 @@ export async function boot() {
   console.log(`[IcyCrow] SW Booted: Restart #${newState.swRestartCount}`);
   
   chrome.alarms.create('keepalive', { periodInMinutes: 0.4 });
+  chrome.alarms.create('crypto-autolock', { periodInMinutes: 1.0 });
 }
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
@@ -76,6 +80,18 @@ async function handleMessage(
         });
         break;
       
+      case 'CRYPTO_UNLOCK': {
+        const unlocked = await cryptoManager.unlock(message.payload.passphrase);
+        sendResponse({ ok: true, data: { unlocked, autoLockMinutes: 30 } });
+        break;
+      }
+
+      case 'CRYPTO_LOCK': {
+        await cryptoManager.lock();
+        sendResponse({ ok: true, data: { locked: true } });
+        break;
+      }
+
       default:
         sendResponse({
           ok: false,
