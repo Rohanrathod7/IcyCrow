@@ -1,7 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { canonicalUrl, sha256Hash } from '@lib/url-utils';
 
 describe('url-utils', () => {
+  beforeAll(async () => {
+    if (typeof globalThis.crypto === 'undefined') {
+      const nodeCrypto = await import('node:crypto');
+      globalThis.crypto = nodeCrypto.webcrypto as any;
+    }
+  });
+
   describe('canonicalUrl', () => {
     it('strips fragments and hashes', () => {
       expect(canonicalUrl('https://example.com/page#section')).toBe('https://example.com/page');

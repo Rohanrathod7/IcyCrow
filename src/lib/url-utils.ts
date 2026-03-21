@@ -18,15 +18,7 @@ export function canonicalUrl(url: string): string {
 export async function sha256Hash(text: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
-  
-  let subtle = typeof crypto !== 'undefined' && crypto.subtle ? crypto.subtle : null;
-  if (!subtle) {
-    // Fallback for Node.js environments during vitest
-    const nodeCrypto = await import('node:crypto');
-    subtle = (nodeCrypto.webcrypto as any).subtle;
-  }
-    
-  const hashBuffer = await subtle!.digest('SHA-256', data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
