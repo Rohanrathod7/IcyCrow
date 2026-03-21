@@ -1,0 +1,46 @@
+import { openDB, type IDBPDatabase, type IDBPTransaction } from 'idb';
+import { IDB_NAME as CONST_DB_NAME, IDB_VERSION as CONST_DB_VERSION } from './constants';
+
+export const DB_NAME = CONST_DB_NAME;
+export const DB_VERSION = CONST_DB_VERSION;
+
+// Use 'any' to bypass strict TS issues with idb generics if necessary
+type MigrationFn = (db: IDBPDatabase<any>, tx: IDBPTransaction<any, any, any>) => void;
+
+/** Registry of all schema migrations. NEVER delete old entries. */
+const MIGRATIONS: Record<number, MigrationFn> = {
+  1: (db) => {
+    const articles = db.createObjectStore('articles', { keyPath: 'id' });
+    articles.createIndex('url', 'url');
+    articles.createIndex('savedAt', 'savedAt');
+    articles.createIndex('spaceId', 'spaceId');
+
+    const embeddings = db.createObjectStore('embeddings', { keyPath: 'articleId' });
+    embeddings.createIndex('modelVersion', 'modelVersion');
+
+    const annotations = db.createObjectStore('annotations', { keyPath: 'id' });
+    annotations.createIndex('url', 'url');
+
+    const taskQueue = db.createObjectStore('taskQueue', { keyPath: 'id' });
+    taskQueue.createIndex('status', 'status');
+    taskQueue.createIndex('createdAt', 'createdAt');
+
+    db.createObjectStore('onnxModelCache', { keyPath: 'modelName' });
+
+    const backups = db.createObjectStore('backupManifest', { keyPath: 'id' });
+    backups.createIndex('timestamp', 'timestamp');
+  }
+};
+
+export async function initDB(): Promise<IDBPDatabase<any>> {
+  return openDB<any>(DB_NAME, DB_VERSION, {
+    upgrade(db, oldVersion, newVersion, transaction) {
+      for (let version = oldVersion + 1; version <= (newVersion || DB_VERSION); version++) {
+        const migration = MIGRATIONS[version];
+        if (migration) {
+          migration(db, transaction);
+        }
+      }
+    },
+  });
+}
