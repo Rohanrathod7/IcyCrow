@@ -404,9 +404,10 @@ DO:
 
 ---
 
-#### S3 — Message Router & SW Boot
+#### ✅ COMPLETED: S3 — Message Router & SW Boot
 
 **Goal:** Service Worker boots, rehydrates state, routes messages, and stays alive.
+**Implementation Summary:** Established Zod-validated `chrome.runtime.onMessage` router, `chrome.alarms` keepalive pulse, and `chrome.storage.session` rehydration logic. Verified with 100% test pass rate.
 
 ```
 DO:
@@ -419,12 +420,12 @@ DO:
 ```
 
 **Acceptance Criteria:**
-- [ ] SW boots and writes `sessionState` to `chrome.storage.session`
-- [ ] Sending a valid `HIGHLIGHTS_FETCH` message returns a stub response (not an error)
-- [ ] Sending a malformed message returns `{ ok: false, error: { code: 'VALIDATION_ERROR' } }`
-- [ ] SW survives 60+ seconds (keepalive alarm works)
-- [ ] `swRestartCount` increments on each manual SW restart
-- [ ] `chrome.runtime.onInstalled` creates default settings
+- [x] SW boots and writes `sessionState` to `chrome.storage.session`
+- [x] Sending a valid `HIGHLIGHTS_FETCH` message returns a stub response (not an error)
+- [x] Sending a malformed message returns `{ ok: false, error: { code: 'VALIDATION_ERROR' } }`
+- [x] SW survives 60+ seconds (keepalive alarm works)
+- [x] `swRestartCount` increments on each manual SW restart
+- [x] `chrome.runtime.onInstalled` creates default settings
 
 ---
 
