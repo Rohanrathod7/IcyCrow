@@ -4,7 +4,6 @@
   "version": "0.1.0",
   "description": "Privacy-first AI tab intelligence.",
   "action": {
-    "default_popup": "index.html"
   },
   "background": {
     "service_worker": "src/background/index.ts",
@@ -14,8 +13,12 @@
     "tabs",
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "sidePanel"
   ],
+  "side_panel": {
+    "default_path": "side-panel.html"
+  },
   "content_scripts": [
     {
       "js": ["src/content/index.ts"],

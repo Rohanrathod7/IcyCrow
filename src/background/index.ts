@@ -456,5 +456,14 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
 // Automatically boot when SW spins up
 // watchGeminiTab must run immediately to catch tab events on SW wake
 watchGeminiTab('https://gemini.google.com/*');
+
+// Side Panel Activation: Open on action click
+chrome.action.onClicked.addListener((tab) => {
+  if (tab.windowId) {
+    (chrome as any).sidePanel.open({ windowId: tab.windowId });
+  }
+});
+
 boot().catch(console.error);
+
 
