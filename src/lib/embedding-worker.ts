@@ -1,8 +1,13 @@
 import * as ort from 'onnxruntime-web';
 
 export async function loadModel(modelBlob: Blob): Promise<ort.InferenceSession> {
-  const arrayBuffer = await modelBlob.arrayBuffer();
-  return await ort.InferenceSession.create(arrayBuffer);
+  try {
+    const arrayBuffer = await modelBlob.arrayBuffer();
+    return await ort.InferenceSession.create(arrayBuffer);
+  } catch (err: any) {
+    console.error('[IcyCrow] ONNX Session creation failed:', err);
+    throw new Error(`ONNX_LOAD_FAILURE: ${err.message}`);
+  }
 }
 
 export async function embed(text: string, session: ort.InferenceSession): Promise<Float32Array> {

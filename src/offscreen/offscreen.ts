@@ -11,35 +11,13 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 30000): P
   ]);
 }
 
-async function initModel() {
-  if (modelSession) return modelSession;
-
-  // 1. Try IDB Cache
-  const cached = await getCachedModel('all-MiniLM-L6-v2');
-  if (cached) {
-    const blob = new Blob([cached.modelData], { type: 'application/octet-stream' });
-    modelSession = await loadModel(blob);
-    return modelSession;
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Security: Verify sender is our own extension
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('[IcyCrow] Blocked message to offscreen from external sender:', sender.id);
+    return false; 
   }
 
-  // 2. Fetch from assets
-  const response = await fetch(chrome.runtime.getURL('assets/model.onnx'));
-  const arrayBuffer = await response.arrayBuffer();
-  
-  // 3. Cache it
-  await cacheModel({
-    modelName: 'all-MiniLM-L6-v2',
-    modelData: arrayBuffer,
-    version: 1,
-    cachedAt: new Date().toISOString() as any
-  });
-
-  const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
-  modelSession = await loadModel(blob);
-  return modelSession;
-}
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'EMBED_TEXT') {
     handleEmbed(message.payload, sendResponse);
     return true; // async
@@ -53,6 +31,46 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 });
+
+async function initModel() {
+  if (modelSession) return modelSession;
+
+  try {
+    // 1. Try IDB Cache
+    const cached = await getCachedModel('all-MiniLM-L6-v2');
+    if (cached) {
+      const blob = new Blob([cached.modelData], { type: 'application/octet-stream' });
+      modelSession = await loadModel(blob);
+      return modelSession;
+    }
+
+    // 2. Fetch from assets
+    const response = await fetch(chrome.runtime.getURL('assets/model.onnx'));
+    if (!response.ok) {
+      throw new Error(`Model fetch failed: ${response.status} ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    
+    // 3. Cache it (non-blocking, don't fail the whole request if cache fails)
+    try {
+      await cacheModel({
+        modelName: 'all-MiniLM-L6-v2',
+        modelData: arrayBuffer,
+        version: 1,
+        cachedAt: new Date().toISOString() as any
+      });
+    } catch (cacheError) {
+      console.warn('[IcyCrow] Failed to cache model in IDB (Quota?):', cacheError);
+    }
+
+    const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
+    modelSession = await loadModel(blob);
+    return modelSession;
+  } catch (err: any) {
+    console.error('[IcyCrow] Model initialization failed:', err);
+    throw err;
+  }
+}
 
 async function handleEmbed(payload: { text: string }, sendResponse: (res: any) => void) {
   try {

@@ -1,8 +1,11 @@
 import { OFFSCREEN_PATH } from '../lib/constants';
 
+const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 export class OffscreenManager {
   private static instance: OffscreenManager;
   private creating: Promise<void> | null = null;
+  private idleTimer: any = null;
 
   private constructor() {}
 
@@ -36,7 +39,24 @@ export class OffscreenManager {
 
   async sendToOffscreen(message: any): Promise<any> {
     await this.ensureOffscreenDocument();
+    this.resetIdleTimer();
     return chrome.runtime.sendMessage(message);
+  }
+
+  private resetIdleTimer() {
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      this.closeOffscreenDocument();
+    }, IDLE_TIMEOUT_MS);
+  }
+
+  private async closeOffscreenDocument() {
+    const hasDocument = await chrome.offscreen.hasDocument();
+    if (hasDocument) {
+      await chrome.offscreen.closeDocument();
+      console.log('[IcyCrow] Offscreen Document closed due to idle timeout.');
+    }
+    this.idleTimer = null;
   }
 }
 

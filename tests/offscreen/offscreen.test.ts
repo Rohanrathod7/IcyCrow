@@ -36,7 +36,7 @@ describe('Offscreen Host (Hardened)', () => {
     const listener = (chrome.runtime.onMessage.addListener as any).mock.calls[0][0];
     
     await new Promise(resolve => {
-      listener({ type: 'EMBED_TEXT', payload: { text: 'test' } }, {}, resolve);
+      listener({ type: 'EMBED_TEXT', payload: { text: 'test' } }, { id: chrome.runtime.id }, resolve);
     });
 
     expect(getCachedModelMock).toHaveBeenCalledWith('all-MiniLM-L6-v2');
@@ -51,6 +51,7 @@ describe('Offscreen Host (Hardened)', () => {
     }));
 
     const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
       arrayBuffer: () => Promise.resolve(new ArrayBuffer(10))
     });
     vi.stubGlobal('fetch', fetchSpy);
@@ -59,7 +60,7 @@ describe('Offscreen Host (Hardened)', () => {
     const listener = (chrome.runtime.onMessage.addListener as any).mock.calls[0][0];
     
     await new Promise(resolve => {
-      listener({ type: 'EMBED_TEXT', payload: { text: 'test' } }, {}, resolve);
+      listener({ type: 'EMBED_TEXT', payload: { text: 'test' } }, { id: chrome.runtime.id }, resolve);
     });
 
     expect(fetchSpy).toHaveBeenCalled();
