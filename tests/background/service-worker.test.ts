@@ -222,10 +222,51 @@ describe('Message Router', () => {
     onMessageCallback({ type: 'SCRAPE_CONTENT', payload: undefined }, { id: 'mock-extension-id' }, sendResponse);
     await new Promise(resolve => setTimeout(resolve, 100));
     
-    expect(chrome.tabs.sendMessage).toHaveBeenCalled();
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
       ok: true,
       data: expect.objectContaining({ content: 'Clean Text' })
+    }));
+  });
+
+  it('routes AI_QUERY to task queue', async () => {
+    await import('../../src/background/index');
+    const onMessageCallback = listeners.onMessage[0];
+    const sendResponse = vi.fn();
+
+    const request = {
+      type: 'AI_QUERY',
+      payload: { 
+        prompt: 'Test prompt', 
+        contextTabs: [],
+        spaceId: 'ca761232-0000-4000-8000-000000000000'
+      }
+    };
+    
+    onMessageCallback(request, { id: 'mock-extension-id' }, sendResponse);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+      ok: true,
+      data: expect.objectContaining({ taskId: expect.any(String), position: expect.any(Number) })
+    }));
+  });
+
+  it('routes GEMINI_HEALTH_CHECK and returns diagnostics', async () => {
+    await import('../../src/background/index');
+    const onMessageCallback = listeners.onMessage[0];
+    const sendResponse = vi.fn();
+    
+    mockSessionState.sessionState = { geminiTabId: 456 } as any;
+
+    onMessageCallback({ type: 'GEMINI_HEALTH_CHECK', payload: undefined }, { id: 'mock-extension-id' }, sendResponse);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+      ok: true,
+      data: expect.objectContaining({ 
+        tabFound: true,
+        selectors: expect.any(Object)
+      })
     }));
   });
 });

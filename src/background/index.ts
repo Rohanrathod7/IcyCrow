@@ -2,7 +2,11 @@ import { DEFAULT_SETTINGS } from '@lib/constants';
 import type { SessionState, Highlight } from '@lib/types';
 import { InboundMessageSchema, type ValidatedInboundMessage } from '@lib/zod-schemas';
 import { cryptoManager } from './crypto-manager';
-import { getHighlights, setHighlights, updateHighlights } from '@lib/storage';
+import { getHighlights, updateHighlights } from '@lib/storage';
+import { taskQueue } from '@lib/task-queue';
+import { watchGeminiTab } from './gemini-detector';
+import { GEMINI_SELECTORS } from '@lib/gemini-selectors';
+import type { SessionState } from '@lib/types';
 
 console.log('IcyCrow MV3 Service Worker installed.');
 
@@ -108,6 +112,11 @@ export async function handleMessage(
 
       case 'SCRAPE_CONTENT':
         return await handleScrapeMessage(sendResponse);
+
+      case 'AI_QUERY':
+      case 'AI_QUERY_STATUS':
+      case 'GEMINI_HEALTH_CHECK':
+        return await handleAiMessage(message, sendResponse);
 
       default:
         sendResponse({
@@ -261,5 +270,56 @@ async function handleCryptoMessage(message: ValidatedInboundMessage, sendRespons
   }
 }
 
+/**
+ * Domain Handler: AI & Gemini Bridge
+ */
+async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'AI_QUERY': {
+      try {
+        const { taskId, position } = taskQueue.enqueue(async () => {
+          const result = await chrome.storage.session.get('sessionState');
+          const state = (result.sessionState as SessionState) || {};
+          const geminiId = state.geminiTabId;
+          if (!geminiId) throw new Error('GEMINI_TAB_NOT_FOUND');
+
+          return await chrome.tabs.sendMessage(geminiId, {
+            type: 'AI_QUERY',
+            payload: { prompt: message.payload.prompt }
+          });
+        });
+
+        sendResponse({ ok: true, data: { taskId, position } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'QUEUE_ERROR', message: err.message } });
+      }
+      break;
+    }
+
+    case 'AI_QUERY_STATUS': {
+      sendResponse({ ok: true, data: { status: 'PENDING' } });
+      break;
+    }
+
+    case 'GEMINI_HEALTH_CHECK': {
+      const result = await chrome.storage.session.get('sessionState');
+      const state = (result.sessionState as SessionState) || {};
+      const tabId = state.geminiTabId;
+      
+      sendResponse({
+        ok: true,
+        data: {
+          tabFound: !!tabId,
+          selectors: GEMINI_SELECTORS
+        }
+      });
+      break;
+    }
+  }
+}
+
 // Automatically boot when SW spins up
-boot().catch(console.error);
+boot().then(() => {
+  watchGeminiTab('https://gemini.google.com/*');
+}).catch(console.error);
+

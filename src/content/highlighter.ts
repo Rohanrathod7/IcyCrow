@@ -83,10 +83,8 @@ function wrapCrossElementRange(range: Range, id: string, color: string): void {
  */
 export function unwrapHighlight(id: string): void {
   const marks = document.querySelectorAll(`mark.icycrow-highlight[data-id="${id}"]`);
-  console.log('[DEBUG-UNWRAP-EXEC] found marks:', marks.length, 'for ID:', id);
   marks.forEach(mark => {
     const parent = mark.parentNode;
-    console.log('[DEBUG-UNWRAP-MARK] parent exists:', !!parent);
     if (!parent) return;
 
     // Move all children out of the mark into the parent
