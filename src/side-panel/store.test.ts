@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { activeView, highlights, isLoading, spaces, searchResults } from './store';
+import { activeView, highlights, isLoading, spaces, searchResults, error } from './store';
 
 describe('Side Panel Signal Store', () => {
   beforeEach(() => {

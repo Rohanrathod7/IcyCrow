@@ -8,3 +8,4 @@ export const highlights = signal<Highlight[]>([]);
 export const spaces = signal<SpacesStore>({});
 export const searchResults = signal<any[]>([]); // To beTyped with SearchResult in S11
 export const isLoading = signal(false);
+export const error = signal<string | null>(null);

@@ -1,6 +1,7 @@
 import { useEffect } from 'preact/hooks';
 import { sendToSW } from '../../lib/messaging';
-import { spaces, isLoading } from '../store';
+import { spaces, isLoading, error } from '../store';
+
 
 export const SpacesView = () => {
   useEffect(() => {
@@ -11,6 +12,7 @@ export const SpacesView = () => {
         spaces.value = result.spaces || {};
       } catch (err) {
         console.error('Failed to fetch spaces:', err);
+        error.value = 'Failed to load spaces.';
       } finally {
         isLoading.value = false;
       }
@@ -34,6 +36,7 @@ export const SpacesView = () => {
       spaces.value = (result.spaces || {}) as any;
     } catch (err) {
       console.error('Failed to create space:', err);
+      error.value = 'Failed to create space. Please try again.';
     } finally {
       isLoading.value = false;
     }

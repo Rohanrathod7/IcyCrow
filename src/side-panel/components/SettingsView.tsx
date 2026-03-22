@@ -1,4 +1,5 @@
-import { isLoading } from '../store';
+import { isLoading, error } from '../store';
+
 import { sendToSW } from '../../lib/messaging';
 
 export const SettingsView = () => {
@@ -23,7 +24,7 @@ export const SettingsView = () => {
       }
     } catch (err) {
       console.error('Export failed:', err);
-      window.alert('Export failed: ' + (err as Error).message);
+      error.value = 'Export failed: ' + (err as Error).message;
     } finally {
       isLoading.value = false;
     }
@@ -46,8 +47,9 @@ export const SettingsView = () => {
       window.alert('Import successful! Your workspace has been restored.');
     } catch (err) {
       console.error('Import failed:', err);
-      window.alert('Import failed: ' + (err as Error).message);
+      error.value = 'Import failed: ' + (err as Error).message;
     } finally {
+
       isLoading.value = false;
       (e.target as HTMLInputElement).value = ''; // Reset input
     }

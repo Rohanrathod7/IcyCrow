@@ -3,13 +3,15 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from 'preact';
 
 import { NavBar } from '../../../src/side-panel/components/NavBar';
-import { activeView } from '../../../src/side-panel/store';
+import { activeView, error } from '../../../src/side-panel/store';
 
 describe('NavBar Component', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
     activeView.value = 'home';
+    error.value = null;
   });
+
 
 
   it('should render all 4 navigation buttons', () => {

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from 'preact';
 import { SpacesView } from '../../../src/side-panel/components/SpacesView';
 import { sendToSW } from '../../../src/lib/messaging';
-import { spaces, isLoading } from '../../../src/side-panel/store';
+import { spaces, isLoading, error } from '../../../src/side-panel/store';
 
 vi.mock('../../../src/lib/messaging', () => ({
   sendToSW: vi.fn(),
@@ -12,8 +12,10 @@ vi.mock('../../../src/lib/messaging', () => ({
 describe('SpacesView Component', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
-    spaces.value = {};
+    spaces.value = {} as any;
     isLoading.value = false;
+    error.value = null;
+
 
     global.chrome = {
       storage: {

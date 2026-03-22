@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { sendToSW } from '../../lib/messaging';
-import { searchResults, isLoading } from '../store';
+import { searchResults, isLoading, error } from '../store';
+
 
 export const SearchView = () => {
   const [query, setQuery] = useState('');
@@ -18,7 +19,9 @@ export const SearchView = () => {
       searchResults.value = results || [];
     } catch (err) {
       console.error('Search failed:', err);
+      error.value = 'Search failed. Check your connection to the background worker.';
     } finally {
+
       isLoading.value = false;
     }
   };

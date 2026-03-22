@@ -3,10 +3,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { render } from 'preact';
 import { App } from '../../src/side-panel/App';
+import { activeView, isLoading, error } from '../../src/side-panel/store';
+
 
 describe('Side Panel App Root', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
+    isLoading.value = false;
+    error.value = null;
     
     // Mock chrome.storage.local for HomeView
     global.chrome = {
@@ -16,7 +20,24 @@ describe('Side Panel App Root', () => {
     } as any;
   });
 
+  it('should render loading overlay when isLoading is true', async () => {
+    const root = document.getElementById('app')!;
+    isLoading.value = true;
+    render(<App />, root);
+    
+    expect(document.body.innerHTML).toContain('Loading...');
+  });
+
+  it('should render error banner when error is set', async () => {
+    const root = document.getElementById('app')!;
+    error.value = 'Failed to load';
+    render(<App />, root);
+    
+    expect(document.body.innerHTML).toContain('Failed to load');
+  });
+
   it('should render the NavBar and HomeView by default', async () => {
+
     const root = document.getElementById('app')!;
     render(<App />, root);
     

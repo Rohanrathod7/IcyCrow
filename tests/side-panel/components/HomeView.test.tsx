@@ -2,13 +2,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from 'preact';
 import { HomeView } from '../../../src/side-panel/components/HomeView';
-import { highlights } from '../../../src/side-panel/store';
+import { highlights, isLoading, error } from '../../../src/side-panel/store';
 
 describe('HomeView Component', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
     highlights.value = [];
     isLoading.value = false;
+    error.value = null;
     
     // Mock chrome.storage.local
     global.chrome = {
@@ -38,7 +39,6 @@ describe('HomeView Component', () => {
 
     expect(document.body.innerHTML).toContain('First highlight');
     expect(document.body.innerHTML).toContain('Second highlight');
-
   });
 
   it('should show empty state when no highlights found', async () => {

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from 'preact';
 import { SearchView } from '../../../src/side-panel/components/SearchView';
 import { sendToSW } from '../../../src/lib/messaging';
-import { searchResults, isLoading } from '../../../src/side-panel/store';
+import { searchResults, isLoading, error } from '../../../src/side-panel/store';
 
 // Mock the messaging bridge
 vi.mock('../../../src/lib/messaging', () => ({
@@ -15,7 +15,9 @@ describe('SearchView Component', () => {
     document.body.innerHTML = '<div id="app"></div>';
     searchResults.value = [];
     isLoading.value = false;
+    error.value = null;
   });
+
 
 
   it('should render search input and button', () => {

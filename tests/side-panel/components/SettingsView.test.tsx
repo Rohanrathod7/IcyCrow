@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from 'preact';
 import { SettingsView } from '../../../src/side-panel/components/SettingsView';
 import { sendToSW } from '../../../src/lib/messaging';
+import { isLoading, error } from '../../../src/side-panel/store';
 
 vi.mock('../../../src/lib/messaging', () => ({
   sendToSW: vi.fn(),
@@ -11,8 +12,11 @@ vi.mock('../../../src/lib/messaging', () => ({
 describe('SettingsView Component', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
+    isLoading.value = false;
+    error.value = null;
     vi.stubGlobal('prompt', vi.fn().mockReturnValue('test-password'));
   });
+
 
   it('should render export and import buttons', () => {
     const root = document.getElementById('app')!;

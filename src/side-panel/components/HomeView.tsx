@@ -1,5 +1,6 @@
 import { useEffect } from 'preact/hooks';
-import { highlights, isLoading } from '../store';
+import { highlights, isLoading, error } from '../store';
+
 
 export const HomeView = () => {
   useEffect(() => {
@@ -22,6 +23,7 @@ export const HomeView = () => {
 
       } catch (err) {
         console.error('Failed to fetch highlights:', err);
+        error.value = 'Failed to load highlights. Please reload.';
       } finally {
         isLoading.value = false;
       }
