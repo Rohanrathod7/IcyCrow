@@ -176,6 +176,40 @@ describe('Content Script Storage Bridge', () => {
     expect(anchoring.restoreAnchor).not.toHaveBeenCalled();
   });
 
+  it('continues restoration loop if one anchor fails to restore', async () => {
+    (chrome.runtime.sendMessage as any).mockResolvedValue({
+      ok: true,
+      data: {
+        highlights: [
+          { id: 'h1', color: 'yellow', anchor: { exact: 'h1' } },
+          { id: 'h2', color: 'green', anchor: { exact: 'h2' } }
+        ],
+        pageChanged: false
+      }
+    });
+
+    // Mock restoreAnchor to fail for the first one
+    const restoreSpy = vi.spyOn(anchoring, 'restoreAnchor');
+    restoreSpy.mockImplementation((anchor: any) => {
+      if (anchor.exact === 'h1') throw new Error('DOM Changed');
+      return document.createRange();
+    });
+
+    const wrapSpy = vi.spyOn(highlighter, 'wrapRange').mockImplementation(() => []);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await main();
+    await new Promise(r => setTimeout(r, 50));
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to restore highlight'), 'h1', expect.anything());
+    expect(wrapSpy).toHaveBeenCalledTimes(1);
+    expect(wrapSpy).toHaveBeenCalledWith(expect.anything(), 'h2', 'green');
+    
+    restoreSpy.mockRestore();
+    wrapSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
   describe('Deletion Sync', () => {
     it('storage.onChanged triggers unwrapHighlight on deletion', async () => {
       // Setup: Register listeners explicitly

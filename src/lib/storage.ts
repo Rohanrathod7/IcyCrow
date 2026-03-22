@@ -52,6 +52,18 @@ export async function setHighlights(urlHash: string, data: HighlightsStore): Pro
   });
 }
 
+export async function updateHighlights(
+  urlHash: string, 
+  updater: (highlights: HighlightsStore) => HighlightsStore
+): Promise<void> {
+  const key = `highlights:${urlHash}`;
+  return mutex.withLock(key, async () => {
+    const current = await getHighlights(urlHash);
+    const updated = updater(current);
+    await chrome.storage.local.set({ [key]: updated });
+  });
+}
+
 // Chat History (Mutex-protected)
 export async function getChatHistory(spaceId: string): Promise<ChatHistoryStore> {
   const key = `chatHistories:${spaceId}`;

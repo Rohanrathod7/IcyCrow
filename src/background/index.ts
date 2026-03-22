@@ -2,7 +2,7 @@ import { DEFAULT_SETTINGS } from '@lib/constants';
 import type { SessionState, Highlight } from '@lib/types';
 import { InboundMessageSchema, type ValidatedInboundMessage } from '@lib/zod-schemas';
 import { cryptoManager } from './crypto-manager';
-import { getHighlights, setHighlights } from '@lib/storage';
+import { getHighlights, setHighlights, updateHighlights } from '@lib/storage';
 
 console.log('IcyCrow MV3 Service Worker installed.');
 
@@ -81,7 +81,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   return true; // Keep channel open
 });
 
-async function handleMessage(
+export async function handleMessage(
   message: ValidatedInboundMessage,
   sendResponse: (response: any) => void
 ) {
@@ -90,26 +90,41 @@ async function handleMessage(
       case 'HIGHLIGHT_CREATE': {
         const hId = crypto.randomUUID();
         const createdAt = new Date().toISOString() as any;
-        const highlights = await getHighlights(message.payload.urlHash);
         
-        // Idempotency: skip if exact anchor and URL already exist
-        const existing = highlights.find(h => 
-          h.anchor.exact === message.payload.anchor.exact && h.url === message.payload.url
-        );
-        if (existing) {
-          sendResponse({ ok: true, data: { id: existing.id, createdAt: existing.createdAt } });
-          break;
-        }
+        try {
+          let alreadyExists = false;
+          let existingData: { id: string, createdAt: string } | null = null;
 
-        const newHighlight: Highlight = {
-          ...message.payload,
-          id: hId as any,
-          createdAt,
-          note: null
-        };
-        highlights.push(newHighlight);
-        await setHighlights(message.payload.urlHash, highlights);
-        sendResponse({ ok: true, data: { id: hId, createdAt } });
+          await updateHighlights(message.payload.urlHash, (highlights) => {
+            const existing = highlights.find(h => 
+              h.anchor.exact === message.payload.anchor.exact && h.url === message.payload.url
+            );
+            if (existing) {
+              alreadyExists = true;
+              existingData = { id: existing.id, createdAt: existing.createdAt };
+              return highlights;
+            }
+
+            const newHighlight: Highlight = {
+              ...message.payload,
+              id: hId as any,
+              createdAt,
+              note: null
+            };
+            return [...highlights, newHighlight];
+          });
+
+          if (alreadyExists && existingData) {
+            sendResponse({ ok: true, data: existingData });
+          } else {
+            sendResponse({ ok: true, data: { id: hId, createdAt } });
+          }
+        } catch (err: any) {
+          sendResponse({ 
+            ok: false, 
+            error: { code: 'STORAGE_FAILURE', message: err.message || 'Quota exceeded' } 
+          });
+        }
         break;
       }
 
@@ -125,26 +140,34 @@ async function handleMessage(
       }
 
       case 'HIGHLIGHT_DELETE': {
-        const highlights = await getHighlights(message.payload.urlHash);
-        const originalLen = highlights.length;
-        const filtered = highlights.filter(h => h.id !== message.payload.highlightId);
-        await setHighlights(message.payload.urlHash, filtered);
-        sendResponse({
-          ok: true,
-          data: { deleted: filtered.length < originalLen }
-        });
+        try {
+          let deleted = false;
+          await updateHighlights(message.payload.urlHash, (highlights) => {
+            const filtered = highlights.filter(h => h.id !== message.payload.highlightId);
+            deleted = filtered.length < highlights.length;
+            return filtered;
+          });
+          sendResponse({ ok: true, data: { deleted } });
+        } catch (err: any) {
+          sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+        }
         break;
       }
 
       case 'HIGHLIGHT_UPDATE': {
-        const highlights = await getHighlights(message.payload.urlHash);
-        const highlight = highlights.find(h => h.id === message.payload.highlightId);
-        if (highlight) {
-          Object.assign(highlight, message.payload.updates);
-          await setHighlights(message.payload.urlHash, highlights);
-          sendResponse({ ok: true, data: { updated: true } });
-        } else {
-          sendResponse({ ok: true, data: { updated: false } });
+        try {
+          let updated = false;
+          await updateHighlights(message.payload.urlHash, (highlights) => {
+            const idx = highlights.findIndex(h => h.id === message.payload.highlightId);
+            if (idx === -1) return highlights;
+            
+            highlights[idx] = { ...highlights[idx], ...message.payload.updates };
+            updated = true;
+            return [...highlights];
+          });
+          sendResponse({ ok: true, data: { updated } });
+        } catch (err: any) {
+          sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
         }
         break;
       }

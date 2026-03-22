@@ -105,9 +105,13 @@ async function restoreHighlightsFromStorage() {
         continue;
       }
       
-      const range = restoreAnchor(h.anchor);
-      if (range) {
-        wrapRange(range, h.id, h.color);
+      try {
+        const range = restoreAnchor(h.anchor);
+        if (range) {
+          wrapRange(range, h.id, h.color);
+        }
+      } catch (err) {
+        console.warn('[IcyCrow] Failed to restore highlight:', h.id, err);
       }
     }
   } catch (err) {
