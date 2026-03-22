@@ -2,8 +2,8 @@ import { initUiRoot } from './ui-root';
 import { tooltipVisible, selectedColor } from './state';
 import { updateTooltipPosition } from './tooltip-logic';
 import { captureAnchor, restoreAnchor } from './anchoring';
-import { wrapRange } from './highlighter';
-import { sha256Hash, canonicalUrl } from '../lib/url-utils';
+import { wrapRange, unwrapHighlight } from './highlighter';
+import { sha256Hash, canonicalUrl } from '@lib/url-utils';
 
 let restored = false;
 
@@ -116,6 +116,38 @@ async function restoreHighlightsFromStorage() {
 }
 
 /**
+ * Sync logic: unwrap highlights when deleted from storage
+ */
+async function handleStorageChange(changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) {
+  if (areaName !== 'local') return;
+
+  try {
+    const url = window.location.href;
+    const cUrl = canonicalUrl(url);
+    
+    const urlHash = await sha256Hash(cUrl);
+    const key = `highlights:${urlHash}`;
+
+    if (changes[key]) {
+      const oldHighlights = (changes[key].oldValue || []) as any[];
+      const newHighlights = (changes[key].newValue || []) as any[];
+      
+      const oldIds = new Set(oldHighlights.map(h => h.id));
+      const newIds = new Set(newHighlights.map(h => h.id));
+      
+      // Find deleted IDs
+      for (const id of oldIds) {
+        if (!newIds.has(id)) {
+          unwrapHighlight(id);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[IcyCrow] handleStorageChange error:', err);
+  }
+}
+
+/**
  * Handle messages from background (Hotkeys)
  */
 chrome.runtime.onMessage.addListener((message) => {
@@ -133,6 +165,8 @@ export async function main() {
   document.addEventListener('mouseup', handleSelectionChange);
   document.addEventListener('keyup', handleSelectionChange);
   
+  chrome.storage.onChanged.addListener(handleStorageChange);
+  
   await restoreHighlightsFromStorage();
 }
 
@@ -142,6 +176,7 @@ export async function main() {
 export function teardown() {
   document.removeEventListener('mouseup', handleSelectionChange);
   document.removeEventListener('keyup', handleSelectionChange);
+  chrome.storage.onChanged.removeListener(handleStorageChange);
   restored = false;
 }
 

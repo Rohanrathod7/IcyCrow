@@ -7,19 +7,37 @@ vi.hoisted(() => {
     runtime: {
       sendMessage: vi.fn(),
       onMessage: { addListener: vi.fn() }
+    },
+    storage: {
+      onChanged: { 
+        addListener: vi.fn(),
+        removeListener: vi.fn()
+      },
+      local: { get: vi.fn() }
     }
   } as any;
   
-  if (!globalThis.crypto) {
-    globalThis.crypto = {} as any;
-  }
-  globalThis.crypto.randomUUID = () => '123e4567-e89b-12d3-a456-426614174000';
+  vi.stubGlobal('crypto', {
+    randomUUID: () => '123e4567-e89b-12d3-a456-426614174000',
+    subtle: {
+      digest: vi.fn().mockResolvedValue(new ArrayBuffer(32))
+    }
+  });
 });
 
-vi.mock('../../src/lib/url-utils', () => ({
-  sha256Hash: vi.fn().mockResolvedValue('mock-hash'),
-  canonicalUrl: vi.fn().mockReturnValue('https://example.com')
+vi.mock('@lib/url-utils', () => ({
+  sha256Hash: async () => 'mock-hash',
+  canonicalUrl: () => 'https://example.com'
 }));
+
+vi.mock('../../src/content/highlighter', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/content/highlighter')>();
+  return {
+    ...actual,
+    unwrapHighlight: vi.fn(actual.unwrapHighlight),
+    wrapRange: vi.fn(actual.wrapRange)
+  };
+});
 
 import { performHighlight, main, teardown } from '../../src/content/index';
 import * as anchoring from '../../src/content/anchoring';
@@ -37,6 +55,7 @@ globalThis.Selection = class {
 
 describe('Content Script Storage Bridge', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
     document.body.innerHTML = '<p id="test">test text</p>';
     window.getSelection = vi.fn().mockReturnValue(new globalThis.Selection());
@@ -44,8 +63,6 @@ describe('Content Script Storage Bridge', () => {
     selectedColor.value = 'yellow';
     tooltipVisible.value = true;
     
-    // Reset any module-scoped state (like the 'restored' flag if implemented)
-    // We mock the internals of what performHighlight calls
     vi.spyOn(anchoring, 'captureAnchor').mockReturnValue({
       type: 'TextQuoteSelector',
       exact: 'test text',
@@ -56,7 +73,6 @@ describe('Content Script Storage Bridge', () => {
       startOffset: 0,
       endOffset: 9
     });
-    vi.spyOn(highlighter, 'wrapRange').mockImplementation(() => []);
     vi.spyOn(anchoring, 'restoreAnchor').mockReturnValue(document.createRange());
   });
 
@@ -97,7 +113,6 @@ describe('Content Script Storage Bridge', () => {
     await performHighlight();
 
     expect(chrome.runtime.sendMessage).toHaveBeenCalled();
-    // It should still wrap the element with a locally generated ID
     expect(highlighter.wrapRange).toHaveBeenCalledWith(
       expect.any(Range),
       expect.any(String),
@@ -120,20 +135,16 @@ describe('Content Script Storage Bridge', () => {
       }
     });
 
-    // Run the load cycle
     await main();
 
-    // Check message sent
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'HIGHLIGHTS_FETCH'
       })
     );
 
-    // Give microtasks time to execute the restoration
     await new Promise(r => setTimeout(r, 0));
 
-    // Check if it restored the anchor
     expect(anchoring.restoreAnchor).toHaveBeenCalledWith(
       expect.objectContaining({ exact: 'test' })
     );
@@ -159,14 +170,51 @@ describe('Content Script Storage Bridge', () => {
       }
     });
 
-    // The element for a ghost isn't wrapped through wrapRange, it injects a ghost mark explicitly or logs it?
-    // According to plan: "inject a ghost `<mark data-status="ghost">` without calling `restoreAnchor`"
-    // We'll just verify restoreAnchor is NOT called for ghost items.
-    
     await main();
     await new Promise(r => setTimeout(r, 0));
 
     expect(anchoring.restoreAnchor).not.toHaveBeenCalled();
-    // For Phase 2, we just verify restoreAnchor isn't called. Ghost injection can be checked via DOM or spy.
+  });
+
+  describe('Deletion Sync', () => {
+    it('storage.onChanged triggers unwrapHighlight on deletion', async () => {
+      // Setup: Register listeners explicitly
+      await main();
+      
+      const mockId = '123e4567-e89b-12d3-a456-426614174003';
+      document.body.innerHTML = `<p>some <mark class="icycrow-highlight" data-id="${mockId}">text</mark> here</p>`;
+      
+      const addListenerSpy = chrome.storage.onChanged.addListener as any;
+      const callback = addListenerSpy.mock.calls[0][0];
+
+      const key = 'highlights:mock-hash';
+
+      callback({
+        [key]: {
+          oldValue: [{ id: mockId }],
+          newValue: []
+        }
+      }, 'local');
+
+      // Async due to sha256Hash in index.ts
+      await new Promise(r => setTimeout(r, 50));
+      
+      const markAfter = document.querySelector(`mark[data-id="${mockId}"]`);
+      expect(markAfter).toBeNull();
+      expect(document.body.textContent).toContain('some text here');
+    });
+
+    it('highlighter.unwrapHighlight removes mark and preserves text', () => {
+      document.body.innerHTML = '<p>prefix <mark class="icycrow-highlight" data-id="test-id">highlighted</mark> suffix</p>';
+      
+      const markBefore = document.querySelector('mark[data-id="test-id"]');
+      expect(markBefore).not.toBeNull();
+
+      highlighter.unwrapHighlight('test-id');
+      
+      const markAfter = document.querySelector('mark[data-id="test-id"]');
+      expect(markAfter).toBeNull();
+      expect(document.body.textContent).toContain('prefix highlighted suffix');
+    });
   });
 });

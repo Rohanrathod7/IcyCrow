@@ -131,17 +131,18 @@ describe('Message Router', () => {
     const request = {
       type: 'HIGHLIGHTS_FETCH',
       payload: {
-        urlHash: '123' as any,
-        currentDomFingerprint: 'abc' as any
+        urlHash: 'hash123',
+        currentDomFingerprint: 'fg123'
       }
-    };
+    } as any;
     
-    const sendResponse = vi.fn();
-    // In our mock, onMessage returns a boolean for async or nothing
+    const sendResponse = vi.fn((res) => {
+      console.log('[DEBUG] SW sendResponse received:', JSON.stringify(res));
+    });
     onMessageCallback(request, {}, sendResponse);
     
-    // Give it a tick if it's async
-    await new Promise(resolve => setTimeout(resolve, 0));
+    // Give it a bit more time for multiple async steps
+    await new Promise(resolve => setTimeout(resolve, 50));
     
     expect(sendResponse).toHaveBeenCalledWith({
       ok: true,

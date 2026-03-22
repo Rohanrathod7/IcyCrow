@@ -77,3 +77,30 @@ function wrapCrossElementRange(range: Range, id: string, color: string): void {
     }
   }
 }
+/**
+ * Remove a highlight by unwrapping its <mark> elements
+ * Following Rule #2 of Phase 3
+ */
+export function unwrapHighlight(id: string): void {
+  const marks = document.querySelectorAll(`mark.icycrow-highlight[data-id="${id}"]`);
+  console.log('[DEBUG-UNWRAP-EXEC] found marks:', marks.length, 'for ID:', id);
+  marks.forEach(mark => {
+    const parent = mark.parentNode;
+    console.log('[DEBUG-UNWRAP-MARK] parent exists:', !!parent);
+    if (!parent) return;
+
+    // Move all children out of the mark into the parent
+    while (mark.firstChild) {
+      parent.insertBefore(mark.firstChild, mark);
+    }
+    // Remove the now-empty mark
+    parent.removeChild(mark);
+  });
+
+  // Normalize parent nodes to merge adjacent text nodes
+  const parents = new Set<Node>();
+  marks.forEach(mark => {
+    if (mark.parentNode) parents.add(mark.parentNode);
+  });
+  parents.forEach(p => p.normalize());
+}
