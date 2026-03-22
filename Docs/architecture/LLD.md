@@ -1437,50 +1437,48 @@ Bridge Health Check
 ```typescript
 // lib/storage-mutex.ts
 
-type MutexRelease = () => void;
-
+/**
+ * A Promise-chain based mutex to prevent concurrent async operations
+ * from clobbering each other. Locks are maintained per string key.
+ */
 class StorageMutex {
-  private locks = new Map<string, Promise<void>>();
+  private locks: Map<string, Promise<any>> = new Map();
 
-  /**
-   * Acquires an exclusive lock for a specific storage key.
-   * If another write is in progress on the same key, this call
-   * queues behind it (FIFO ordering via Promise chaining).
-   */
-  async acquire(key: string): Promise<MutexRelease> {
-    // Wait for any existing lock on this key to resolve
-    while (this.locks.has(key)) {
-      await this.locks.get(key);
-    }
+  async withLock<T>(key: string, task: () => Promise<T>): Promise<T> {
+    const previousTask = this.locks.get(key) || Promise.resolve();
 
-    // Create a new lock
-    let release!: MutexRelease;
-    const lockPromise = new Promise<void>((resolve) => {
-      release = () => {
+    const nextTask = (async () => {
+      try {
+        await previousTask;
+      } catch {
+        // Prevent previous failures from blocking the queue
+      }
+      return task();
+    })();
+
+    this.locks.set(key, nextTask);
+
+    nextTask.finally(() => {
+      if (this.locks.get(key) === nextTask) {
         this.locks.delete(key);
-        resolve();
-      };
+      }
     });
 
-    this.locks.set(key, lockPromise);
-    return release;
+    return nextTask;
   }
 }
 
-export const storageMutex = new StorageMutex();
-
-// Usage in service-worker.ts:
-async function writeHighlight(urlHash: string, highlight: Highlight) {
-  const release = await storageMutex.acquire(`highlights:${urlHash}`);
-  try {
-    const { [`highlights:${urlHash}`]: existing } =
-      await chrome.storage.local.get(`highlights:${urlHash}`);
-    const highlights: Highlight[] = existing ?? [];
-    highlights.push(highlight);
-    await chrome.storage.local.set({ [`highlights:${urlHash}`]: highlights });
-  } finally {
-    release(); // always release, even on error
-  }
+// Usage in lib/storage.ts:
+export async function updateHighlights(
+  urlHash: string, 
+  updater: (highlights: Highlight[]) => Highlight[]
+): Promise<void> {
+  const key = `highlights:${urlHash}`;
+  return mutex.withLock(key, async () => {
+    const current = await getHighlights(urlHash);
+    const updated = updater(current);
+    await chrome.storage.local.set({ [key]: updated });
+  });
 }
 ```
 

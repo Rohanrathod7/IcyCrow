@@ -3,11 +3,16 @@
 ### Content Script Architecture (S5)
 
 * `src/content/index.ts` (Entry Point)
-  * `document.addEventListener('mouseup'|'keyup')` -> `handleSelectionChange()`
-  * `chrome.runtime.onMessage('COMMAND_HIGHLIGHT')` -> `performHighlight()`
-  * `initUiRoot()` -> Injects top-level `#icycrow-extension-root`
-  * `teardown()` -> Removes all event listeners (leak-safe)
+  - `document.addEventListener('mouseup'|'keyup')` -> `handleSelectionChange()`
+  - `chrome.runtime.onMessage('COMMAND_HIGHLIGHT')` -> `performHighlight()`
+  - `chrome.storage.onChanged` -> `handleStorageChange()` -> 🔄 Live Sync Deletion
+  - `restoreHighlightsFromStorage()` -> `withRetry()` -> 🌊 Page Hydration
+  - `teardown()` -> Removes all event listeners (leak-safe)
 
+* `src/content/index.ts` (Resilience Logic)
+  - `withRetry(msgFn)` -> 2 attempts with 1s delay to survive SW cold start latency.
+  - `handleStorageChange(changes)` -> URL-specific key check -> ID set difference -> `unwrapHighlight()`.
+    
 * `src/content/ui-root.tsx` (Shadow DOM UI Encapsulation)
   * `document.createElement('div#icycrow-extension-root')` -> `.attachShadow({ mode: 'open' })`
   * CSS Isolation: `:host { all: initial; }` | `* { box-sizing: border-box !important; }`
