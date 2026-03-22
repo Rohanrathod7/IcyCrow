@@ -49,24 +49,29 @@ export async function scrapeResponse(taskId: string): Promise<void> {
   const observer = new MutationObserver(() => {
     const currentText = container.innerText || container.textContent || '';
     
-    // Only send if text changed
     if (currentText !== lastText) {
       streamChunk(currentText, false);
       lastText = currentText;
     }
 
-    // Reset stability timer
     if (stabilityTimer) clearTimeout(stabilityTimer);
     
     stabilityTimer = setTimeout(() => {
-      // Check if send button is re-enabled (Gemini is done)
       const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
       if (!sendBtn || !sendBtn.disabled) {
         observer.disconnect();
+        if (maxDurationTimer) clearTimeout(maxDurationTimer);
         streamChunk(lastText, true);
       }
-    }, 1500); // 1.5s of no mutations = potentially done
+    }, 1500);
   });
+
+  // Safety: Force completion if Gemini hangs
+  const maxDurationTimer = setTimeout(() => {
+    observer.disconnect();
+    if (stabilityTimer) clearTimeout(stabilityTimer);
+    streamChunk(lastText, true);
+  }, 30000); // 30s max per query
 
   observer.observe(container, {
     childList: true,

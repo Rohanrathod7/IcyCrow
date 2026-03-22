@@ -10,6 +10,15 @@ vi.mock('../../src/content/anti-detection', () => ({
   jitter: vi.fn((n) => n),
 }));
 
+// Manual MutationObserver mock for JSDOM reliability
+let observerCallback: MutationCallback | null = null;
+class MockMutationObserver {
+  constructor(cb: MutationCallback) { observerCallback = cb; }
+  observe() {}
+  disconnect() { observerCallback = null; }
+}
+globalThis.MutationObserver = MockMutationObserver as any;
+
 describe('Gemini Bridge', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -76,18 +85,37 @@ describe('Gemini Bridge', () => {
 
       const scrapePromise = scrapeResponse('task-123');
 
-      // Trigger mutation
+      // Trigger mutation via the mock callback
       container.innerText = 'Step 1 content';
-      // Mocked MutationObserver callback usually fires on DOM change in JSDOM, 
-      // but we might need to manually trigger if JSDOM doesn't support it fully.
-      // However, Vitest JSDOM environment does support MutationObserver.
-
+      if (observerCallback) observerCallback([], {} as any);
+      
       // Advance timers for stability check
       await vi.advanceTimersByTimeAsync(2000);
       
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
         type: 'AI_RESPONSE_STREAM',
         payload: expect.objectContaining({ chunk: 'Step 1 content', done: true })
+      }));
+
+      vi.useRealTimers();
+    });
+
+    it('forces completion when max duration reached', async () => {
+      vi.useFakeTimers();
+      const container = document.createElement('model-response');
+      container.innerText = 'Initial text';
+      document.body.appendChild(container);
+
+      // No send button found (simulating sticky state)
+      
+      const scrapePromise = scrapeResponse('task-123');
+      
+      // Advance past 30s
+      await vi.advanceTimersByTimeAsync(35000);
+      
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'AI_RESPONSE_STREAM',
+        payload: expect.objectContaining({ done: true })
       }));
 
       vi.useRealTimers();

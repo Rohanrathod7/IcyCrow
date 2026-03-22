@@ -65,6 +65,8 @@ globalThis.chrome = {
       }
       return { ok: true };
     }),
+    onUpdated: { addListener: vi.fn() },
+    onRemoved: { addListener: vi.fn() },
   },
 } as any;
 
@@ -94,9 +96,7 @@ describe('Service Worker Boot Sequence', () => {
   });
 
   it('increments swRestartCount and sets session defaults on boot()', async () => {
-    const { boot } = await import('../../src/background/index');
-    
-    // Simulate initial state
+    // Simulate initial state BEFORE import
     mockSessionState.sessionState = {
       swRestartCount: 5,
       cryptoKeyUnlocked: true,
@@ -106,8 +106,9 @@ describe('Service Worker Boot Sequence', () => {
       cryptoKeyLastUsedAt: null,
       swBootedAt: '2026-03-21T00:00:00.000Z'
     } as any;
-    
-    await boot();
+
+    // This import triggers the top-level boot() in index.ts
+    await import('../../src/background/index');
     
     // It should read the count
     expect(chrome.storage.session.get).toHaveBeenCalledWith('sessionState');

@@ -6,7 +6,6 @@ import { getHighlights, updateHighlights } from '@lib/storage';
 import { taskQueue } from '@lib/task-queue';
 import { watchGeminiTab } from './gemini-detector';
 import { GEMINI_SELECTORS } from '@lib/gemini-selectors';
-import type { SessionState } from '@lib/types';
 
 console.log('IcyCrow MV3 Service Worker installed.');
 
@@ -319,7 +318,7 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
 }
 
 // Automatically boot when SW spins up
-boot().then(() => {
-  watchGeminiTab('https://gemini.google.com/*');
-}).catch(console.error);
+// watchGeminiTab must run immediately to catch tab events on SW wake
+watchGeminiTab('https://gemini.google.com/*');
+boot().catch(console.error);
 

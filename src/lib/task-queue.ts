@@ -32,17 +32,31 @@ export class TaskQueue {
 
     try {
       const result = await task.fn();
-      this.consecutiveFailures = 0;
+      await this.syncFailures(0);
       return result;
     } catch (err) {
-      this.consecutiveFailures++;
+      const current = await this.getFailures();
+      await this.syncFailures(current + 1);
       throw err;
     }
   }
 
-  clear() {
+  private async getFailures(): Promise<number> {
+    if (typeof chrome === 'undefined' || !chrome.storage) return this.consecutiveFailures;
+    const result = await chrome.storage.session.get('consecutiveFailures') as { consecutiveFailures?: number };
+    return result.consecutiveFailures || 0;
+  }
+
+  private async syncFailures(count: number) {
+    this.consecutiveFailures = count;
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      await chrome.storage.session.set({ consecutiveFailures: count });
+    }
+  }
+
+  async clear() {
     this.queue = [];
-    this.consecutiveFailures = 0;
+    await this.syncFailures(0);
   }
 }
 

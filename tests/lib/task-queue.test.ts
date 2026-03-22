@@ -4,9 +4,26 @@ import { TaskQueue } from '../../src/lib/task-queue';
 describe('TaskQueue', () => {
   let queue: TaskQueue;
 
+  let mockSessionState: Record<string, any> = {};
+
   beforeEach(() => {
     queue = new TaskQueue({ maxDepth: 3, circuitBreakerThreshold: 2 });
+    mockSessionState = {};
     vi.clearAllMocks();
+    
+    globalThis.chrome = {
+      storage: {
+        session: {
+          get: vi.fn(async (keys) => {
+            if (typeof keys === 'string') return { [keys]: mockSessionState[keys] };
+            return mockSessionState;
+          }),
+          set: vi.fn(async (items) => {
+            Object.assign(mockSessionState, items);
+          })
+        }
+      }
+    } as any;
   });
 
   it('enqueues and returns position', () => {
@@ -42,11 +59,11 @@ describe('TaskQueue', () => {
     const failingTask = async () => { throw new Error('fail'); };
     
     queue.enqueue(failingTask);
-    await queue.processNext(); // failure 1
+    try { await queue.processNext(); } catch {} // failure 1
     expect(queue.isOpen).toBe(false);
     
     queue.enqueue(failingTask);
-    await queue.processNext(); // failure 2 -> opens
+    try { await queue.processNext(); } catch {} // failure 2 -> opens
     expect(queue.isOpen).toBe(true);
   });
 
@@ -55,7 +72,7 @@ describe('TaskQueue', () => {
     const successTask = async () => { return 'ok'; };
     
     queue.enqueue(failingTask);
-    await queue.processNext();
+    try { await queue.processNext(); } catch {}
     
     queue.enqueue(successTask);
     await queue.processNext();
