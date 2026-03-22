@@ -4,6 +4,13 @@ import type { InferenceSession } from 'onnxruntime-web';
 
 let modelSession: InferenceSession | null = null;
 
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 30000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs))
+  ]);
+}
+
 async function initModel() {
   if (modelSession) return modelSession;
 
@@ -50,30 +57,30 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 async function handleEmbed(payload: { text: string }, sendResponse: (res: any) => void) {
   try {
     const session = await initModel();
-    const vector = await embed(payload.text, session);
+    const vector = await withTimeout(embed(payload.text, session));
     sendResponse({ ok: true, data: { vector: Array.from(vector) } });
   } catch (error: any) {
-    sendResponse({ ok: false, error: error.message });
+    sendResponse({ ok: false, error: { code: 'EMBED_FAILURE', message: error.message } });
   }
 }
 
 async function handleBatchEmbed(payload: { articles: any[] }, sendResponse: (res: any) => void) {
   try {
     const session = await initModel();
-    const results = await Promise.all(payload.articles.map(async (art) => {
+    const results = await withTimeout(Promise.all(payload.articles.map(async (art) => {
       const vector = await embed(art.content || art.title, session);
       return { articleId: art.id, vector: Array.from(vector) };
-    }));
+    })));
     sendResponse({ ok: true, data: { embeddings: results } });
   } catch (error: any) {
-    sendResponse({ ok: false, error: error.message });
+    sendResponse({ ok: false, error: { code: 'BATCH_EMBED_FAILURE', message: error.message } });
   }
 }
 
 async function handleSearch(payload: { query: string, stored: any[], topKCount: number }, sendResponse: (res: any) => void) {
   try {
     const session = await initModel();
-    const queryVector = await embed(payload.query, session);
+    const queryVector = await withTimeout(embed(payload.query, session));
     
     // Convert stored vectors back to Float32Array
     const storedWithVectors = payload.stored.map(s => ({
@@ -84,6 +91,6 @@ async function handleSearch(payload: { query: string, stored: any[], topKCount: 
     const results = topK(queryVector, storedWithVectors, payload.topKCount);
     sendResponse({ ok: true, data: { results } });
   } catch (error: any) {
-    sendResponse({ ok: false, error: error.message });
+    sendResponse({ ok: false, error: { code: 'SEARCH_FAILURE', message: error.message } });
   }
 }

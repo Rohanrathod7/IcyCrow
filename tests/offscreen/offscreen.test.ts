@@ -1,47 +1,68 @@
-import { describe, it, expect, vi } from 'vitest';
-import { addListenerSpy } from './setup-offscreen';
-import '../../src/offscreen/offscreen';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('onnxruntime-web', () => ({
-  InferenceSession: {
-    create: vi.fn(async () => ({
-      run: vi.fn(async () => ({
-        last_hidden_state: {
-          data: new Float32Array(384).fill(0.1),
-          dims: [1, 1, 384]
-        }
-      }))
-    }))
-  },
-  Tensor: class {
-    constructor(type: string, data: any, dims: number[]) {
-      this.data = data;
-      this.dims = dims;
-    }
-    data: any;
-    dims: number[];
-  }
-}));
-
-// Mock idb-store to avoid real IDB calls
-vi.mock('../../src/lib/idb-store', () => ({
-  getCachedModel: vi.fn().mockResolvedValue(null),
-  cacheModel: vi.fn().mockResolvedValue(undefined)
-}));
-
-describe('Offscreen Host', () => {
-  it('registers onMessage listener on load', () => {
-    expect(addListenerSpy).toHaveBeenCalled();
+describe('Offscreen Host (Hardened)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    vi.stubGlobal('chrome', {
+      runtime: {
+        onMessage: { addListener: vi.fn() },
+        getURL: vi.fn((p) => `chrome-extension://id/${p}`)
+      }
+    });
   });
 
-  it('handles EMBED_TEXT message', async () => {
-    const listener = addListenerSpy.mock.calls[0][0];
+  it('registers onMessage listener on load', async () => {
+    await import('../../src/offscreen/offscreen');
+    expect(chrome.runtime.onMessage.addListener).toHaveBeenCalled();
+  });
+
+  it('loads model from IDB cache if available', async () => {
+    const getCachedModelMock = vi.fn().mockResolvedValue({
+      modelName: 'all-MiniLM-L6-v2',
+      modelData: new ArrayBuffer(5),
+      version: 1,
+      cachedAt: '2026-03-22T00:00:00Z'
+    });
     
-    const responsePromise = new Promise(resolve => {
-      listener({ type: 'EMBED_TEXT', payload: { text: 'hello' } }, {}, (res: any) => resolve(res));
+    vi.doMock('../../src/lib/idb-store', () => ({
+      getCachedModel: getCachedModelMock,
+      cacheModel: vi.fn()
+    }));
+
+    vi.stubGlobal('fetch', vi.fn());
+
+    await import('../../src/offscreen/offscreen');
+    const listener = (chrome.runtime.onMessage.addListener as any).mock.calls[0][0];
+    
+    await new Promise(resolve => {
+      listener({ type: 'EMBED_TEXT', payload: { text: 'test' } }, {}, resolve);
     });
 
-    const response: any = await responsePromise;
-    expect(response.ok).toBe(true);
+    expect(getCachedModelMock).toHaveBeenCalledWith('all-MiniLM-L6-v2');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('fetches and caches model on IDB cache miss', async () => {
+    const cacheModelSpy = vi.fn();
+    vi.doMock('../../src/lib/idb-store', () => ({
+      getCachedModel: vi.fn().mockResolvedValue(null),
+      cacheModel: cacheModelSpy
+    }));
+
+    const fetchSpy = vi.fn().mockResolvedValue({
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(10))
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await import('../../src/offscreen/offscreen');
+    const listener = (chrome.runtime.onMessage.addListener as any).mock.calls[0][0];
+    
+    await new Promise(resolve => {
+      listener({ type: 'EMBED_TEXT', payload: { text: 'test' } }, {}, resolve);
+    });
+
+    expect(fetchSpy).toHaveBeenCalled();
+    expect(cacheModelSpy).toHaveBeenCalled();
   });
 });
