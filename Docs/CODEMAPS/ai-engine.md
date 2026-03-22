@@ -50,7 +50,12 @@
     - 1. Check `getCachedModel('all-MiniLM-L6-v2')` (IDB).
     - 2. If miss: `fetch('/models/...')` -> `cacheModel()`.
   - `withTimeout(promise, 30_000)` -> Prevents inference hangs.
-  - Handlers: `EMBED_TEXT`, `BATCH_EMBED`, `SEMANTIC_SEARCH`.
+  - Handlers: `EMBED_TEXT`, `BATCH_EMBED`, `SEMANTIC_SEARCH`, `EXPORT_WORKSPACE`, `IMPORT_WORKSPACE`.
+  - Security S9: password strength validation (8+ chars, digit, special), 50MB export limit.
+
+* **Binary Format (`.icycrow`)**
+  - Layout: `[MAGIC(4)][VERSION(1)][SALT(16)][IV(12)][JSON_LEN(4)][CIPHERTEXT(N)][HMAC(32)]`
+  - Crypto: PBKDF2 (100k iterations) -> AES-GCM (256-bit) + HMAC-SHA256.
 
 * **Inference Pipeline** (`src/lib/embedding-worker.ts`)
   - `embed(text, session)` -> Returns `Float32Array(384)`.

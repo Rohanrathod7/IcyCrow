@@ -4,7 +4,7 @@
 
 * `src/lib/zod-schemas.ts` (The Contract)
   - `InboundMessageSchema`: Discriminated union of all allowed `chrome.runtime` messages.
-  - Payloads: `HIGHLIGHT_CREATE`, `HIGHLIGHTS_FETCH`, `HIGHLIGHT_DELETE`, `HIGHLIGHT_UPDATE`, `CRYPTO_UNLOCK`, `CRYPTO_LOCK`, `SCRAPE_CONTENT`, `AI_QUERY`, `AI_QUERY_STATUS`, `GEMINI_HEALTH_CHECK`.
+  - Payloads: `HIGHLIGHT_CREATE`, `HIGHLIGHTS_FETCH`, `HIGHLIGHT_DELETE`, `HIGHLIGHT_UPDATE`, `CRYPTO_UNLOCK`, `CRYPTO_LOCK`, `SCRAPE_CONTENT`, `AI_QUERY`, `AI_QUERY_STATUS`, `GEMINI_HEALTH_CHECK`, `EXPORT_WORKSPACE`, `IMPORT_WORKSPACE`.
 
 * `src/background/index.ts` (The Router)
   - `chrome.runtime.onMessage.addListener` ->
@@ -28,3 +28,6 @@
 * Message Flows (S8):
   - **Save Article**: `Side Panel -> ARTICLE_SAVE -> SW (handleArticleMessage) -> Offscreen (EMBED_TEXT) -> SW (saveEmbedding)`.
   - **Semantic Search**: `Side Panel -> SEMANTIC_SEARCH -> SW (getAllArticles) -> Offscreen (SEMANTIC_SEARCH) -> SW (Relay)`.
+* Message Flows (S9):
+  - **Export**: `UI -> EXPORT_WORKSPACE -> SW (Validator) -> Offscreen (exportWorkspace) -> SW (Manifest Save) -> UI`.
+  - **Import**: `UI -> IMPORT_WORKSPACE -> SW -> Offscreen (importWorkspace) -> IDB (Batched Restore) -> SW`.

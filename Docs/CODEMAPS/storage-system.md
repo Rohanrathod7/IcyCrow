@@ -11,6 +11,7 @@
   - `updateHighlights(urlHash, updater)` -> 🔑 **Atomic Entry Point**
     - `mutex.withLock(key, ...)` -> `get` -> `updater(current)` -> `set`.
   - `appendChatMessage(spaceId, msg)` -> Mutex-protected chat history append.
+  - `getAllArticles()`, `getAllHighlights()`, `getAllSpaces()` -> Full dataset export APIs.
 
 * `chrome.storage.local` (Storage SSOT)
   - `highlights:${urlHash}` -> `Highlight[]`
@@ -20,3 +21,8 @@
 
 * `chrome.storage.session` (Runtime State)
   - `sessionState` -> `SessionState` (Restart counts, Crypto status).
+
+* `IndexedDB` (Persistent Articles & Embeddings)
+  - `articles` -> `IDBArticle` (Key: id, Index: url)
+  - `embeddings` -> `IDBEmbedding` (Key: articleId)
+  - `backupManifest` -> `IDBBackupManifest` (Key: id, Index: timestamp) [v2]
