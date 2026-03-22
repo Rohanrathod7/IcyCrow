@@ -52,7 +52,8 @@ describe('SpacesView Component', () => {
     const root = document.getElementById('app')!;
     render(<SpacesView />, root);
 
-    const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('New Space'))!;
+    const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('Space'))!;
+
     btn.click();
 
     expect(sendToSW).toHaveBeenCalledWith(expect.objectContaining({

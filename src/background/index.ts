@@ -425,13 +425,14 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
           await saveBackupManifest({
             id: crypto.randomUUID() as UUID,
             timestamp: new Date().toISOString() as ISOTimestamp,
-            fileSize: res.data.buffer.byteLength,
-            checksum: 'SHA-256-PENDING', // Checksum calculation optional refinement
+            fileSize: res.data.arrayBuffer ? res.data.arrayBuffer.byteLength : 0,
+            checksum: 'SHA-256-PENDING',
             location: 'Browser Download'
           });
         }
 
         sendResponse(res);
+
       } catch (err: any) {
         sendResponse({ ok: false, error: { code: 'EXPORT_FAILURE', message: err.message } });
       }

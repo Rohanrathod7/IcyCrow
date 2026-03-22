@@ -15,7 +15,17 @@ describe('SettingsView Component', () => {
     isLoading.value = false;
     error.value = null;
     vi.stubGlobal('prompt', vi.fn().mockReturnValue('test-password'));
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn().mockReturnValue('blob:test'),
+      revokeObjectURL: vi.fn(),
+    });
+    
+    (sendToSW as any).mockResolvedValue({ 
+      ok: true, 
+      data: { arrayBuffer: new Uint8Array([1, 2, 3]).buffer } 
+    });
   });
+
 
 
   it('should render export and import buttons', () => {

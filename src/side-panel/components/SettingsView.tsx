@@ -1,5 +1,4 @@
 import { isLoading, error } from '../store';
-
 import { sendToSW } from '../../lib/messaging';
 
 export const SettingsView = () => {
@@ -14,13 +13,18 @@ export const SettingsView = () => {
         payload: { password }
       } as any);
       
-      if (result && result.blobUrl) {
+      if (result.ok && result.data.arrayBuffer) {
+        const blob = new Blob([result.data.arrayBuffer], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = result.blobUrl;
-        a.download = result.filename || 'backup.icycrow';
+        a.href = url;
+        a.download = `icycrow-backup-${new Date().toISOString().split('T')[0]}.icycrow`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else if (!result.ok) {
+        throw new Error(result.error?.message || 'Export failed');
       }
     } catch (err) {
       console.error('Export failed:', err);
@@ -40,66 +44,51 @@ export const SettingsView = () => {
     isLoading.value = true;
     try {
       const buffer = await file.arrayBuffer();
-      await sendToSW({
+      const result = await sendToSW<any>({
         type: 'IMPORT_WORKSPACE',
         payload: { arrayBuffer: buffer, password }
       } as any);
-      window.alert('Import successful! Your workspace has been restored.');
+      if (result.ok) {
+        window.alert('Import successful! Your workspace has been restored.');
+      } else {
+        throw new Error(result.error?.message || 'Import failed');
+      }
     } catch (err) {
       console.error('Import failed:', err);
       error.value = 'Import failed: ' + (err as Error).message;
     } finally {
-
       isLoading.value = false;
       (e.target as HTMLInputElement).value = ''; // Reset input
     }
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h3 style={{ marginBottom: '20px', fontSize: '1.2em' }}>Data & Backup</h3>
+    <div className="view-container">
+      <h3 className="section-title">Data & Backup</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
         
-        <div style={{ padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="card">
           <h4 style={{ margin: '0 0 10px 0', fontSize: '1em' }}>Export Workspace</h4>
-          <p style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: '15px', lineHeight: '1.4' }}>
-            Download a secure, encrypted backup of all your highlights, spaces, and notes.
+          <p className="text-dim" style={{ marginBottom: '15px', lineHeight: '1.4' }}>
+            Download a secure, encrypted backup regarding your highlights, spaces, and notes.
           </p>
           <button 
             onClick={handleExport}
             disabled={isLoading.value}
-            style={{ 
-              width: '100%', 
-              padding: '10px', 
-              background: '#3a76f0', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '8px', 
-              cursor: isLoading.value ? 'not-allowed' : 'pointer',
-              fontWeight: '500'
-            }}
+            className="btn-primary"
+            style={{ width: '100%' }}
           >
-            {isLoading.value ? 'Exporting...' : 'Export Workspace (.icycrow)'}
+            {isLoading.value ? '...' : 'Export (.icycrow)'}
           </button>
         </div>
 
-        <div style={{ padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="card">
           <h4 style={{ margin: '0 0 10px 0', fontSize: '1em' }}>Import Workspace</h4>
-          <p style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: '15px', lineHeight: '1.4' }}>
-            Restore your data from an existing backup file. This will merge with your current data.
+          <p className="text-dim" style={{ marginBottom: '15px', lineHeight: '1.4' }}>
+            Restore your data from an existing backup file.
           </p>
-          <label style={{ 
-            display: 'block', 
-            width: '100%', 
-            padding: '10px', 
-            background: 'rgba(255,255,255,0.1)', 
-            color: 'white', 
-            textAlign: 'center',
-            borderRadius: '8px', 
-            cursor: isLoading.value ? 'not-allowed' : 'pointer',
-            fontSize: '0.9em'
-          }}>
-            {isLoading.value ? 'Processing...' : 'Choose Backup File'}
+          <label className="btn-primary" style={{ display: 'block', textAlign: 'center', background: 'rgba(255,255,255,0.1)', color: 'white' }}>
+            {isLoading.value ? '...' : 'Choose Backup File'}
             <input 
               type="file" 
               accept=".icycrow" 

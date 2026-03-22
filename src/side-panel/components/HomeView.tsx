@@ -44,19 +44,15 @@ export const HomeView = () => {
   }
 
   return (
-    <div style={{ padding: '10px' }}>
-      <h3 style={{ fontSize: '1.1em', marginBottom: '15px' }}>Recent Highlights</h3>
+    <div className="view-container">
+      <h3 className="section-title">Recent Highlights</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {highlights.value.map(h => (
           <div 
             key={h.id} 
+            className="card"
             style={{ 
-              padding: '10px', 
-              background: 'rgba(255,255,255,0.05)', 
-              borderRadius: '6px', 
               borderLeft: `3px solid ${h.color || '#F0F0F0'}`,
-              fontSize: '0.9em',
-              lineHeight: '1.4'
             }}
           >
             {h.text}
@@ -66,3 +62,4 @@ export const HomeView = () => {
     </div>
   );
 };
+

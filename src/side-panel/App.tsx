@@ -18,17 +18,17 @@ export const App = () => {
   };
 
   return (
-    <div className="side-panel-root" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div className="side-panel-root" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-panel)', color: 'var(--text-main)' }}>
       {error.value && (
         <div className="error-banner">
           <span>{error.value}</span>
-          <button onClick={() => error.value = null} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2em' }}>×</button>
+          <button onClick={() => error.value = null} className="close-btn" style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.2em' }}>×</button>
         </div>
       )}
       
       {isLoading.value && (
         <div className="loading-overlay">
-          <div className="glass-card" style={{ padding: '20px' }}>Loading...</div>
+          <div className="glass-card card" style={{ padding: '20px' }}>Loading...</div>
         </div>
       )}
 
@@ -39,5 +39,6 @@ export const App = () => {
     </div>
   );
 };
+
 
 

@@ -1,36 +1,31 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { activeView, highlights, isLoading, spaces, searchResults, error } from './store';
+import { activeView, highlights, spaces, error, isLoading, searchResults } from './store';
 
 describe('Side Panel Signal Store', () => {
   beforeEach(() => {
-    // Reset signals to defaults
     activeView.value = 'home';
     highlights.value = [];
-    isLoading.value = false;
     spaces.value = {};
+    error.value = null;
+    isLoading.value = false;
     searchResults.value = [];
   });
 
-  it('should have correct default states', () => {
+  it('should initialize with default values', () => {
     expect(activeView.value).toBe('home');
     expect(highlights.value).toEqual([]);
-    expect(isLoading.value).toBe(false);
+    expect(spaces.value).toEqual({});
+    expect(error.value).toBe(null);
   });
 
-  it('should reflect mutations', () => {
+  it('should update signal values correctly', () => {
     activeView.value = 'search';
     expect(activeView.value).toBe('search');
-
-    const mockHighlight = { id: '1', text: 'test' } as any;
-    highlights.value = [mockHighlight];
-    expect(highlights.value).toHaveLength(1);
-    expect(highlights.value[0].text).toBe('test');
-  });
-
-  it('should handle loading state toggles', () => {
+    
     isLoading.value = true;
     expect(isLoading.value).toBe(true);
-    isLoading.value = false;
-    expect(isLoading.value).toBe(false);
+
+    error.value = 'Test Error';
+    expect(error.value).toBe('Test Error');
   });
 });

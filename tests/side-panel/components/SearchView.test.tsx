@@ -33,7 +33,8 @@ describe('SearchView Component', () => {
     render(<SearchView />, root);
     
     const input = document.querySelector('input')!;
-    const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Search')!;
+    const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('Search'))!;
+
     
     input.value = 'test query';
     btn.click();

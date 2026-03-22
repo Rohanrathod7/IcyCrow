@@ -27,46 +27,33 @@ export const SearchView = () => {
   };
 
   return (
-    <div style={{ padding: '15px' }}>
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+    <div className="view-container">
+      <form onSubmit={handleSearch} style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
         <input
           type="text"
           value={query}
           onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
           placeholder="Search your highlights..."
-          style={{ 
-            flex: 1, 
-            padding: '8px', 
-            borderRadius: '4px', 
-            border: '1px solid rgba(255,255,255,0.2)', 
-            background: 'rgba(0,0,0,0.2)',
-            color: 'white'
-          }}
+          className="input-glass"
         />
         <button 
           type="submit"
           disabled={isLoading.value}
           onClick={handleSearch}
-          style={{ 
-            padding: '8px 15px', 
-            borderRadius: '4px', 
-            background: '#3a76f0', 
-            color: 'white', 
-            border: 'none',
-            cursor: isLoading.value ? 'not-allowed' : 'pointer'
-          }}
+          className="btn-primary"
         >
-          {isLoading.value ? 'Searching...' : 'Search'}
+          {isLoading.value ? '...' : 'Search'}
         </button>
       </form>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {searchResults.value.map((res: any, i) => (
-          <div key={i} style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '6px' }}>
+        {searchResults.value.map((res, i) => (
+          <div key={i} className="card">
             <p style={{ margin: 0, fontSize: '0.9em' }}>{res.text}</p>
-            {res.score && <small style={{ opacity: 0.5 }}>Score: {res.score.toFixed(3)}</small>}
+            {res.score && <small className="text-dim">Score: {res.score.toFixed(3)}</small>}
           </div>
         ))}
+
         {searchResults.value.length === 0 && !isLoading.value && query.trim() !== '' && (
           <p style={{ textAlign: 'center', opacity: 0.5, fontSize: '0.9em' }}>No results found.</p>
         )}

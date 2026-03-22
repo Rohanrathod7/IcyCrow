@@ -1,6 +1,8 @@
 import { useEffect } from 'preact/hooks';
 import { sendToSW } from '../../lib/messaging';
-import { spaces, isLoading, error } from '../store';
+import { spaces, isLoading, error, type ViewType } from '../store';
+import type { SpacesStore } from '../../lib/types';
+
 
 
 export const SpacesView = () => {
@@ -9,7 +11,8 @@ export const SpacesView = () => {
       isLoading.value = true;
       try {
         const result = await chrome.storage.local.get('spaces');
-        spaces.value = result.spaces || {};
+        spaces.value = (result.spaces || {}) as SpacesStore;
+
       } catch (err) {
         console.error('Failed to fetch spaces:', err);
         error.value = 'Failed to load spaces.';
@@ -45,23 +48,16 @@ export const SpacesView = () => {
   const spaceList = Object.values(spaces.value);
 
   return (
-    <div style={{ padding: '15px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h3 style={{ margin: 0, fontSize: '1.1em' }}>My Spaces</h3>
+    <div className="view-container">
+      <div className="flex-row" style={{ marginBottom: '10px' }}>
+        <h3 className="section-title" style={{ marginBottom: 0 }}>My Spaces</h3>
         <button 
           onClick={handleCreateSpace}
           disabled={isLoading.value}
-          style={{ 
-            padding: '6px 14px', 
-            background: '#3a76f0', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '6px', 
-            cursor: isLoading.value ? 'not-allowed' : 'pointer',
-            fontSize: '0.9em'
-          }}
+          className="btn-primary"
+          style={{ padding: '6px 14px', fontSize: '0.9em' }}
         >
-          + New Space
+          + Space
         </button>
       </div>
 
@@ -69,18 +65,16 @@ export const SpacesView = () => {
         {spaceList.map(s => (
           <div 
             key={s.id} 
+            className="card"
             style={{ 
-              padding: '12px', 
-              background: 'rgba(255,255,255,0.05)', 
-              borderRadius: '8px', 
               borderLeft: `4px solid ${s.color || '#444'}`,
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
             }}
           >
             <div style={{ fontWeight: '600', marginBottom: '4px' }}>{s.name}</div>
-            <div style={{ fontSize: '0.75em', opacity: 0.5 }}>Created: {new Date(s.createdAt as any).toLocaleDateString()}</div>
+            <div className="text-dim">Created: {new Date(s.createdAt as any).toLocaleDateString()}</div>
           </div>
         ))}
+
 
         {spaceList.length === 0 && !isLoading.value && (
           <div style={{ textAlign: 'center', opacity: 0.5, padding: '40px 0' }}>
