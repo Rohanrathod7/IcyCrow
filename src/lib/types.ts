@@ -208,6 +208,14 @@ export interface ChatMessage {
 
 export type ChatHistoryStore = ChatMessage[];
 
+export interface WorkspaceBundle {
+  articles: IDBArticle[];
+  embeddings: IDBEmbedding[];
+  highlights: Record<string, Highlight[]>; // highlights:<urlHash> -> Highlight[]
+  spaces: SpacesStore;
+  chatHistories: ChatHistoryStore;
+}
+
 // chrome.storage.local: Queue State
 export interface QueueState {
   activeTaskId: UUID | null;
