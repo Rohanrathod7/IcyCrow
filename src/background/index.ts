@@ -6,6 +6,9 @@ import { getHighlights, updateHighlights } from '@lib/storage';
 import { taskQueue } from '@lib/task-queue';
 import { watchGeminiTab } from './gemini-detector';
 import { GEMINI_SELECTORS } from '@lib/gemini-selectors';
+import { saveArticle, saveEmbedding, getAllEmbeddings } from '@lib/idb-store';
+import { offscreenManager } from './offscreen-manager';
+import type { IDBArticle } from '@lib/types';
 
 console.log('IcyCrow MV3 Service Worker installed.');
 
@@ -111,6 +114,9 @@ export async function handleMessage(
 
       case 'SCRAPE_CONTENT':
         return await handleScrapeMessage(sendResponse);
+
+      case 'ARTICLE_SAVE':
+        return await handleArticleMessage(message, sendResponse);
 
       case 'AI_QUERY':
       case 'AI_QUERY_STATUS':
@@ -251,6 +257,62 @@ async function handleScrapeMessage(sendResponse: (r: any) => void) {
 }
 
 /**
+ * Domain Handler: Articles & Knowledge
+ */
+async function handleArticleMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  if (message.type !== 'ARTICLE_SAVE') return;
+
+  try {
+    // 1. Scrape content
+    const scrapeRes: any = await new Promise((resolve) => {
+      handleScrapeMessage(resolve);
+    });
+
+    if (!scrapeRes.ok) {
+      return sendResponse(scrapeRes);
+    }
+
+    const { url, title, content } = scrapeRes.data;
+    const articleId = crypto.randomUUID() as any;
+
+    const article: IDBArticle = {
+      id: articleId,
+      url: message.payload.url || url,
+      title: message.payload.title || title,
+      fullText: content,
+      aiSummary: null,
+      userNotes: '',
+      savedAt: new Date().toISOString() as any,
+      spaceId: message.payload.spaceId || null,
+      encryption: { encrypted: false }
+    };
+
+    // 2. Save Article to IDB
+    await saveArticle(article);
+
+    // 3. Trigger Embedding in Offscreen
+    const embedRes: any = await offscreenManager.sendToOffscreen({
+      type: 'BATCH_EMBED',
+      payload: { articles: [{ id: articleId, content: article.fullText || article.title }] }
+    });
+
+    if (embedRes.ok && embedRes.data.embeddings?.length > 0) {
+      const { vector } = embedRes.data.embeddings[0];
+      await saveEmbedding({
+        articleId,
+        vector: new Float32Array(vector),
+        modelVersion: 1,
+        createdAt: new Date().toISOString() as any
+      });
+    }
+
+    sendResponse({ ok: true, data: { id: articleId, embedded: !!embedRes.ok } });
+  } catch (err: any) {
+    sendResponse({ ok: false, error: { code: 'ARTICLE_SAVE_FAILURE', message: err.message } });
+  }
+}
+
+/**
  * Domain Handler: Crypto & Security
  */
 async function handleCryptoMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
@@ -312,6 +374,34 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
           selectors: GEMINI_SELECTORS
         }
       });
+      break;
+    }
+
+    case 'SEMANTIC_SEARCH': {
+      try {
+        const stored = await getAllEmbeddings();
+        if (stored.length === 0) {
+          return sendResponse({ ok: true, data: { results: [] } });
+        }
+
+        const transportable = stored.map(s => ({
+          ...s,
+          vector: Array.from(s.vector as any)
+        }));
+
+        const searchRes: any = await offscreenManager.sendToOffscreen({
+          type: 'SEMANTIC_SEARCH',
+          payload: {
+            query: message.payload.query,
+            stored: transportable,
+            topKCount: message.payload.topK
+          }
+        });
+
+        sendResponse(searchRes);
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'SEARCH_FAILURE', message: err.message } });
+      }
       break;
     }
   }

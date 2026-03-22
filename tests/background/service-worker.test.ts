@@ -11,6 +11,24 @@ const listeners = {
   onAlarm: [] as Function[],
 };
 
+// Mock dependencies
+vi.mock('../../src/lib/idb-store', () => ({
+  saveArticle: vi.fn().mockResolvedValue(undefined),
+  saveEmbedding: vi.fn().mockResolvedValue(undefined),
+  getAllEmbeddings: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../../src/background/offscreen-manager', () => ({
+  offscreenManager: {
+    sendToOffscreen: vi.fn().mockResolvedValue({ ok: true, data: { embeddings: [{ vector: [0.1] }] } })
+  }
+}));
+
+// Define global crypto
+globalThis.crypto = {
+  randomUUID: () => 'ca761232-0000-4000-8000-000000000000'
+} as any;
+
 // Define global chrome before any imports
 globalThis.chrome = {
   runtime: {
@@ -268,6 +286,53 @@ describe('Message Router', () => {
         tabFound: true,
         selectors: expect.any(Object)
       })
+    }));
+  });
+
+  it('routes ARTICLE_SAVE through scrape, idb, and offscreen', async () => {
+    // Mock dependencies inside a hoisted mock or before import
+    // Note: We need to use vi.mock outside or dynamic import inside
+    await import('../../src/background/index');
+    const onMessageCallback = listeners.onMessage[0];
+    const sendResponse = vi.fn();
+
+    const request = {
+      type: 'ARTICLE_SAVE',
+      payload: { 
+        tabId: 123, 
+        url: 'https://test.com', 
+        title: 'Test',
+        spaceId: 'ca761232-0000-4000-8000-000000000000'
+      }
+    };
+
+    onMessageCallback(request, { id: 'mock-extension-id' }, sendResponse);
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+      ok: true,
+      data: expect.objectContaining({ embedded: true })
+    }));
+  });
+
+  it('routes SEMANTIC_SEARCH to offscreen', async () => {
+    await import('../../src/background/index');
+    const onMessageCallback = listeners.onMessage[0];
+    const sendResponse = vi.fn();
+
+    const request = {
+      type: 'SEMANTIC_SEARCH',
+      payload: { 
+        query: 'search query',
+        topK: 5
+      }
+    };
+
+    onMessageCallback(request, { id: 'mock-extension-id' }, sendResponse);
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+      ok: true
     }));
   });
 });
