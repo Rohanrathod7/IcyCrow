@@ -6,9 +6,10 @@ import { getHighlights, updateHighlights } from '@lib/storage';
 import { taskQueue } from '@lib/task-queue';
 import { watchGeminiTab } from './gemini-detector';
 import { GEMINI_SELECTORS } from '@lib/gemini-selectors';
-import { saveArticle, saveEmbedding, getAllEmbeddings } from '@lib/idb-store';
 import { offscreenManager } from './offscreen-manager';
-import type { IDBArticle } from '@lib/types';
+import { saveArticle, saveEmbedding, getAllEmbeddings, saveBackupManifest } from '@lib/idb-store';
+import { validateExportPassword } from '@lib/export-worker';
+import type { IDBArticle, UUID, ISOTimestamp } from '@lib/types';
 
 console.log('IcyCrow MV3 Service Worker installed.');
 
@@ -401,6 +402,51 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
         sendResponse(searchRes);
       } catch (err: any) {
         sendResponse({ ok: false, error: { code: 'SEARCH_FAILURE', message: err.message } });
+      }
+      break;
+    }
+
+    case 'EXPORT_WORKSPACE': {
+      try {
+        const password = message.payload.password;
+        const validation = validateExportPassword(password);
+        if (validation !== true) {
+          return sendResponse({ ok: false, error: { code: 'WEAK_PASSWORD', message: 'Min 8 chars, 1 digit, 1 special char' } });
+        }
+
+        // 2. Delegate to Offscreen
+        const res: any = await offscreenManager.sendToOffscreen({
+          type: 'EXPORT_WORKSPACE',
+          payload: { password }
+        });
+
+        if (res.ok) {
+          // 3. Save Manifest to IDB
+          await saveBackupManifest({
+            id: crypto.randomUUID() as UUID,
+            timestamp: new Date().toISOString() as ISOTimestamp,
+            fileSize: res.data.buffer.byteLength,
+            checksum: 'SHA-256-PENDING', // Checksum calculation optional refinement
+            location: 'Browser Download'
+          });
+        }
+
+        sendResponse(res);
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'EXPORT_FAILURE', message: err.message } });
+      }
+      break;
+    }
+
+    case 'IMPORT_WORKSPACE': {
+      try {
+        const res = await offscreenManager.sendToOffscreen({
+          type: 'IMPORT_WORKSPACE',
+          payload: message.payload
+        });
+        sendResponse(res);
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'IMPORT_FAILURE', message: err.message } });
       }
       break;
     }

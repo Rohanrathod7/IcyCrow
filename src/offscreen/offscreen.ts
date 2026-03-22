@@ -1,5 +1,16 @@
 import { embed, topK, loadModel } from '../lib/embedding-worker';
-import { getCachedModel, cacheModel } from '../lib/idb-store';
+import { 
+  getCachedModel, 
+  cacheModel, 
+  getAllArticles, 
+  getAllHighlights, 
+  getAllSpaces, 
+  getAllEmbeddings,
+  saveArticle,
+  saveEmbedding
+} from '../lib/idb-store';
+import { exportWorkspace, importWorkspace, EXPORT_LIMIT_BYTES } from '../lib/export-worker';
+import type { WorkspaceBundle } from '../lib/types';
 import type { InferenceSession } from 'onnxruntime-web';
 
 let modelSession: InferenceSession | null = null;
@@ -28,6 +39,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === 'SEMANTIC_SEARCH') {
     handleSearch(message.payload, sendResponse);
+    return true;
+  }
+  if (message.type === 'EXPORT_WORKSPACE') {
+    handleExport(message.payload, sendResponse);
+    return true;
+  }
+  if (message.type === 'IMPORT_WORKSPACE') {
+    handleImport(message.payload, sendResponse);
     return true;
   }
 });
@@ -110,5 +129,84 @@ async function handleSearch(payload: { query: string, stored: any[], topKCount: 
     sendResponse({ ok: true, data: { results } });
   } catch (error: any) {
     sendResponse({ ok: false, error: { code: 'SEARCH_FAILURE', message: error.message } });
+  }
+}
+
+async function handleExport(payload: { password: string }, sendResponse: (res: any) => void) {
+  try {
+    // 1. Collect all data
+    const [articles, embeddings, highlights, spaces] = await Promise.all([
+      getAllArticles(),
+      getAllEmbeddings(),
+      getAllHighlights(),
+      getAllSpaces()
+    ]);
+
+    const bundle: WorkspaceBundle = {
+      articles,
+      embeddings,
+      highlights,
+      spaces,
+      chatHistories: [] // Chat history implementation pending in S11
+    };
+
+    const buffer = await exportWorkspace(bundle, payload.password);
+    
+    // 3. Size Guard
+    if (buffer.byteLength > EXPORT_LIMIT_BYTES) {
+      sendResponse({ ok: false, error: { code: 'EXPORT_TOO_LARGE', message: 'Workspace data exceeds 50MB limit' } });
+      return;
+    }
+
+    sendResponse({ ok: true, data: { buffer } });
+  } catch (error: any) {
+    console.error('[IcyCrow] Export failed:', error);
+    sendResponse({ ok: false, error: { code: 'EXPORT_FAILURE', message: error.message } });
+  }
+}
+
+async function handleImport(payload: { arrayBuffer: ArrayBuffer, password: string }, sendResponse: (res: any) => void) {
+  try {
+    // 1. Decrypt and verify
+    const bundle = await importWorkspace(payload.arrayBuffer, payload.password);
+
+    // 2. Restore data - Atomic per-entity-type
+    // We use sequential await to prevent IDB congestion during massive imports
+    for (const art of bundle.articles) {
+      await saveArticle(art);
+    }
+    for (const emb of bundle.embeddings) {
+      await saveEmbedding(emb);
+    }
+
+    // 3. Restore Storage (Highlights and Spaces)
+    const storageUpdates: Record<string, any> = {
+      ...bundle.highlights,
+      spaces: bundle.spaces
+    };
+    await chrome.storage.local.set(storageUpdates);
+
+    sendResponse({
+      ok: true,
+      data: {
+        stats: {
+          articles: bundle.articles.length,
+          spaces: Object.keys(bundle.spaces).length,
+          highlights: Object.keys(bundle.highlights).length,
+          chatMessages: bundle.chatHistories.length
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('[IcyCrow] Import failed:', error);
+    sendResponse({
+      ok: false,
+      error: {
+        code: error.message === 'HMAC_VERIFICATION_FAILED' ? 'HMAC_VERIFICATION_FAILED' :
+              error.message === 'DECRYPTION_FAILED' ? 'DECRYPTION_FAILED' :
+              'IMPORT_FAILURE',
+        message: error.message
+      }
+    });
   }
 }

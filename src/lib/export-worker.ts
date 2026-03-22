@@ -3,6 +3,19 @@ import type { WorkspaceBundle } from './types';
 const MAGIC = new Uint8Array([0x49, 0x43, 0x52, 0x57]); // "ICRW"
 const VERSION = 1;
 const PBKDF2_ITERATIONS = 100_000;
+export const EXPORT_LIMIT_BYTES = 50 * 1024 * 1024; // 50MB
+
+/**
+ * Validates password strength for export.
+ * Min 8 chars, 1 digit, 1 special char.
+ */
+export function validateExportPassword(password: string): true | 'WEAK_PASSWORD' {
+  if (password.length < 8) return 'WEAK_PASSWORD';
+  const hasDigit = /\d/.test(password);
+  const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  if (!hasDigit || !hasSpecial) return 'WEAK_PASSWORD';
+  return true;
+}
 
 /**
  * Exports a WorkspaceBundle to a secure encrypted binary format (.icycrow).
@@ -39,10 +52,10 @@ export async function exportWorkspace(payload: WorkspaceBundle, password: string
     salt, 
     iv, 
     new Uint8Array(jsonLenView.buffer), 
-    new Uint8Array(ciphertext)
+    new Uint8Array(ciphertext as any)
   ];
   const hmacInput = assembleBuffer(prefixParts);
-  const signature = await crypto.subtle.sign('HMAC', hmacKey, hmacInput);
+  const signature = await crypto.subtle.sign('HMAC', hmacKey, hmacInput.buffer as any);
 
   // 4. Final Assembly
   return assembleBuffer([...prefixParts, new Uint8Array(signature)]).buffer;
@@ -67,12 +80,12 @@ export async function importWorkspace(buffer: ArrayBuffer, password: string): Pr
   const version = view.getUint8(4);
   if (version !== VERSION) throw new Error('UNSUPPORTED_VERSION');
 
-  const salt = new Uint8Array(buffer, 5, 16);
-  const iv = new Uint8Array(buffer, 21, 12);
+  const salt = new Uint8Array(buffer as ArrayBuffer, 5, 16);
+  const iv = new Uint8Array(buffer as ArrayBuffer, 21, 12);
   const jsonLen = view.getUint32(33, false);
   const hmacStart = buffer.byteLength - 32;
-  const ciphertext = new Uint8Array(buffer, 37, hmacStart - 37);
-  const signature = new Uint8Array(buffer, hmacStart, 32);
+  const ciphertext = new Uint8Array(buffer as ArrayBuffer, 37, hmacStart - 37);
+  const signature = new Uint8Array(buffer as ArrayBuffer, hmacStart, 32);
 
   // 3. Verify HMAC
   const baseKey = await deriveBaseKey(password);
@@ -122,7 +135,7 @@ async function deriveSubKey(baseKey: CryptoKey, salt: Uint8Array, type: 'AES-GCM
     : { name: 'HMAC', hash: 'SHA-256', length: 256 };
 
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: salt as any, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     baseKey,
     algorithm,
     false,
