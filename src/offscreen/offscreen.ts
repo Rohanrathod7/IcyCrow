@@ -170,13 +170,25 @@ async function handleImport(payload: { arrayBuffer: ArrayBuffer, password: strin
     // 1. Decrypt and verify
     const bundle = await importWorkspace(payload.arrayBuffer, payload.password);
 
-    // 2. Restore data - Atomic per-entity-type
-    // We use sequential await to prevent IDB congestion during massive imports
-    for (const art of bundle.articles) {
-      await saveArticle(art);
+    // 2. Restore data - Batch processed to avoid IDB congestion
+    const BATCH_SIZE = 50;
+    
+    const chunkify = <T>(arr: T[], size: number): T[][] => {
+      const chunks: T[][] = [];
+      for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
+      }
+      return chunks;
+    };
+
+    // Restore Articles in batches
+    for (const chunk of chunkify(bundle.articles, BATCH_SIZE)) {
+      await Promise.all(chunk.map(art => saveArticle(art)));
     }
-    for (const emb of bundle.embeddings) {
-      await saveEmbedding(emb);
+
+    // Restore Embeddings in batches
+    for (const chunk of chunkify(bundle.embeddings, BATCH_SIZE)) {
+      await Promise.all(chunk.map(emb => saveEmbedding(emb)));
     }
 
     // 3. Restore Storage (Highlights and Spaces)
