@@ -510,13 +510,13 @@ DO:
 ```
 
 **Acceptance Criteria:**
-- [ ] Gemini tab auto-detected on SW boot
-- [ ] `AI_QUERY` enqueues task and returns `{ taskId, position }`
-- [ ] Prompt is typed into Gemini with random delays (50–200ms per char)
-- [ ] Response is scraped via MutationObserver and streamed to caller
-- [ ] Queue respects max depth (20) — rejects with `QUEUE_FULL`
-- [ ] 3 consecutive failures trigger circuit breaker
-- [ ] Health check returns list of failed selectors (if any)
+- [x] Gemini tab auto-detected on SW boot
+- [x] `AI_QUERY` enqueues task and returns `{ taskId, position }`
+- [x] Prompt is typed into Gemini with random delays (50–200ms per char)
+- [x] Response is scraped via MutationObserver and streamed to caller
+- [x] Queue respects max depth (20) — rejects with `QUEUE_FULL`
+- [x] 3 consecutive failures trigger circuit breaker
+- [x] Health check returns list of failed selectors (if any)
 
 ---
 
