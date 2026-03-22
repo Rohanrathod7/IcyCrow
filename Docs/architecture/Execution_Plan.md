@@ -476,71 +476,24 @@ DO:
 
 ---
 
-#### S6 — Content Scraping
+#### ✅ COMPLETED: S6 — Content Scraping
 
 **Goal:** Service Worker can request page text from any tab.
-
-```
-DO:
-  1. Implement content-scraper.ts — extract text, chunk ≤50KB, send via Port
-  2. Wire SCRAPE_CONTENT handler in service-worker.ts
-  3. Implement context-builder.ts — assemble multi-tab context with token budget
-```
-
-**Acceptance Criteria:**
-- [ ] `SCRAPE_CONTENT` message returns page text as a string
-- [ ] Pages > 50KB text stream via `chrome.runtime.Port` (not one-shot message)
-- [ ] `contextBuilder.build([tab1, tab2])` returns concatenated text under budget
+**Implementation Summary:** Implemented `content-scraper.ts` with cross-domain extraction and `context-builder.ts` for token-budgeted assembly. Verified with one-shot and port streaming tests.
 
 ---
 
-#### S7 — Gemini Bridge & Anti-Detection
+#### ✅ COMPLETED: S7 — Gemini Bridge & Anti-Detection
 
 **Goal:** Extension can type a prompt into Gemini and scrape the response.
-
-```
-DO:
-  1. Create src/lib/gemini-selectors.ts — multi-candidate selector map
-  2. Implement gemini-bridge.ts — injectPrompt(), scrapeResponse(), MutationObserver
-  3. Implement anti-detection.ts — randomised typing delays, submission jitter
-  4. Implement gemini-detector.ts in SW — tab detection via URL pattern
-  5. Wire AI_QUERY + AI_RESPONSE_STREAM handlers
-  6. Wire GEMINI_HEALTH_CHECK handler
-  7. Implement task-queue.ts — FIFO, back-pressure, circuit breaker
-```
-
-**Acceptance Criteria:**
-- [x] Gemini tab auto-detected on SW boot
-- [x] `AI_QUERY` enqueues task and returns `{ taskId, position }`
-- [x] Prompt is typed into Gemini with random delays (50–200ms per char)
-- [x] Response is scraped via MutationObserver and streamed to caller
-- [x] Queue respects max depth (20) — rejects with `QUEUE_FULL`
-- [x] 3 consecutive failures trigger circuit breaker
-- [x] Health check returns list of failed selectors (if any)
+**Implementation Summary:** Built `gemini-bridge.ts` with `MutationObserver` streaming and `anti-detection.ts` for human-mimicry typing. Orchestrated via `TaskQueue` with circuit-breaker protection.
 
 ---
 
-#### S8 — Offscreen + Embedding Worker
+#### ✅ COMPLETED: S8 — Offscreen + Embedding Worker
 
 **Goal:** Semantic search works. ONNX model loads, embeds articles, returns top-K.
-
-```
-DO:
-  1. Create src/offscreen/offscreen.html + offscreen.ts — worker host
-  2. Implement offscreen-manager.ts — ensureOffscreenDocument()
-  3. Implement embedding-worker.ts — load ONNX, embed(), search(), batchEmbed()
-  4. Wire ARTICLE_SAVE handler (save to IDB → queue embedding via offscreen)
-  5. Wire SEMANTIC_SEARCH handler (dispatch to offscreen → return top-K)
-  6. Implement ONNX model caching in IDB onnxModelCache store
-```
-
-**Acceptance Criteria:**
-- [ ] Offscreen document creates successfully
-- [ ] ONNX model loads from bundled assets on first use
-- [ ] Model is cached in IDB — second load < 500ms
-- [ ] `embed('hello world')` returns Float32Array with 384 dimensions
-- [ ] `search('gradient descent', 10)` returns top-K articles sorted by score
-- [ ] Offscreen document survives Service Worker restart
+**Implementation Summary:** Engineered `OffscreenManager` for lifecycle control and `offscreen.ts` as the ONNX host. Implemented cache-aside model loading in IDB and cosine similarity ranking.
 
 ---
 

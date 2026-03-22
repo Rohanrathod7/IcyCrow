@@ -25,4 +25,6 @@
 * Message Flows (S7):
   - **AI Query**: `Side Panel -> AI_QUERY -> SW (taskQueue.enqueue) -> Gemini Tab (injectPrompt) -> AI_RESPONSE_STREAM -> SW`.
   - **Health Check**: `Side Panel -> GEMINI_HEALTH_CHECK -> SW (sessionState.geminiTabId) -> { tabFound, selectors }`.
-  - **Content Scrape**: `Side Panel -> SCRAPE_CONTENT -> SW -> Active Tab (scrapePageContent) -> ContextBuilder`.
+* Message Flows (S8):
+  - **Save Article**: `Side Panel -> ARTICLE_SAVE -> SW (handleArticleMessage) -> Offscreen (EMBED_TEXT) -> SW (saveEmbedding)`.
+  - **Semantic Search**: `Side Panel -> SEMANTIC_SEARCH -> SW (getAllArticles) -> Offscreen (SEMANTIC_SEARCH) -> SW (Relay)`.

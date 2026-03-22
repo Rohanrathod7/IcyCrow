@@ -42,3 +42,16 @@
   - SW Start -> `boot()` -> increments `swRestartCount`, resets `cryptoKeyUnlocked: false`.
   - `AI_QUERY` received -> `taskQueue.enqueue(task)` -> returns `{ taskId, position }` to caller.
   - Task runs -> `chrome.tabs.sendMessage(geminiTabId, injectPrompt)` -> `scrapeResponse` streams back.
+
+### S8: Offscreen AI Engine
+
+* **Offscreen Host** (`src/offscreen/offscreen.ts`)
+  - `initModel()` -> Cache-aside loader:
+    - 1. Check `getCachedModel('all-MiniLM-L6-v2')` (IDB).
+    - 2. If miss: `fetch('/models/...')` -> `cacheModel()`.
+  - `withTimeout(promise, 30_000)` -> Prevents inference hangs.
+  - Handlers: `EMBED_TEXT`, `BATCH_EMBED`, `SEMANTIC_SEARCH`.
+
+* **Inference Pipeline** (`src/lib/embedding-worker.ts`)
+  - `embed(text, session)` -> Returns `Float32Array(384)`.
+  - `topK(queryVector, storedVectors, k)` -> Cosine similarity ranking.
