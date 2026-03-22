@@ -57,6 +57,15 @@ globalThis.chrome = {
   commands: {
     onCommand: { addListener: vi.fn() }
   },
+  tabs: {
+    query: vi.fn(async () => [{ id: 123, url: 'https://test.com', title: 'Test' }]),
+    sendMessage: vi.fn(async (tabId, message) => {
+      if (message.type === 'SCRAPE_CONTENT') {
+        return { ok: true, data: { url: 'https://test.com', title: 'Test', content: 'Clean Text', byteLength: 10 } };
+      }
+      return { ok: true };
+    }),
+  },
 } as any;
 
 describe('Service Worker Boot Sequence', () => {
@@ -201,6 +210,22 @@ describe('Message Router', () => {
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
       ok: true,
       data: expect.objectContaining({ locked: true })
+    }));
+  });
+
+  it('routes SCRAPE_CONTENT to content script', async () => {
+    await import('../../src/background/index');
+    const onMessageCallback = listeners.onMessage[0];
+    const sendResponse = vi.fn();
+    
+    // We simulate a message from a popup/panel asking to scrape current tab
+    onMessageCallback({ type: 'SCRAPE_CONTENT', payload: undefined }, { id: 'mock-extension-id' }, sendResponse);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    expect(chrome.tabs.sendMessage).toHaveBeenCalled();
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+      ok: true,
+      data: expect.objectContaining({ content: 'Clean Text' })
     }));
   });
 });

@@ -22,6 +22,13 @@ export interface IDBArticle {
   encryption: EncryptionStatus;
 }
 
+export interface ScrapedTab {
+  url: string;
+  title: string;
+  content: string;
+  byteLength: number;
+}
+
 // IDB Store: embeddings
 export interface IDBEmbedding {
   articleId: UUID;

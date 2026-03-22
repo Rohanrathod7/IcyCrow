@@ -106,6 +106,9 @@ export async function handleMessage(
       case 'CRYPTO_LOCK':
         return await handleCryptoMessage(message, sendResponse);
 
+      case 'SCRAPE_CONTENT':
+        return await handleScrapeMessage(sendResponse);
+
       default:
         sendResponse({
           ok: false,
@@ -215,6 +218,27 @@ async function handleHighlightMessage(message: ValidatedInboundMessage, sendResp
       }
       break;
     }
+  }
+}
+
+/**
+ * Domain Handler: Content Scraping
+ */
+async function handleScrapeMessage(sendResponse: (r: any) => void) {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) {
+      return sendResponse({ ok: false, error: { code: 'TAB_NOT_FOUND', message: 'No active tab found' } });
+    }
+
+    const response = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_CONTENT' });
+    sendResponse(response);
+  } catch (err: any) {
+    console.error('[IcyCrow] Scrape failed:', err);
+    sendResponse({ 
+      ok: false, 
+      error: { code: 'SCRAPE_FAILURE', message: err.message || 'Unknown error' } 
+    });
   }
 }
 
