@@ -53,6 +53,9 @@ globalThis.chrome = {
       }),
     },
   },
+  commands: {
+    onCommand: { addListener: vi.fn() }
+  },
 } as any;
 
 describe('Service Worker Boot Sequence', () => {

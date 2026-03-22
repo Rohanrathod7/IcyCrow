@@ -1,7 +1,8 @@
 import { DEFAULT_SETTINGS } from '@lib/constants';
-import type { SessionState } from '@lib/types';
+import type { SessionState, Highlight } from '@lib/types';
 import { InboundMessageSchema, type ValidatedInboundMessage } from '@lib/zod-schemas';
 import { cryptoManager } from './crypto-manager';
+import { getHighlights, setHighlights } from '@lib/storage';
 
 console.log('IcyCrow MV3 Service Worker installed.');
 
@@ -86,12 +87,67 @@ async function handleMessage(
 ) {
   try {
     switch (message.type) {
-      case 'HIGHLIGHTS_FETCH':
+      case 'HIGHLIGHT_CREATE': {
+        const hId = crypto.randomUUID();
+        const createdAt = new Date().toISOString() as any;
+        const highlights = await getHighlights(message.payload.urlHash);
+        
+        // Idempotency: skip if exact anchor and URL already exist
+        const existing = highlights.find(h => 
+          h.anchor.exact === message.payload.anchor.exact && h.url === message.payload.url
+        );
+        if (existing) {
+          sendResponse({ ok: true, data: { id: existing.id, createdAt: existing.createdAt } });
+          break;
+        }
+
+        const newHighlight: Highlight = {
+          ...message.payload,
+          id: hId as any,
+          createdAt,
+          note: null
+        };
+        highlights.push(newHighlight);
+        await setHighlights(message.payload.urlHash, highlights);
+        sendResponse({ ok: true, data: { id: hId, createdAt } });
+        break;
+      }
+
+      case 'HIGHLIGHTS_FETCH': {
+        const highlights = await getHighlights(message.payload.urlHash);
+        const pageChanged = highlights.length > 0 && 
+            highlights[0].pageMeta.domFingerprint !== message.payload.currentDomFingerprint;
         sendResponse({
           ok: true,
-          data: { highlights: [], pageChanged: false }
+          data: { highlights, pageChanged }
         });
         break;
+      }
+
+      case 'HIGHLIGHT_DELETE': {
+        const highlights = await getHighlights(message.payload.urlHash);
+        const originalLen = highlights.length;
+        const filtered = highlights.filter(h => h.id !== message.payload.highlightId);
+        await setHighlights(message.payload.urlHash, filtered);
+        sendResponse({
+          ok: true,
+          data: { deleted: filtered.length < originalLen }
+        });
+        break;
+      }
+
+      case 'HIGHLIGHT_UPDATE': {
+        const highlights = await getHighlights(message.payload.urlHash);
+        const highlight = highlights.find(h => h.id === message.payload.highlightId);
+        if (highlight) {
+          Object.assign(highlight, message.payload.updates);
+          await setHighlights(message.payload.urlHash, highlights);
+          sendResponse({ ok: true, data: { updated: true } });
+        } else {
+          sendResponse({ ok: true, data: { updated: false } });
+        }
+        break;
+      }
       
       case 'CRYPTO_UNLOCK': {
         const unlocked = await cryptoManager.unlock(message.payload.passphrase);
