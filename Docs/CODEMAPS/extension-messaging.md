@@ -4,7 +4,10 @@
 
 * `src/lib/zod-schemas.ts` (The Contract)
   - `InboundMessageSchema`: Discriminated union of all allowed `chrome.runtime` messages.
-  - Payloads: `HIGHLIGHT_CREATE`, `HIGHLIGHTS_FETCH`, `HIGHLIGHT_DELETE`, `HIGHLIGHT_UPDATE`, `CRYPTO_UNLOCK`, `CRYPTO_LOCK`, `SCRAPE_CONTENT`, `AI_QUERY`, `AI_QUERY_STATUS`, `GEMINI_HEALTH_CHECK`, `EXPORT_WORKSPACE`, `IMPORT_WORKSPACE`.
+  - Payloads: `HIGHLIGHT_CREATE`, `HIGHLIGHTS_FETCH`, `HIGHLIGHT_DELETE`, `HIGHLIGHT_UPDATE`, `CRYPTO_UNLOCK`, `CRYPTO_LOCK`, `SCRAPE_CONTENT`, `AI_QUERY`, `AI_QUERY_STATUS`, `GEMINI_HEALTH_CHECK`, `EXPORT_WORKSPACE`, `IMPORT_WORKSPACE`, `SEMANTIC_SEARCH`, `SPACE_CREATE`, `ARTICLE_SAVE`.
+
+* `src/lib/messaging.ts` (Side Panel SW Bridge)
+  - `sendToSW<T>(message)` -> `chrome.runtime.sendMessage`. Type-safe side panel -> SW relay.
 
 * `src/background/index.ts` (The Router)
   - `chrome.runtime.onMessage.addListener` ->
