@@ -63,7 +63,13 @@ export async function boot() {
   chrome.alarms.create('crypto-autolock', { periodInMinutes: 1.0 });
 }
 
-chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Security: Verify sender is our own extension
+  if (sender.id !== chrome.runtime.id) {
+    console.warn('[IcyCrow] Blocked message from external sender:', sender.id);
+    return false;
+  }
+
   const result = InboundMessageSchema.safeParse(request);
   
   if (!result.success) {
@@ -81,108 +87,24 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   return true; // Keep channel open
 });
 
+/**
+ * Main message router - Decomposed for audit compliance
+ */
 export async function handleMessage(
   message: ValidatedInboundMessage,
   sendResponse: (response: any) => void
 ) {
   try {
     switch (message.type) {
-      case 'HIGHLIGHT_CREATE': {
-        const hId = crypto.randomUUID();
-        const createdAt = new Date().toISOString() as any;
-        
-        try {
-          let alreadyExists = false;
-          let existingData: { id: string, createdAt: string } | null = null;
+      case 'HIGHLIGHT_CREATE':
+      case 'HIGHLIGHTS_FETCH':
+      case 'HIGHLIGHT_DELETE':
+      case 'HIGHLIGHT_UPDATE':
+        return await handleHighlightMessage(message, sendResponse);
 
-          await updateHighlights(message.payload.urlHash, (highlights) => {
-            const existing = highlights.find(h => 
-              h.anchor.exact === message.payload.anchor.exact && h.url === message.payload.url
-            );
-            if (existing) {
-              alreadyExists = true;
-              existingData = { id: existing.id, createdAt: existing.createdAt };
-              return highlights;
-            }
-
-            const newHighlight: Highlight = {
-              ...message.payload,
-              id: hId as any,
-              createdAt,
-              note: null
-            };
-            return [...highlights, newHighlight];
-          });
-
-          if (alreadyExists && existingData) {
-            sendResponse({ ok: true, data: existingData });
-          } else {
-            sendResponse({ ok: true, data: { id: hId, createdAt } });
-          }
-        } catch (err: any) {
-          sendResponse({ 
-            ok: false, 
-            error: { code: 'STORAGE_FAILURE', message: err.message || 'Quota exceeded' } 
-          });
-        }
-        break;
-      }
-
-      case 'HIGHLIGHTS_FETCH': {
-        const highlights = await getHighlights(message.payload.urlHash);
-        const pageChanged = highlights.length > 0 && 
-            highlights[0].pageMeta.domFingerprint !== message.payload.currentDomFingerprint;
-        sendResponse({
-          ok: true,
-          data: { highlights, pageChanged }
-        });
-        break;
-      }
-
-      case 'HIGHLIGHT_DELETE': {
-        try {
-          let deleted = false;
-          await updateHighlights(message.payload.urlHash, (highlights) => {
-            const filtered = highlights.filter(h => h.id !== message.payload.highlightId);
-            deleted = filtered.length < highlights.length;
-            return filtered;
-          });
-          sendResponse({ ok: true, data: { deleted } });
-        } catch (err: any) {
-          sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
-        }
-        break;
-      }
-
-      case 'HIGHLIGHT_UPDATE': {
-        try {
-          let updated = false;
-          await updateHighlights(message.payload.urlHash, (highlights) => {
-            const idx = highlights.findIndex(h => h.id === message.payload.highlightId);
-            if (idx === -1) return highlights;
-            
-            highlights[idx] = { ...highlights[idx], ...message.payload.updates };
-            updated = true;
-            return [...highlights];
-          });
-          sendResponse({ ok: true, data: { updated } });
-        } catch (err: any) {
-          sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
-        }
-        break;
-      }
-      
-      case 'CRYPTO_UNLOCK': {
-        const unlocked = await cryptoManager.unlock(message.payload.passphrase);
-        sendResponse({ ok: true, data: { unlocked, autoLockMinutes: 30 } });
-        break;
-      }
-
-      case 'CRYPTO_LOCK': {
-        await cryptoManager.lock();
-        sendResponse({ ok: true, data: { locked: true } });
-        break;
-      }
+      case 'CRYPTO_UNLOCK':
+      case 'CRYPTO_LOCK':
+        return await handleCryptoMessage(message, sendResponse);
 
       default:
         sendResponse({
@@ -201,6 +123,117 @@ export async function handleMessage(
         message: err.message || 'Unknown error'
       }
     });
+  }
+}
+
+/**
+ * Domain Handler: Highlights
+ */
+async function handleHighlightMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'HIGHLIGHT_CREATE': {
+      const hId = crypto.randomUUID();
+      const createdAt = new Date().toISOString() as any;
+      
+      try {
+        let alreadyExists = false;
+        let existingData: { id: string, createdAt: string } | null = null;
+
+        await updateHighlights(message.payload.urlHash, (highlights) => {
+          const existing = highlights.find(h => 
+            h.anchor.exact === message.payload.anchor.exact && h.url === message.payload.url
+          );
+          if (existing) {
+            alreadyExists = true;
+            existingData = { id: existing.id, createdAt: existing.createdAt };
+            return highlights;
+          }
+
+          const newHighlight: Highlight = {
+            ...message.payload,
+            id: hId as any,
+            createdAt,
+            note: null
+          };
+          return [...highlights, newHighlight];
+        });
+
+        if (alreadyExists && existingData) {
+          sendResponse({ ok: true, data: existingData });
+        } else {
+          sendResponse({ ok: true, data: { id: hId, createdAt } });
+        }
+      } catch (err: any) {
+        sendResponse({ 
+          ok: false, 
+          error: { code: 'STORAGE_FAILURE', message: err.message || 'Quota exceeded' } 
+        });
+      }
+      break;
+    }
+
+    case 'HIGHLIGHTS_FETCH': {
+      const highlights = await getHighlights(message.payload.urlHash);
+      const pageChanged = highlights.length > 0 && 
+          highlights[0].pageMeta.domFingerprint !== message.payload.currentDomFingerprint;
+      sendResponse({
+        ok: true,
+        data: { highlights, pageChanged }
+      });
+      break;
+    }
+
+    case 'HIGHLIGHT_DELETE': {
+      try {
+        let deleted = false;
+        await updateHighlights(message.payload.urlHash, (highlights) => {
+          const filtered = highlights.filter(h => h.id !== message.payload.highlightId);
+          deleted = filtered.length < highlights.length;
+          return filtered;
+        });
+        sendResponse({ ok: true, data: { deleted } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+
+    case 'HIGHLIGHT_UPDATE': {
+      try {
+        let updated = false;
+        await updateHighlights(message.payload.urlHash, (highlights) => {
+          const idx = highlights.findIndex(h => h.id === message.payload.highlightId);
+          if (idx === -1) return highlights;
+          
+          highlights[idx] = { ...highlights[idx], ...message.payload.updates };
+          updated = true;
+          return [...highlights];
+        });
+        sendResponse({ ok: true, data: { updated } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+  }
+}
+
+/**
+ * Domain Handler: Crypto & Security
+ */
+async function handleCryptoMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'CRYPTO_UNLOCK': {
+      const unlocked = await cryptoManager.unlock(message.payload.passphrase);
+      sendResponse({ ok: true, data: { unlocked, autoLockMinutes: 30 } });
+      break;
+    }
+
+    case 'CRYPTO_LOCK': {
+      await cryptoManager.lock();
+      sendResponse({ ok: true, data: { locked: true } });
+      break;
+    }
   }
 }
 

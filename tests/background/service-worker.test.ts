@@ -24,6 +24,7 @@ globalThis.chrome = {
         listeners.onMessage.push(cb);
       }),
     },
+    id: 'mock-extension-id',
   },
   storage: {
     local: {
@@ -139,10 +140,10 @@ describe('Message Router', () => {
     const sendResponse = vi.fn((res) => {
       console.log('[DEBUG] SW sendResponse received:', JSON.stringify(res));
     });
-    onMessageCallback(request, {}, sendResponse);
+    onMessageCallback(request, { id: 'mock-extension-id' }, sendResponse);
     
     // Give it a bit more time for multiple async steps
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     expect(sendResponse).toHaveBeenCalledWith({
       ok: true,
@@ -160,8 +161,8 @@ describe('Message Router', () => {
       payload: { wrongKey: true }
     };
     
-    onMessageCallback(request, {}, sendResponse);
-    await new Promise(resolve => setTimeout(resolve, 0));
+    onMessageCallback(request, { id: 'mock-extension-id' }, sendResponse);
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
       ok: false,
@@ -180,11 +181,8 @@ describe('Message Router', () => {
     };
     
     // Simulating result
-    onMessageCallback(request, {}, sendResponse);
+    onMessageCallback(request, { id: 'mock-extension-id' }, sendResponse);
     await new Promise(resolve => setTimeout(resolve, 100)); // Allow async handler to run
-    
-    const call = sendResponse.mock.calls[0];
-    if (call) console.log('DEBUG_UNLOCK_RES:', JSON.stringify(call[0]));
     
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
       ok: true,
@@ -197,7 +195,7 @@ describe('Message Router', () => {
     const onMessageCallback = listeners.onMessage[0];
     const sendResponse = vi.fn();
     
-    onMessageCallback({ type: 'CRYPTO_LOCK', payload: undefined }, {}, sendResponse);
+    onMessageCallback({ type: 'CRYPTO_LOCK', payload: undefined }, { id: 'mock-extension-id' }, sendResponse);
     await new Promise(resolve => setTimeout(resolve, 100));
     
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
