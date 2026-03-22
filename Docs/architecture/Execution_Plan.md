@@ -22,9 +22,9 @@ IcyCrow decomposes into **10 isolated modules**. Each module has a single owner 
 | **M4** | **Message Router** | `background/service-worker.ts` (router only) | Zod-validated message dispatch, boot sequence, alarms | M2, M3 |
 | **M5** | **Crypto Engine** | `background/crypto-manager.ts`, `lib/crypto-utils.ts` | PBKDF2 key derivation, AES-GCM encrypt/decrypt, auto-lock | M2, M3 |
 | **M6** | **DOM Anchoring & Highlighting** | `content-scripts/highlighter.ts` | TextQuoteSelector capture, 4-strategy restore, `<mark>` rendering | M2 |
-| **M7** | **Content Scraping** | `content-scripts/content-scraper.ts` | Extract page text, chunk large payloads, canonical URL | M2 |
-| **M8** | **Gemini Bridge** | `content-scripts/gemini-bridge.ts`, `content-scripts/anti-detection.ts`, `lib/gemini-selectors.ts` | DOM automation of Gemini tab, human-mimicry typing, selector health | M2, M4 |
-| **M9** | **Offscreen Workers** | `offscreen/offscreen.ts`, `workers/embedding-worker.ts`, `workers/export-worker.ts`, `workers/pdf-worker.ts` | ONNX embedding, cosine search, export/import crypto, PDF parsing | M2, M3 |
+| **M7** | **Content Scraping** | `content-scripts/content-scraper.ts` | Extract page text, chunk large payloads, canonical URL | ✅ |
+| **M8** | **Gemini Bridge** | `content-scripts/gemini-bridge.ts`, `content-scripts/anti-detection.ts`, `lib/gemini-selectors.ts` | DOM automation of Gemini tab, human-mimicry typing, selector health | ✅ |
+| **M9** | **Offscreen Workers** | `offscreen/offscreen.ts`, `workers/embedding-worker.ts`, `workers/export-worker.ts`, `workers/pdf-worker.ts` | ONNX embedding, cosine search, export/import crypto, PDF parsing | ✅ |
 | **M10** | **Side Panel UI** | `side-panel/**` (Preact components, hooks, CSS) | Chat, Spaces, Highlights, Archive, Notes, Settings, CLW | M2 |
 
 ### 1.2 Module Dependency Graph
