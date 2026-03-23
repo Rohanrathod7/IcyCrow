@@ -1,14 +1,15 @@
-import { useEffect } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { sendToSW } from '../../lib/messaging';
 import { spaces, isLoading, error } from '../store';
 import { SpaceCard } from './SpaceCard';
+import { SpaceForm } from './SpaceForm';
 import type { SpacesStore, UUID } from '../../lib/types';
 
 export const SpacesView = () => {
+  const [showForm, setShowForm] = useState(false);
+
   useEffect(() => {
     const fetchSpaces = async () => {
-      // Small delay to ensure store signal is ready if needed, 
-      // but primarily just fetching from storage
       try {
         const result = await chrome.storage.local.get('spaces');
         spaces.value = (result.spaces || {}) as SpacesStore;
@@ -41,7 +42,6 @@ export const SpacesView = () => {
         payload: { spaceId }
       } as any);
       
-      // Optimistic update
       const newSpaces = { ...spaces.value };
       delete newSpaces[spaceId as UUID];
       spaces.value = newSpaces;
@@ -50,20 +50,17 @@ export const SpacesView = () => {
     }
   };
 
-  const handleCreatePrompt = async () => {
-    // This will be replaced by SpaceForm in Phase 3
-    const name = window.prompt('Space Name:');
-    if (!name) return;
-    
+  const handleCreateSpace = async (data: { name: string; color: string; captureCurrentTabs: boolean; createTabGroup: boolean }) => {
     try {
       await sendToSW({
         type: 'SPACE_CREATE',
-        payload: { name, color: '#4a90e2', captureCurrentTabs: true }
+        payload: data
       } as any);
       
-      // Refresh
+      // Refresh list
       const result = await chrome.storage.local.get('spaces');
       spaces.value = (result.spaces || {}) as any;
+      setShowForm(false);
     } catch (err) {
       console.error('Failed to create space:', err);
     }
@@ -75,8 +72,15 @@ export const SpacesView = () => {
     <div className="view-container">
       <div className="flex-row items-center" style={{ marginBottom: '16px' }}>
         <h2 className="section-title" style={{ margin: 0 }}>Spaces</h2>
-        <button className="btn-primary small" onClick={handleCreatePrompt}>+ New</button>
+        <button className="btn-primary small" onClick={() => setShowForm(true)}>+ New</button>
       </div>
+
+      {showForm && (
+        <SpaceForm 
+          onSubmit={handleCreateSpace} 
+          onCancel={() => setShowForm(false)} 
+        />
+      )}
 
       <div className="spaces-list flex-col gap-12">
         {spaceList.map(s => (
@@ -91,7 +95,7 @@ export const SpacesView = () => {
         {spaceList.length === 0 && !isLoading.value && (
           <div className="empty-state">
             <p className="text-dim">No spaces created yet.</p>
-            <button className="btn-secondary" onClick={handleCreatePrompt}>
+            <button className="btn-secondary" onClick={() => setShowForm(true)}>
               Create your first space
             </button>
           </div>
