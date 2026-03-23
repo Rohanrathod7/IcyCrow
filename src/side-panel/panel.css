@@ -292,11 +292,42 @@ button:active {
 }
 
 .context-picker-overlay {
-  background: rgba(0, 0, 0, 0.8);
-  border-bottom: 1px solid var(--glass-border);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
   max-height: 250px;
   overflow-y: auto;
   animation: fadeIn 0.2s ease-out;
+}
+
+/* Hardening Styles */
+.navbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.nav-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.nav-btn.active {
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.tab-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  object-fit: contain;
+  background: rgba(255,255,255,0.05); /* Fallback block */
 }
 
 @keyframes fadeIn {

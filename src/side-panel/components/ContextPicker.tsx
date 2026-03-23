@@ -14,7 +14,12 @@ export const ContextPicker = () => {
 
   useEffect(() => {
     chrome.tabs.query({}, (result) => {
-      setTabs(result);
+      if (chrome.runtime.lastError) {
+        console.error('Tabs Query Error:', chrome.runtime.lastError);
+        setLoading(false);
+        return;
+      }
+      setTabs(result || []);
       setLoading(false);
     });
   }, []);

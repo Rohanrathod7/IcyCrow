@@ -9,9 +9,13 @@ export const ChatView = () => {
   const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
-    const handleMessage = (message: InboundMessage) => {
-      if (message.type === 'AI_RESPONSE_STREAM') {
+    const handleMessage = (message: InboundMessage, sender: chrome.runtime.MessageSender) => {
+      // Security: Validate sender
+      if (sender.id !== chrome.runtime.id) return;
+      
+      if (message.type === 'AI_RESPONSE_STREAM' && message.payload) {
         const { taskId, chunk, done, error } = message.payload;
+        if (!taskId) return;
         
         // Find existing assistant message for this task or create one
         const messages = [...chatMessages.value];
@@ -21,7 +25,7 @@ export const ChatView = () => {
           const newAssistantMsg = {
             id: crypto.randomUUID() as UUID,
             role: 'assistant' as const,
-            content: chunk,
+            content: chunk || '',
             timestamp: new Date().toISOString() as ISOTimestamp,
             contextTabIds: [],
             taskId: taskId as UUID
@@ -30,7 +34,7 @@ export const ChatView = () => {
         } else {
           messages[assistantMsgIndex] = {
             ...messages[assistantMsgIndex],
-            content: messages[assistantMsgIndex].content + chunk
+            content: messages[assistantMsgIndex].content + (chunk || '')
           };
           chatMessages.value = messages;
         }
