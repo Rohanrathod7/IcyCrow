@@ -5,6 +5,7 @@ export const NavBar = () => {
     { id: 'home', label: 'Home' },
     { id: 'search', label: 'Search' },
     { id: 'chat', label: 'Chat' },
+    { id: 'highlights', label: 'Highlights' },
     { id: 'spaces', label: 'Spaces' },
     { id: 'settings', label: 'Settings' },
   ];

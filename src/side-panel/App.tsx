@@ -1,13 +1,19 @@
-import { activeView, isLoading, error } from './store';
+import { activeView, isLoading, error, syncAllHighlights } from './store';
 import { NavBar } from './components/NavBar';
 import { HomeView } from './components/HomeView';
 import { SearchView } from './components/SearchView';
 import { SpacesView } from './components/SpacesView';
 import { SettingsView } from './components/SettingsView';
 import { ChatView } from './components/ChatView';
+import { HighlightsPanel } from './components/HighlightsPanel';
+import { useEffect } from 'preact/hooks';
 import './panel.css';
 
 export const App = () => {
+  useEffect(() => {
+    syncAllHighlights();
+  }, []);
+
   const renderView = () => {
     switch (activeView.value) {
       case 'home': return <HomeView />;
@@ -15,6 +21,7 @@ export const App = () => {
       case 'chat': return <ChatView />;
       case 'spaces': return <SpacesView />;
       case 'settings': return <SettingsView />;
+      case 'highlights': return <HighlightsPanel />;
       default: return <HomeView />;
     }
   };

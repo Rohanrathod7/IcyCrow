@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals';
 import type { Highlight, SpacesStore, ChatMessage, UUID } from '../lib/types';
 
-export type ViewType = 'home' | 'search' | 'chat' | 'spaces' | 'settings';
+export type ViewType = 'home' | 'search' | 'chat' | 'spaces' | 'settings' | 'highlights';
 
 export interface SearchResult {
   text: string;
