@@ -7,6 +7,7 @@ import { taskQueue } from '@lib/task-queue';
 import { watchGeminiTab } from './gemini-detector';
 import { GEMINI_SELECTORS } from '@lib/gemini-selectors';
 import { offscreenManager } from './offscreen-manager';
+import { spaceManager } from './managers/space-manager';
 import { saveArticle, saveEmbedding, getAllEmbeddings, saveBackupManifest } from '@lib/idb-store';
 import { validateExportPassword } from '@lib/export-worker';
 import type { IDBArticle, UUID, ISOTimestamp } from '@lib/types';
@@ -123,6 +124,12 @@ export async function handleMessage(
       case 'AI_QUERY_STATUS':
       case 'GEMINI_HEALTH_CHECK':
         return await handleAiMessage(message, sendResponse);
+
+      case 'SPACE_CREATE':
+      case 'SPACE_RESTORE':
+      case 'SPACE_DELETE':
+      case 'SPACE_UPDATE':
+        return await handleSpaceMessage(message, sendResponse);
 
       default:
         sendResponse({
@@ -449,6 +456,47 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
       } catch (err: any) {
         sendResponse({ ok: false, error: { code: 'IMPORT_FAILURE', message: err.message } });
       }
+      break;
+    }
+  }
+}
+
+/**
+ * Domain Handler: Spaces & Tab Groups
+ */
+async function handleSpaceMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'SPACE_CREATE': {
+      const space = await spaceManager.createSpace(
+        message.payload.name,
+        message.payload.color,
+        message.payload.captureCurrentTabs
+      );
+      sendResponse({ ok: true, data: { space } });
+      break;
+    }
+
+    case 'SPACE_RESTORE': {
+      const tabsOpened = await spaceManager.restoreSpace(
+        message.payload.spaceId,
+        true // Always enable native grouping for now as per PRD
+      );
+      sendResponse({ ok: true, data: { tabsOpened } });
+      break;
+    }
+
+    case 'SPACE_DELETE': {
+      const deleted = await spaceManager.deleteSpace(message.payload.spaceId);
+      sendResponse({ ok: true, data: { deleted } });
+      break;
+    }
+
+    case 'SPACE_UPDATE': {
+      const updated = await spaceManager.updateSpace(
+        message.payload.spaceId,
+        message.payload.updates
+      );
+      sendResponse({ ok: true, data: { updated } });
       break;
     }
   }

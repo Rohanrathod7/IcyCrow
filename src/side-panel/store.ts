@@ -1,5 +1,5 @@
 import { signal } from '@preact/signals';
-import type { Highlight, SpacesStore, ChatMessage } from '../lib/types';
+import type { Highlight, SpacesStore, ChatMessage, UUID } from '../lib/types';
 
 export type ViewType = 'home' | 'search' | 'chat' | 'spaces' | 'settings';
 
@@ -10,6 +10,7 @@ export interface SearchResult {
 }
 
 export const activeView = signal<ViewType>('home');
+export const activeSpaceId = signal<UUID | null>(null);
 export const highlights = signal<Highlight[]>([]);
 export const spaces = signal<SpacesStore>({});
 export const searchResults = signal<SearchResult[]>([]);
