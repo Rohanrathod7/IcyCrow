@@ -1,63 +1,78 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render } from 'preact';
+import { render, fireEvent } from '@testing-library/preact';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SpacesView } from '../../../src/side-panel/components/SpacesView';
+import { spaces, activeSpaceId } from '../../../src/side-panel/store';
 import { sendToSW } from '../../../src/lib/messaging';
-import { spaces, isLoading, error } from '../../../src/side-panel/store';
 
+// Mock messaging
 vi.mock('../../../src/lib/messaging', () => ({
   sendToSW: vi.fn(),
 }));
 
-describe('SpacesView Component', () => {
+describe('SpacesView', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div>';
-    spaces.value = {} as any;
-    isLoading.value = false;
-    error.value = null;
-
-
+    vi.clearAllMocks();
+    spaces.value = {};
+    activeSpaceId.value = null;
+    
+    // Mock chrome storage
     global.chrome = {
       storage: {
-        local: { get: vi.fn() },
-      },
+        local: {
+          get: vi.fn().mockResolvedValue({ spaces: {} }),
+          set: vi.fn(),
+        }
+      }
     } as any;
-
-    vi.stubGlobal('prompt', vi.fn().mockReturnValue('New Space Name'));
   });
 
+  it('renders empty state when no spaces exist', async () => {
+    const root = document.getElementById('app')!;
+    render(<SpacesView />, { container: root });
+    expect(document.body.innerHTML).toContain('No spaces created yet');
+  });
 
-  it('should list existing spaces from storage', async () => {
+  it('renders a list of space cards', async () => {
     const mockSpaces = {
-      spaces: {
-        'space-1': { id: 'space-1', name: 'Work', color: 'blue', createdAt: new Date().toISOString() },
-        'space-2': { id: 'space-2', name: 'Personal', color: 'green', createdAt: new Date().toISOString() },
+      's1': {
+        id: 's1',
+        name: 'Work Space',
+        color: '#ff0000',
+        createdAt: new Date().toISOString(),
+        tabs: [{ url: 'https://test.com' }]
       }
     };
-
-    (chrome.storage.local.get as any).mockResolvedValue(mockSpaces);
-
+    spaces.value = mockSpaces as any;
+    
     const root = document.getElementById('app')!;
-    render(<SpacesView />, root);
-
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    expect(document.body.innerHTML).toContain('Work');
-    expect(document.body.innerHTML).toContain('Personal');
-
+    render(<SpacesView />, { container: root });
+    
+    expect(document.body.innerHTML).toContain('Work Space');
+    expect(document.body.innerHTML).toContain('1 tabs');
   });
 
-  it('should show "New Space" button and call sendToSW on click', async () => {
-    (chrome.storage.local.get as any).mockResolvedValue({});
+  it('dispatches SPACE_RESTORE message when restore button is clicked', async () => {
+    const mockSpaces = {
+      's1': {
+        id: 's1',
+        name: 'Work Space',
+        color: '#ff0000',
+        tabs: []
+      }
+    };
+    spaces.value = mockSpaces as any;
+    
     const root = document.getElementById('app')!;
-    render(<SpacesView />, root);
-
-    const btn = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('Space'))!;
-
-    btn.click();
-
+    render(<SpacesView />, { container: root });
+    
+    const restoreBtn = document.querySelector('.btn-secondary') as HTMLButtonElement;
+    fireEvent.click(restoreBtn);
+    
     expect(sendToSW).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'SPACE_CREATE'
+      type: 'SPACE_RESTORE',
+      payload: { spaceId: 's1' }
     }));
   });
 });
