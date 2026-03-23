@@ -316,8 +316,8 @@ icycrow/
 | **S8** | Offscreen + Embedding Worker | M9 (partial) | 2.5 hr | S2, S3 |
 | **S9** | Offscreen + Export Worker | M9 (partial) | 2 hr | S4, S8 |
 | **S10** | Side Panel — Shell & Navigation | M10 (shell) | 1.5 hr | S3 |
-| **S11** | Side Panel — Chat UI | M10 (chat) | 2 hr | S7, S10 |
-| **S12** | Side Panel — Spaces UI | M10 (spaces) | 1.5 hr | S3, S10 |
+| **S11** | Side Panel — Chat UI | ✅ COMPLETED | 2 hr | S7, S10 |
+| **S12** | Side Panel — Spaces UI | ✅ COMPLETED | 591350d | 2026-03-23 |
 | **S13** | Side Panel — Highlights UI | M10 (highlights) | 1.5 hr | S5, S10 |
 | **S14** | Side Panel — Archive & Search UI | M10 (archive) | 2 hr | S8, S10 |
 | **S15** | Side Panel — Settings & Export UI | M10 (settings) | 1.5 hr | S4, S9, S10 |
@@ -540,7 +540,7 @@ DO:
 
 ---
 
-#### S11 — Chat UI
+#### ✅ COMPLETED: S11 — Chat UI
 
 **Goal:** User can type a question, select context tabs, and see the AI response.
 
@@ -775,4 +775,5 @@ DO:
 | S8 | Semantic Embedding & Offscreen Worker | ✅ COMPLETED | 91cb0c5 | 2026-03-22 |
 | S9 | Encrypted Export/Import Workspace | ✅ COMPLETED | — | 2026-03-22 |
 | **S10** | **Side Panel Shell & Navigation** | ✅ COMPLETED | 66a1937 | 2026-03-22 |
+| S11 | Side Panel — Chat UI | ✅ COMPLETED | c3f0911 | 2026-03-23 |
 

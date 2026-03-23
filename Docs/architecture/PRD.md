@@ -193,8 +193,8 @@ The MVP is organised into **five epics**. Each epic contains granular, actionabl
 
 | # | Story | Acceptance Criteria |
 |---|---|---|
-| 2.1 | **Space CRUD** — Create, rename, delete, and list Spaces (groups of tabs). | Persisted in `chrome.storage.local`; each Space stores tab URLs, titles, favicons, and scroll positions. |
-| 2.2 | **One-Click Restore** — Restore all tabs in a Space. | Tabs open in "discarded" state (`chrome.tabs.create({ active: false, discarded: true })`). |
+| 2.1 | **Space CRUD** — Create, rename, delete, and list Spaces (groups of tabs). | ✅ COMPLETED |
+| 2.2 | **One-Click Restore** — Restore all tabs in a Space. | ✅ COMPLETED |
 | 2.3 | **Live Sync** — If a tab within a saved Space navigates to a new URL, update the Space automatically. | `chrome.tabs.onUpdated` listener compares against Space registry and patches matching entries. |
 | 2.4 | **Dynamic Hibernation** — Auto-discard tabs inactive for a configurable threshold (default 15 min). | Uses `chrome.idle` + per-tab last-active timestamps. Discarded tabs remain in the tab strip. |
 | 2.5 | **AI-Driven Tab Grouping** — Send tab titles/URLs to AI and receive suggested semantic "Stacks". | User can accept, modify, or reject suggestions; accepted stacks map to `chrome.tabGroups`. |
@@ -220,8 +220,8 @@ The MVP is organised into **five epics**. Each epic contains granular, actionabl
 
 | # | Story | Acceptance Criteria |
 |---|---|---|
-| 4.1 | **Chat UI (Side Panel)** — Persistent side-panel chat interface. | Markdown rendering, code syntax highlighting, copy-to-clipboard on code blocks. |
-| 4.2 | **Multi-Tab Context Injection** — User selects 1-N tabs; their content is concatenated and sent as context to the Gemini prompt. | Token/character budget management; content is truncated with a summary if it exceeds a configurable limit. |
+| 4.1 | **Chat UI (Side Panel)** — Persistent side-panel chat interface. | ✅ IMPLEMENTED |
+| 4.2 | **Multi-Tab Context Injection** — User selects 1-N tabs; their content is concatenated and sent as context to the Gemini prompt. | ✅ IMPLEMENTED |
 | 4.3 | **Chat History per Space** — Each Space maintains its own chat history. | Switching Spaces switches chat history; history is searchable. |
 | 4.4 | **CLW (Command Line Workspace)** — `Ctrl+K` command palette for quick AI tasks, tab search, and Space switching. | Fuzzy search across tabs, Spaces, and chat history; supports `/commands` (e.g., `/summarise`, `/compare`). |
 
