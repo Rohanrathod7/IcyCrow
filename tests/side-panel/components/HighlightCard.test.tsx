@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render } from '@testing-library/preact';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { render, fireEvent } from '@testing-library/preact';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { HighlightCard } from '../../../src/side-panel/components/HighlightCard';
 import type { Highlight } from '../../../src/lib/types';
 
@@ -35,5 +35,29 @@ describe('HighlightCard', () => {
     
     const marker = document.querySelector('.highlight-marker');
     expect(marker?.classList.contains('yellow')).toBe(true);
+  });
+
+  it('calls chrome.tabs.create when source button is clicked', () => {
+    global.chrome = {
+      tabs: {
+        create: vi.fn()
+      }
+    } as any;
+
+    const root = document.getElementById('app')!;
+    render(<HighlightCard highlight={mockHighlight} />, { container: root });
+    
+    const sourceBtn = document.querySelector('.btn-source') as HTMLButtonElement;
+    fireEvent.click(sourceBtn);
+    
+    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: mockHighlight.url });
+  });
+
+  it('renders ghost warning when isGhost is true', () => {
+    const root = document.getElementById('app')!;
+    render(<HighlightCard highlight={mockHighlight} isGhost={true} />, { container: root });
+    
+    expect(document.body.innerHTML).toContain('⚠️');
+    expect(document.body.innerHTML).toContain('Page content changed');
   });
 });
