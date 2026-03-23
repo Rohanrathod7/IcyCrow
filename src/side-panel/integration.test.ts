@@ -1,6 +1,7 @@
 import { expect, it, describe, vi, beforeEach, afterEach } from 'vitest';
 import { settings, spaces, isLocked, hydrateStore } from './store';
 import { DEFAULT_SETTINGS } from '../lib/constants';
+import type { UUID, ISOTimestamp } from '../lib/types';
 
 // @vitest-environment jsdom
 
@@ -64,15 +65,15 @@ describe('IcyCrow Full-Stack Integration', () => {
 
   it('performs a complete data "Round Trip" successfully', async () => {
     // 1. Setup Data: Space + Highlight + Chat
-    const spaceId = 'space-123' as any;
+    const spaceId = 'space-123' as UUID;
     spaces.value = {
       [spaceId]: {
         id: spaceId,
         name: 'Integration Test',
         color: '#ff0000',
         tabs: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString() as ISOTimestamp,
+        updatedAt: new Date().toISOString() as ISOTimestamp,
       }
     };
 
