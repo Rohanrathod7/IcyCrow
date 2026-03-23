@@ -1,104 +1,183 @@
-import { isLoading, error } from '../store';
-import { sendToSW } from '../../lib/messaging';
+import { settings, isLocked } from '../store';
+import { setSettings } from '../../lib/storage';
+import { useState, useEffect } from 'preact/hooks';
 
 export const SettingsView = () => {
-  const handleExport = async () => {
-    const password = window.prompt('Enter encryption password for export:');
-    if (!password) return;
+  const currentSettings = settings.value;
+  const [storageUsage, setStorageUsage] = useState<number>(0);
 
-    isLoading.value = true;
-    try {
-      const result = await sendToSW<any>({
-        type: 'EXPORT_WORKSPACE',
-        payload: { password }
-      } as any);
-      
-      if (result.ok && result.data.arrayBuffer) {
-        const blob = new Blob([result.data.arrayBuffer], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `icycrow-backup-${new Date().toISOString().split('T')[0]}.icycrow`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else if (!result.ok) {
-        throw new Error(result.error?.message || 'Export failed');
+  useEffect(() => {
+    const fetchStorage = async () => {
+      if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        try {
+          // getBytesInUse might not be available in all mock environments
+          const bytes = await (chrome.storage.local as any).getBytesInUse(null);
+          setStorageUsage(bytes);
+        } catch (e) {
+          console.warn('[SettingsView] Could not fetch storage usage:', e);
+        }
       }
-    } catch (err) {
-      console.error('Export failed:', err);
-      error.value = 'Export failed: ' + (err as Error).message;
-    } finally {
-      isLoading.value = false;
+    };
+    fetchStorage();
+
+    // Listen for storage changes to keep dashboard up to date
+    if (typeof chrome !== 'undefined' && chrome.storage?.onChanged) {
+      const listener = () => fetchStorage();
+      chrome.storage.onChanged.addListener(listener);
+      return () => chrome.storage.onChanged.removeListener(listener);
+    }
+  }, []);
+
+  const updateTheme = async (theme: 'light' | 'dark' | 'system') => {
+    const updated = { ...settings.value, theme };
+    settings.value = updated;
+    await setSettings(updated);
+  };
+
+  const updateEngine = async (aiEngine: 'gemini' | 'window.ai') => {
+    const updated = { ...settings.value, aiEngine };
+    settings.value = updated;
+    await setSettings(updated);
+  };
+
+  const handleLock = () => chrome.runtime.sendMessage({ type: 'CRYPTO_LOCK' });
+  
+  const handleUnlock = () => {
+    const passphrase = prompt('Enter workspace password:');
+    if (passphrase) {
+      chrome.runtime.sendMessage({ type: 'CRYPTO_UNLOCK', payload: { passphrase } });
     }
   };
 
-  const handleImport = async (e: Event) => {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-
-    const password = window.prompt('Enter password to decrypt the backup:');
-    if (!password) return;
-
-    isLoading.value = true;
-    try {
-      const buffer = await file.arrayBuffer();
-      const result = await sendToSW<any>({
-        type: 'IMPORT_WORKSPACE',
-        payload: { arrayBuffer: buffer, password }
-      } as any);
-      if (result.ok) {
-        window.alert('Import successful! Your workspace has been restored.');
-      } else {
-        throw new Error(result.error?.message || 'Import failed');
-      }
-    } catch (err) {
-      console.error('Import failed:', err);
-      error.value = 'Import failed: ' + (err as Error).message;
-    } finally {
-      isLoading.value = false;
-      (e.target as HTMLInputElement).value = ''; // Reset input
+  const handleNukeData = () => {
+    const confirmation = prompt('Type "DELETE" to clear ALL local data. This cannot be undone:');
+    if (confirmation === 'DELETE') {
+      chrome.runtime.sendMessage({ type: 'NUKE_DATA' });
     }
+  };
+
+  const handleExport = () => {
+    const password = prompt('Enter a password to encrypt your backup:');
+    if (password) {
+      chrome.runtime.sendMessage({ type: 'EXPORT_WORKSPACE', payload: { password } });
+    }
+  };
+
+  const handleImport = async () => {
+    try {
+      const [handle] = await (window as any).showOpenFilePicker({
+        types: [{ description: 'IcyCrow Backup', accept: { 'application/x-icycrow': ['.icycrow'] } }]
+      });
+      if (!handle) return;
+      const file = await handle.getFile();
+      chrome.runtime.sendMessage({ type: 'IMPORT_WORKSPACE', payload: { file } });
+    } catch (err) {
+      console.error('[SettingsView] Import failed or cancelled:', err);
+    }
+  };
+
+  const handleDebugExport = () => {
+    chrome.runtime.sendMessage({ type: 'DEBUG_EXPORT' });
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = 2;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return (bytes / Math.pow(k, i)).toFixed(dm) + ' ' + sizes[i];
   };
 
   return (
-    <div className="view-container">
-      <h3 className="section-title">Data & Backup</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        
-        <div className="card">
-          <h4 style={{ margin: '0 0 10px 0', fontSize: '1em' }}>Export Workspace</h4>
-          <p className="text-dim" style={{ marginBottom: '15px', lineHeight: '1.4' }}>
-            Download a secure, encrypted backup regarding your highlights, spaces, and notes.
-          </p>
-          <button 
-            onClick={handleExport}
-            disabled={isLoading.value}
-            className="btn-primary"
-            style={{ width: '100%' }}
-          >
-            {isLoading.value ? '...' : 'Export (.icycrow)'}
-          </button>
-        </div>
+    <div className="view-container settings-view">
+      <h3 className="section-title">Common Settings</h3>
+      
+      <div className="setting-group">
+        <label htmlFor="theme-select">Theme</label>
+        <select 
+          id="theme-select"
+          value={currentSettings.theme} 
+          onChange={(e) => updateTheme((e.target as HTMLSelectElement).value as any)}
+        >
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="system">System</option>
+        </select>
+      </div>
 
-        <div className="card">
-          <h4 style={{ margin: '0 0 10px 0', fontSize: '1em' }}>Import Workspace</h4>
-          <p className="text-dim" style={{ marginBottom: '15px', lineHeight: '1.4' }}>
-            Restore your data from an existing backup file.
-          </p>
-          <label className="btn-primary" style={{ display: 'block', textAlign: 'center', background: 'rgba(255,255,255,0.1)', color: 'white' }}>
-            {isLoading.value ? '...' : 'Choose Backup File'}
-            <input 
-              type="file" 
-              accept=".icycrow" 
-              onChange={handleImport} 
-              disabled={isLoading.value} 
-              style={{ display: 'none' }} 
-            />
-          </label>
-        </div>
+      <div className="setting-group">
+        <label htmlFor="engine-select">AI Engine</label>
+        <select 
+          id="engine-select"
+          value={currentSettings.aiEngine || 'gemini'} 
+          onChange={(e) => updateEngine((e.target as HTMLSelectElement).value as any)}
+        >
+          <option value="gemini">Gemini (Cloud Bridge)</option>
+          <option value="window.ai">Gemini Nano (Local)</option>
+        </select>
+      </div>
 
+      <hr />
+
+      <h3 className="section-title">Workspace Security</h3>
+      <div className="glass-card" style={{ padding: '16px' }}>
+        <div className="flex-row items-center" style={{ marginBottom: '12px' }}>
+          <span className={`status-pill ${isLocked.value ? 'locked' : 'unlocked'}`} style={{ 
+            padding: '4px 12px', 
+            borderRadius: '20px', 
+            fontSize: '0.8rem',
+            background: isLocked.value ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+            color: isLocked.value ? '#ef4444' : '#22c55e'
+          }}>
+            {isLocked.value ? '🔒 Locked' : '🔓 Unlocked'}
+          </span>
+          <div className="btn-group">
+            {isLocked.value ? (
+              <button onClick={handleUnlock} className="btn-primary small">Unlock</button>
+            ) : (
+              <button onClick={handleLock} className="btn-ghost small">Lock</button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <h3 className="section-title" style={{ marginTop: '16px' }}>Backup & Restore</h3>
+      <div className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <button onClick={handleExport} className="btn-ghost" style={{ width: '100%', justifyContent: 'center' }}>
+          📦 Generate Encrypted Backup
+        </button>
+        <button onClick={handleImport} className="btn-ghost" style={{ width: '100%', justifyContent: 'center' }}>
+          📥 Restore from Backup
+        </button>
+        <p className="text-dim" style={{ fontSize: '0.75rem' }}>Backups are encrypted using your chosen password.</p>
+      </div>
+
+      <h3 className="section-title" style={{ marginTop: '16px' }}>Storage & Diagnostics</h3>
+      <div className="glass-card" style={{ padding: '16px', marginBottom: '16px' }}>
+        <div className="flex-row">
+          <span className="text-dim">Local Storage Used</span>
+          <span data-testid="storage-usage" style={{ fontWeight: 600 }}>{formatBytes(storageUsage)}</span>
+        </div>
+        <div className="progress-bar-container" style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden', marginTop: '8px' }}>
+          <div className="progress-bar" style={{ width: '2%', height: '100%', background: 'var(--accent-primary)' }}></div>
+        </div>
+        <button onClick={handleDebugExport} className="btn-ghost" style={{ width: '100%', marginTop: '16px' }}>
+          🔍 Download Diagnostics
+        </button>
+      </div>
+
+      <div className="danger-zone" style={{ marginTop: 'auto', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+        <h4 style={{ color: 'var(--danger)', marginBottom: '8px' }}>Danger Zone</h4>
+        <button 
+          onClick={handleNukeData}
+          data-testid="nuke-button"
+          className="btn-primary"
+          style={{ width: '100%', padding: '10px', background: 'var(--danger)' }}
+        >
+          Clear All Local Data
+        </button>
+        <p className="text-dim" style={{ fontSize: '0.75rem', marginTop: '8px' }}>Requires text confirmation to wipe all data.</p>
       </div>
     </div>
   );

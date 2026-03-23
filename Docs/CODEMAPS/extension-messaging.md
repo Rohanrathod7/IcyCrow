@@ -4,7 +4,7 @@
 
 * `src/lib/zod-schemas.ts` (The Contract)
   - `InboundMessageSchema`: Discriminated union of all allowed `chrome.runtime` messages.
-  - Payloads: `HIGHLIGHT_CREATE`, `HIGHLIGHTS_FETCH`, `HIGHLIGHT_DELETE`, `HIGHLIGHT_UPDATE`, `CRYPTO_UNLOCK`, `CRYPTO_LOCK`, `SCRAPE_CONTENT`, `AI_QUERY`, `AI_QUERY_STATUS`, `GEMINI_HEALTH_CHECK`, `EXPORT_WORKSPACE`, `IMPORT_WORKSPACE`, `SEMANTIC_SEARCH`, `SPACE_CREATE`, `ARTICLE_SAVE`, `WINDOW_AI_QUERY`.
+  - Payloads: `HIGHLIGHT_CREATE`, `HIGHLIGHTS_FETCH`, `HIGHLIGHT_DELETE`, `HIGHLIGHT_UPDATE`, `CRYPTO_UNLOCK`, `CRYPTO_LOCK`, `SCRAPE_CONTENT`, `AI_QUERY`, `AI_QUERY_STATUS`, `GEMINI_HEALTH_CHECK`, `EXPORT_WORKSPACE`, `IMPORT_WORKSPACE`, `SEMANTIC_SEARCH`, `SPACE_CREATE`, `ARTICLE_SAVE`, `WINDOW_AI_QUERY`, `DEBUG_EXPORT`, `NUKE_DATA`.
 
 * `src/lib/messaging.ts` (Side Panel SW Bridge)
   - `sendToSW<T>(message)` -> `chrome.runtime.sendMessage`. Type-safe side panel -> SW relay.
@@ -34,5 +34,5 @@
   - **Save Article**: `Side Panel -> ARTICLE_SAVE -> SW (handleArticleMessage) -> Offscreen (EMBED_TEXT) -> SW (saveEmbedding)`.
   - **Semantic Search**: `Side Panel -> SEMANTIC_SEARCH -> SW (getAllArticles) -> Offscreen (SEMANTIC_SEARCH) -> SW (Relay)`.
 * Message Flows (S9):
-  - **Export**: `UI -> EXPORT_WORKSPACE -> SW (Validator) -> Offscreen (exportWorkspace) -> SW (Manifest Save) -> UI`.
-  - **Import**: `UI -> IMPORT_WORKSPACE -> SW -> Offscreen (importWorkspace) -> IDB (Batched Restore) -> SW`.
+  - **Export**: `UI -> EXPORT_WORKSPACE -> SW (Validator) -> Offscreen (exportWorker) -> Serialise + AES-GCM + HMAC -> UI`.
+  - **Import**: `UI -> IMPORT_WORKSPACE -> SW -> Offscreen (exportWorker) -> Verify HMAC + Decrypt -> IDB (Batched Restore) -> SW`.

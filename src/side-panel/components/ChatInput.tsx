@@ -35,18 +35,27 @@ export const ChatInput = ({ onSubmit, disabled }: Props) => {
   const engineLabel = chatEngine.value === 'window.ai' ? 'Gemini Nano (Local)' : 'Gemini 1.5 Pro';
 
   return (
-    <div className="chat-input-container">
-      <div className="engine-status text-dim">{engineLabel} is active</div>
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onInput={(e) => setValue((e.target as HTMLTextAreaElement).value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Ask anything about these tabs..."
-        disabled={disabled}
-        rows={1}
-        className="chat-textarea"
-      />
+    <div className="chat-input-container glass-card" style={{ 
+      margin: '0 16px 16px 16px', 
+      borderRadius: '12px',
+      flexDirection: 'column',
+      padding: '12px'
+    }}>
+      <div className="engine-status text-dim" style={{ fontSize: '0.75rem', marginBottom: '8px' }}>
+        ✨ {engineLabel} is active
+      </div>
+      <div style={{ display: 'flex', gap: '10px', width: '100%', alignItems: 'flex-end' }}>
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onInput={(e) => setValue((e.target as HTMLTextAreaElement).value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask anything about these tabs..."
+          disabled={disabled}
+          rows={1}
+          className="chat-textarea"
+          style={{ background: 'transparent', border: 'none', padding: '0px' }}
+        />
       <button 
         onClick={handleSubmit} 
         disabled={disabled || !value.trim()}
@@ -56,6 +65,7 @@ export const ChatInput = ({ onSubmit, disabled }: Props) => {
           <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
         </svg>
       </button>
+      </div>
     </div>
   );
 };

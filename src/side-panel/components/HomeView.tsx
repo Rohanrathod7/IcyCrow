@@ -1,5 +1,5 @@
 import { useEffect } from 'preact/hooks';
-import { highlights, isLoading, error } from '../store';
+import { allHighlights, isLoading, error } from '../store';
 
 
 export const HomeView = () => {
@@ -19,7 +19,7 @@ export const HomeView = () => {
             }
           });
         }
-        highlights.value = collected;
+        allHighlights.value = collected;
 
       } catch (err) {
         console.error('Failed to fetch highlights:', err);
@@ -34,28 +34,33 @@ export const HomeView = () => {
 
   if (isLoading.value) return <div style={{ padding: '20px' }}>Loading Highlights...</div>;
   
-  if (highlights.value.length === 0) {
+  if (allHighlights.value.length === 0) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center', opacity: 0.7 }}>
+      <div className="empty-state">
         <p>No highlights yet.</p>
-        <p style={{ fontSize: '0.8em' }}>Start highlighting on Gemini or use the hotkey!</p>
+        <p className="text-dim">Start highlighting on Gemini or use the hotkey!</p>
       </div>
     );
   }
 
   return (
     <div className="view-container">
-      <h3 className="section-title">Recent Highlights</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {highlights.value.map(h => (
+      <h3 className="section-title">✨ Recent Highlights</h3>
+      <div className="bento-grid" style={{ gridTemplateColumns: '1fr' }}>
+        {allHighlights.value.map((h: any) => (
           <div 
             key={h.id} 
-            className="card"
+            className="bento-item"
             style={{ 
-              borderLeft: `3px solid ${h.color || '#F0F0F0'}`,
+              borderLeft: `4px solid ${h.color || 'var(--accent-primary)'}`
             }}
           >
-            {h.text}
+            <div className="text-truncate" style={{ fontWeight: 500, marginBottom: '4px' }}>
+              {h.text}
+            </div>
+            <div className="text-dim" style={{ fontSize: '0.75em' }}>
+              {new Date(h.createdAt).toLocaleDateString()}
+            </div>
           </div>
         ))}
       </div>

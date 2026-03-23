@@ -12,9 +12,9 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
   
   return (
     <div 
-      className="card space-card bento-card" 
+      className="bento-item" 
       data-testid={`space-card-${space.id}`}
-      style={{ borderLeft: `4px solid ${space.color || '#444'}` }}
+      style={{ borderLeft: `6px solid ${space.color || 'var(--accent-primary)'}` }}
     >
       <div className="flex-col gap-12">
         <div className="flex-row items-center">

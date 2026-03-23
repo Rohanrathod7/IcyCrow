@@ -317,22 +317,18 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
         const history = await getChatHistory(spaceId);
         const contextualPrompt = aiManager.formatContext(history, prompt);
 
+        // Run async without blocking the main SW loop
         aiManager.queryBuiltIn(contextualPrompt, (chunk) => {
           chrome.runtime.sendMessage({
             type: 'AI_RESPONSE_STREAM',
             payload: { taskId, chunk, done: false }
           });
         }).then(() => {
-          chrome.runtime.sendMessage({
-            type: 'AI_RESPONSE_STREAM',
-            payload: { taskId, chunk: '', done: true }
-          });
+          chrome.runtime.sendMessage({ type: 'AI_RESPONSE_STREAM', payload: { taskId, chunk: '', done: true } });
         }).catch((err) => {
-          chrome.runtime.sendMessage({
-            type: 'AI_RESPONSE_STREAM',
-            payload: { taskId, chunk: '', done: true, error: err.message }
-          });
+          chrome.runtime.sendMessage({ type: 'AI_RESPONSE_STREAM', payload: { taskId, chunk: '', done: true, error: err.message } });
         });
+
         sendResponse({ ok: true, data: { status: 'started' } });
       } catch (err: any) {
         sendResponse({ ok: false, error: { code: 'WINDOW_AI_ERROR', message: err.message } });

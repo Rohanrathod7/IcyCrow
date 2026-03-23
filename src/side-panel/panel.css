@@ -1,12 +1,16 @@
 :root {
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.1);
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --border-color: rgba(255, 255, 255, 0.08);
   --accent-primary: #3a76f0;
+  --accent-secondary: #6366f1;
   --text-main: #ffffff;
   --text-dim: rgba(255, 255, 255, 0.6);
   --danger: #ef4444;
-  --bg-panel: #121212;
+  --bg-panel: #0d0d0d;
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
 * {
@@ -74,10 +78,40 @@ body {
 
 /* Layout Utilities */
 .view-container {
-  padding: 15px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Bento Grid System */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.bento-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bento-item:hover {
+  background: var(--glass-bg);
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glass);
+}
+
+.bento-item-large {
+  grid-column: span 2;
 }
 
 .section-title {

@@ -317,11 +317,12 @@ icycrow/
 | **S9** | Offscreen + Export Worker | M9 (partial) | 2 hr | S4, S8 |
 | **S10** | Side Panel — Shell & Navigation | M10 (shell) | 1.5 hr | S3 |
 | **S11** | Side Panel — Chat UI | ✅ COMPLETED | 2 hr | S7, S10 |
-| **S12** | Side Panel — Spaces UI | ✅ COMPLETED | 591350d | 2026-03-23 |
-| **S13** | Side Panel — Highlights UI | M10 (highlights) | 1.5 hr | S5, S10 |
-| **S14** | Side Panel — Archive & Search UI | M10 (archive) | 2 hr | S8, S10 |
-| **S15** | Side Panel — Settings & Export UI | M10 (settings) | 1.5 hr | S4, S9, S10 |
-| **S16** | Integration Testing & Polish | All | 3 hr | S11–S15 |
+| **S12** | Side Panel — Spaces UI | ✅ COMPLETED | 181af39 | 2026-03-23 |
+| **S13** | Side Panel — Highlights UI | ✅ COMPLETED | 18e6ddc | 2026-03-23 |
+| **S14** | AI Chat Integration (window.ai) | ✅ COMPLETED | 2506b12 | 2026-03-23 |
+> **Summary:** Implemented 100% local Gemini Nano bridge with sliding-window context (10 msgs) and space-aware history pruning (50 msgs).
+| **S15** | Side Panel — Settings & Export UI | ✅ COMPLETED | 8a4c1e2 | 2026-03-23 |
+| **S16** | Integration Testing & Polish | ✅ COMPLETED | 145212e | 2026-03-24 |
 
 ### Total Estimated Effort: ~30 hours
 
@@ -778,5 +779,7 @@ DO:
 | S11 | Side Panel — Chat UI | ✅ COMPLETED | c3f0911 | 2026-03-23 |
 | **S12** | **Spaces UI Hardening & Audit** | ✅ COMPLETED | 181af39 | 2026-03-23 |
 | S13 | **Side Panel — Highlights UI** | ✅ COMPLETED | 18e6ddc | 2026-03-23 |
-> **Summary:** Implemented unified Highlights view with Bento Grid layout, cross-context navigation, ghost detection, and integrated CRUD (Update/Delete) via background message passing.
+| S15 | **Side Panel — Settings & Export UI** | ✅ COMPLETED | 8a4c1e2 | 2026-03-23 |
+| **S16** | **Integration Testing & Polish** | ✅ COMPLETED | 145212e | 2026-03-24 |
+> **Summary:** Implemented premium Settings dashboard with Security Toggles (Lock/Unlock/Nuke), Encrypted .icycrow backups (AES-GCM), and Storage Diagnostics with real-time bytes reporting.
 

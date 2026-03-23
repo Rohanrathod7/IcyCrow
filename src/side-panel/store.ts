@@ -1,5 +1,6 @@
 import { signal } from '@preact/signals';
-import type { Highlight, SpacesStore, ChatMessage, UUID } from '../lib/types';
+import type { Highlight, SpacesStore, ChatMessage, UUID, ChatEngine, IcyCrowSettings } from '../lib/types';
+import { DEFAULT_SETTINGS } from '../lib/constants';
 
 export type ViewType = 'home' | 'search' | 'chat' | 'spaces' | 'settings' | 'highlights';
 
@@ -15,9 +16,60 @@ export const allHighlights = signal<Highlight[]>([]);
 export const spaces = signal<SpacesStore>({});
 export const searchResults = signal<SearchResult[]>([]);
 export const chatMessages = signal<ChatMessage[]>([]);
+export const chatEngine = signal<ChatEngine>('gemini');
 export const selectedContextTabs = signal<Array<{ tabId: number; url: string; title: string }>>([]);
 export const isLoading = signal(false);
 export const error = signal<string | null>(null);
+export const settings = signal<IcyCrowSettings>(DEFAULT_SETTINGS);
+export const isLocked = signal(true);
+
+/**
+ * Hydrates settings and session state.
+ */
+export async function hydrateStore() {
+  try {
+    const [local, session] = await Promise.all([
+      chrome.storage.local.get('settings') as Promise<Record<string, any>>,
+      chrome.storage.session.get('cryptoKeyUnlocked') as Promise<Record<string, any>>
+    ]);
+    if (local && local.settings) settings.value = local.settings as IcyCrowSettings;
+    if (session.cryptoKeyUnlocked !== undefined) {
+      isLocked.value = !session.cryptoKeyUnlocked;
+    }
+  } catch (err) {
+    console.error('[IcyCrow] Hydration failed:', err);
+  }
+}
+
+// Global listener for session changes
+if (typeof chrome !== 'undefined' && chrome.storage?.session) {
+  chrome.storage.session.onChanged.addListener((changes) => {
+    if (changes.cryptoKeyUnlocked) {
+      isLocked.value = !changes.cryptoKeyUnlocked.newValue;
+    }
+  });
+}
+
+let lastHydratedSpaceId: UUID | null = null;
+
+/**
+ * Loads the chat history for a specific space, with a hydration guard.
+ */
+export async function loadChatHistory(spaceId: UUID) {
+  lastHydratedSpaceId = spaceId;
+  try {
+    const key = `chatHistories:${spaceId}`;
+    const result = await chrome.storage.local.get(key);
+    const history = (result[key] as ChatMessage[]) || [];
+    
+    // Guard: Only update if we're still on the same space
+    if (lastHydratedSpaceId === spaceId) {
+      chatMessages.value = history;
+    }
+  } catch (err) {
+    console.error('[IcyCrow] Failed to load chat history:', err);
+  }
+}
 
 /**
  * Syncs the unified highlights list from all chrome.storage.local buckets.

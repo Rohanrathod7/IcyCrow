@@ -26,12 +26,13 @@
 2. **[MODIFY] `src/side-panel/store.ts`**:
    * Add `export const chatEngine = signal<ChatEngine>('gemini')`.
    * Add `loadChatHistory(spaceId: UUID)` which calls `getChatHistory(spaceId)` and updates `chatMessages.value`.
+   * **Refinement:** Implement a loading guard (e.g., `lastSpaceIdRef`) to prevent stale history overwrites during rapid switching.
 3. **[MODIFY] `src/side-panel/App.tsx`**: Call `loadChatHistory` whenever `activeSpaceId` changes.
 * **Verification (TDD):** Mock `chrome.storage.local` to verify messages are retrieved correctly for different Space IDs.
 
 ### Phase 2: `window.ai` Native Bridge
 1. **[CREATE] `src/background/managers/ai-manager.ts`**:
-   * Logic to check `window.ai.assistant`.
+   * **Refinement:** Use `(window as any).ai.assistant.capabilities()` to check for `readily` vs `after-download` states.
    * `queryBuiltIn(prompt, streamCallback)`: Proxies to native window.ai.
 2. **[MODIFY] `src/background/index.ts`**:
    * Router for `WINDOW_AI_QUERY`.
@@ -47,7 +48,9 @@
 
 ### Phase 4: Polish & Resilience
 1. **[MODIFY] `src/lib/storage.ts`**: Add `pruneChatHistory(spaceId)` to keep history under 50 messages.
-2. **[MODIFY] `src/background/managers/ai-manager.ts`**: Handle model download/available states (`model_not_available`, `readily`).
+2. **[MODIFY] `src/background/managers/ai-manager.ts`**: 
+   * Handle model download/available states.
+   * **Refinement:** Implement **Sliding Window Context** (last 10 messages) for `AI_QUERY` to prevent token overflow.
 * **Verification (TDD):** Verify history pruning logic correctly removes oldest messages.
 
 ## 4. Testing Strategy

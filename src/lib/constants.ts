@@ -30,6 +30,7 @@ export const DEFAULT_SETTINGS: IcyCrowSettings = {
     lastSuccessAt: null,
   },
   theme: 'system',
+  aiEngine: 'gemini',
 };
 
 export const QUEUE_MAX_DEPTH = 20;

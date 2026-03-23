@@ -1,4 +1,4 @@
-import type { UUID, ChatMessage } from '../../lib/types';
+import type { ChatMessage } from '../../lib/types';
 
 export class AiManager {
   /**
@@ -48,10 +48,15 @@ export class AiManager {
   formatContext(history: ChatMessage[], newPrompt: string): string {
     if (history.length === 0) return newPrompt;
 
+    const ROLE_LABELS: Record<string, string> = {
+      user: 'User',
+      assistant: 'Assistant'
+    };
+
     const recent = history.slice(-10);
     const context = recent.map(m => {
-      const role = m.role === 'user' ? 'User' : 'Assistant';
-      return `${role}: ${m.content}`;
+      const label = ROLE_LABELS[m.role] || 'Unknown';
+      return `${label}: ${m.content}`;
     }).join('\n');
 
     return `${context}\n\nUser: ${newPrompt}`;

@@ -24,12 +24,13 @@
 
 * `src/side-panel/App.tsx` (Shell / Layout)
   - Renders: `isLoading` overlay, `error` banner, `<NavBar />`, and the active view.
+  - Resilience: Wrapped in `<ErrorBoundary />` at the root.
   - View Switch: `activeView.value` drives `switch()` to render one of 5 views: Home, Search, Chat, Spaces, Highlights.
-  - CSS: `./panel.css` (Glassmorphism Design System)
+  - CSS: `./panel.css` (Glassmorphism + Bento Grid Design System)
 
 * `src/side-panel/panel.css` (Design System)
-  - Variables: `--glass-bg`, `--glass-border`, `--accent-primary`, `--text-main`, `--text-dim`.
-  - Utility Classes: `.view-container`, `.card`, `.section-title`, `.btn-primary`, `.input-glass`, `.flex-row`, `.text-dim`.
+  - Variables: `--bg-panel`, `--bg-card`, `--text-main`, `--text-dim`, `--accent-primary`, `--accent-secondary`, `--border-color`, `--shadow-glass`, `--glass-bg`.
+  - Utility Classes: `.view-container`, `.bento-grid`, `.bento-item`, `.glass-card`, `.btn-primary`, `.input-glass`.
   - Overlays: `.loading-overlay`, `.error-banner`.
 
 * View Components (Signal-Driven, No Props)
@@ -43,7 +44,12 @@
   - `ChatMessage.tsx` -> Renders Markdown content via `marked.js` + `DOMPurify`. Syntax highlighting via `highlight.js`.
   - `ChatInput.tsx` -> Auto-expanding `textarea` with submit handling.
   - `ContextPicker.tsx` -> Listens to `chrome.tabs.query` to pick context for AI.
-  - `SettingsView.tsx` -> Export: `sendToSW({ type: 'EXPORT_WORKSPACE' })` -> `URL.createObjectURL(blob)` -> Download. Import: File -> `arrayBuffer()` -> `sendToSW({ type: 'IMPORT_WORKSPACE' })`.
+  - `SettingsView.tsx` -> Security Controls (Lock/Unlock/Nuke), Encrypted Backups (Export/Import), and Storage Usage Dashboard.
+  - `ErrorBoundary.tsx` -> Global catch-all for render crashes. Provides "Friendly Crash" UI and reload logic.
+
+* Testing (Side Panel)
+  - `src/side-panel/integration.test.ts` -> E2E logic verification (Create -> Sync -> Chat).
+  - `src/side-panel/components/ErrorBoundary.test.tsx` -> Resilience verification.
 
 * Activation Chain:
   - `chrome.action.onClicked` (SW) -> `sidePanel.open({ windowId })` -> `side-panel.html` renders.

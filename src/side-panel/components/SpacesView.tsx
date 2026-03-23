@@ -99,7 +99,7 @@ export const SpacesView = () => {
         />
       )}
 
-      <div className="spaces-list flex-col gap-12">
+      <div className="bento-grid" style={{ gridTemplateColumns: '1fr' }}>
         {spaceList.map(s => (
           <SpaceCard 
             key={s.id} 

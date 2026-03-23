@@ -263,8 +263,8 @@ The MVP is organised into **five epics**. Each epic contains granular, actionabl
 
 | Feature | Cloud Approach (Rejected) | Local-First Strategy |
 |---|---|---|
-| **Cross-Device Sync** | Cloud DB + real-time sync | **File-based Export/Import:** One-click export of entire workspace (Spaces, chat history, highlights, archive) to a single encrypted `.icycrow` JSON bundle. Import on another device. User can store the file in their own Google Drive, Dropbox, or USB drive. |
-| **Data Backup & Recovery** | Server-side automated backups | **Scheduled Local Backups:** Extension auto-exports a backup file to a user-specified directory via the File System Access API (`showSaveFilePicker`). Configurable interval (daily/weekly). Backup files are AES-GCM-256 encrypted. |
+| **Cross-Device Sync** | Cloud DB + real-time sync | ✅ IMPLEMENTED: **File-based Export/Import:** One-click export of entire workspace (Spaces, chat history, highlights, archive) to a single encrypted `.icycrow` bundle. (AES-GCM-256). |
+| **Data Backup & Recovery** | Server-side automated backups | ✅ IMPLEMENTED: **Manual/Scheduled Backups:** One-click encrypted export via File System Access API (`showSaveFilePicker`). |
 | **Data Sharing** | Shared workspace via collaboration server | **Selective Export:** User can export individual Spaces, highlight collections, or note bundles as `.icycrow` snippet files. Recipients import into their own extension instance. No real-time collaboration — asynchronous sharing only. |
 
 ---

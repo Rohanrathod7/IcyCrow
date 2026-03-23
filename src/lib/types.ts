@@ -138,6 +138,7 @@ export interface IcyCrowSettings {
     lastSuccessAt: ISOTimestamp | null;
   };
   theme: 'light' | 'dark' | 'system';
+  aiEngine?: ChatEngine;
 }
 
 // chrome.storage.local: Spaces

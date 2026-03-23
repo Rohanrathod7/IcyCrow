@@ -89,12 +89,19 @@ export const ChatView = () => {
 
   return (
     <div className="chat-view">
-      <div className="chat-header flex-row">
+      <div className="chat-header glass-card" style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        padding: '10px 16px',
+        margin: '10px 16px 0 16px',
+        borderRadius: '12px'
+      }}>
         <select 
-          className="engine-select" 
+          className="engine-select btn-ghost" 
           data-testid="engine-selector"
           value={chatEngine.value}
           onChange={(e) => chatEngine.value = (e.target as HTMLSelectElement).value as any}
+          style={{ border: 'none', background: 'transparent', outline: 'none' }}
         >
           <option value="gemini">Gemini Bridge (Cloud)</option>
           <option value="window.ai">Gemini Nano (Local)</option>
@@ -102,8 +109,9 @@ export const ChatView = () => {
         <button 
           className="btn-ghost" 
           onClick={() => setShowPicker(!showPicker)}
+          style={{ background: showPicker ? 'var(--glass-bg)' : 'transparent' }}
         >
-          {showPicker ? 'Hide Context' : 'Add Context'}
+          {showPicker ? 'Close Context' : '✨ Context'}
         </button>
       </div>
 
