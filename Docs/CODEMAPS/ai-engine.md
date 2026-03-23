@@ -1,4 +1,11 @@
-[LAST UPDATED: 2026-03-22]
+[LAST UPDATED: 2026-03-23]
+
+### S14: Native AI Bridge & Context Window
+
+* **AiManager** (`src/background/managers/ai-manager.ts`)
+  - `checkCapabilities()` -> `window.ai.assistant.capabilities()` detection (readily/after-download).
+  - `queryBuiltIn(prompt, onChunk)` -> Proximity proxy for native Nano streaming.
+  - `formatContext(history, prompt)` -> **Sliding Window Context**: Serializes last 10 messages into conversational memory.
 
 ### S7: AI Context Engine
 

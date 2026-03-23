@@ -39,7 +39,7 @@
   - `HighlightsPanel.tsx` -> Unified highlights view. Groups by URL. Renders `HighlightCard`. Logic: `syncAllHighlights()` on mount.
   - `HighlightCard.tsx` -> Snippet unit. Handles `HIGHLIGHT_UPDATE` (blur) and `HIGHLIGHT_DELETE` (click).
   - `SpacesView.tsx` -> `chrome.storage.local.get('spaces')` -> `spaces.value`. Create via `sendToSW({ type: 'SPACE_CREATE' })`.
-  - `ChatView.tsx` -> Main chat container. Logic: `AI_QUERY` dispatch + `AI_RESPONSE_STREAM` listener.
+  - `ChatView.tsx` -> Main chat container. Logic: `AI_QUERY`/`WINDOW_AI_QUERY` dispatch + `AI_RESPONSE_STREAM` listener. Supports engine selection (Local vs Cloud).
   - `ChatMessage.tsx` -> Renders Markdown content via `marked.js` + `DOMPurify`. Syntax highlighting via `highlight.js`.
   - `ChatInput.tsx` -> Auto-expanding `textarea` with submit handling.
   - `ContextPicker.tsx` -> Listens to `chrome.tabs.query` to pick context for AI.

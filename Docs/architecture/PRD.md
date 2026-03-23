@@ -222,7 +222,7 @@ The MVP is organised into **five epics**. Each epic contains granular, actionabl
 |---|---|---|
 | 4.1 | **Chat UI (Side Panel)** — Persistent side-panel chat interface. | ✅ IMPLEMENTED |
 | 4.2 | **Multi-Tab Context Injection** — User selects 1-N tabs; their content is concatenated and sent as context to the Gemini prompt. | ✅ IMPLEMENTED |
-| 4.3 | **Chat History per Space** — Each Space maintains its own chat history. | Switching Spaces switches chat history; history is searchable. |
+| 4.3 | **Chat History per Space** — Each Space maintains its own chat history. | ✅ COMPLETED |
 | 4.4 | **CLW (Command Line Workspace)** — `Ctrl+K` command palette for quick AI tasks, tab search, and Space switching. | Fuzzy search across tabs, Spaces, and chat history; supports `/commands` (e.g., `/summarise`, `/compare`). |
 
 ---

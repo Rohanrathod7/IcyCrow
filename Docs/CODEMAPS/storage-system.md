@@ -10,7 +10,7 @@
   - `getHighlights(urlHash)` -> Returns `HighlightsStore` from `chrome.storage.local`.
   - `updateHighlights(urlHash, updater)` -> 🔑 **Atomic Entry Point**
     - `mutex.withLock(key, ...)` -> `get` -> `updater(current)` -> `set`.
-  - `appendChatMessage(spaceId, msg)` -> Mutex-protected chat history append.
+  - `appendChatMessage(spaceId, msg)` -> Mutex-protected chat history append with **MRU Pruning** (Max 50 messages).
   - `getAllArticles()`, `getAllHighlights()`, `getAllSpaces()` -> Full dataset export APIs.
 
 * `chrome.storage.local` (Storage SSOT)
