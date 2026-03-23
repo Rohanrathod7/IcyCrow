@@ -208,6 +208,15 @@ export const CryptoLockSchema = z.object({
   _meta: MetaSchema,
 });
 
+export const WindowAiQuerySchema = z.object({
+  type: z.literal('WINDOW_AI_QUERY'),
+  payload: z.object({
+    prompt: z.string(),
+    taskId: UUIDSchema,
+  }),
+  _meta: MetaSchema,
+});
+
 export const InboundMessageSchema = z.discriminatedUnion('type', [
   HighlightCreateSchema,
   HighlightDeleteSchema,
@@ -228,6 +237,7 @@ export const InboundMessageSchema = z.discriminatedUnion('type', [
   GeminiHealthCheckSchema,
   CryptoUnlockSchema,
   CryptoLockSchema,
+  WindowAiQuerySchema,
 ]);
 
 export type ValidatedInboundMessage = z.infer<typeof InboundMessageSchema>;

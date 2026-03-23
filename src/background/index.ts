@@ -10,6 +10,7 @@ import { offscreenManager } from './offscreen-manager';
 import { spaceManager } from './managers/space-manager';
 import { saveArticle, saveEmbedding, getAllEmbeddings, saveBackupManifest } from '@lib/idb-store';
 import { validateExportPassword } from '@lib/export-worker';
+import { aiManager } from './managers/ai-manager';
 import type { IDBArticle, UUID, ISOTimestamp } from '@lib/types';
 
 console.log('IcyCrow MV3 Service Worker installed.');
@@ -119,6 +120,7 @@ export async function handleMessage(
       case 'EXPORT_WORKSPACE':
       case 'IMPORT_WORKSPACE':
       case 'SEMANTIC_SEARCH':
+      case 'WINDOW_AI_QUERY':
         return await handleAiMessage(message, sendResponse);
 
       case 'SPACE_CREATE':
@@ -302,6 +304,31 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
         sendResponse(searchRes);
       } catch (err: any) {
         sendResponse({ ok: false, error: { code: 'SEARCH_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'WINDOW_AI_QUERY': {
+      try {
+        const { prompt, taskId } = message.payload;
+        aiManager.queryBuiltIn(prompt, (chunk) => {
+          chrome.runtime.sendMessage({
+            type: 'AI_RESPONSE_STREAM',
+            payload: { taskId, chunk, done: false }
+          });
+        }).then(() => {
+          chrome.runtime.sendMessage({
+            type: 'AI_RESPONSE_STREAM',
+            payload: { taskId, chunk: '', done: true }
+          });
+        }).catch((err) => {
+          chrome.runtime.sendMessage({
+            type: 'AI_RESPONSE_STREAM',
+            payload: { taskId, chunk: '', done: true, error: err.message }
+          });
+        });
+        sendResponse({ ok: true, data: { status: 'started' } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'WINDOW_AI_ERROR', message: err.message } });
       }
       break;
     }

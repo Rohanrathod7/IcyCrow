@@ -195,6 +195,7 @@ export interface Highlight {
 export type HighlightsStore = Highlight[];
 
 // chrome.storage.local: Chat Histories
+export type ChatEngine = 'gemini' | 'window.ai';
 export type ChatRole = 'user' | 'assistant' | 'system';
 
 export interface ChatMessage {
@@ -376,6 +377,14 @@ export type SemanticSearchRes = ApiResponse<{
   staleEmbeddingCount: number;
 }>;
 
+export type WindowAiQueryMsg = BaseMessage<'WINDOW_AI_QUERY', {
+  prompt: string;
+  taskId: UUID;
+}>;
+export type WindowAiQueryRes = ApiResponse<{
+  status: 'started' | 'error';
+}>;
+
 export type ScrapeContentMsg = BaseMessage<'SCRAPE_CONTENT', undefined>;
 export type ScrapeContentRes = ApiResponse<{
   url: string;
@@ -444,6 +453,7 @@ export type InboundMessage =
   | ImportWorkspaceMsg
   | GeminiHealthCheckMsg
   | CryptoUnlockMsg
-  | CryptoLockMsg;
+  | CryptoLockMsg
+  | WindowAiQueryMsg;
 
 export type MessageType = InboundMessage['type'];
