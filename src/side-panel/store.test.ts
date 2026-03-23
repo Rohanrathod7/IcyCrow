@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { activeView, highlights, spaces, error, isLoading, searchResults } from './store';
+import { activeView, highlights, spaces, error, isLoading, searchResults, chatMessages, selectedContextTabs } from './store';
 
 describe('Side Panel Signal Store', () => {
   beforeEach(() => {
@@ -9,6 +9,8 @@ describe('Side Panel Signal Store', () => {
     error.value = null;
     isLoading.value = false;
     searchResults.value = [];
+    chatMessages.value = [];
+    selectedContextTabs.value = [];
   });
 
   it('should initialize with default values', () => {
@@ -16,9 +18,14 @@ describe('Side Panel Signal Store', () => {
     expect(highlights.value).toEqual([]);
     expect(spaces.value).toEqual({});
     expect(error.value).toBe(null);
+    expect(chatMessages.value).toEqual([]);
+    expect(selectedContextTabs.value).toEqual([]);
   });
 
   it('should update signal values correctly', () => {
+    activeView.value = 'chat';
+    expect(activeView.value).toBe('chat');
+    
     activeView.value = 'search';
     expect(activeView.value).toBe('search');
     

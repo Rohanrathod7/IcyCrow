@@ -1,7 +1,7 @@
 import { signal } from '@preact/signals';
-import type { Highlight, SpacesStore } from '../lib/types';
+import type { Highlight, SpacesStore, ChatMessage } from '../lib/types';
 
-export type ViewType = 'home' | 'search' | 'spaces' | 'settings';
+export type ViewType = 'home' | 'search' | 'chat' | 'spaces' | 'settings';
 
 export interface SearchResult {
   text: string;
@@ -13,6 +13,8 @@ export const activeView = signal<ViewType>('home');
 export const highlights = signal<Highlight[]>([]);
 export const spaces = signal<SpacesStore>({});
 export const searchResults = signal<SearchResult[]>([]);
+export const chatMessages = signal<ChatMessage[]>([]);
+export const selectedContextTabs = signal<Array<{ tabId: number; url: string; title: string }>>([]);
 export const isLoading = signal(false);
 export const error = signal<string | null>(null);
 

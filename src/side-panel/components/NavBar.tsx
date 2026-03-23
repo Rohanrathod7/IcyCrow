@@ -4,6 +4,7 @@ export const NavBar = () => {
   const views: { id: ViewType; label: string }[] = [
     { id: 'home', label: 'Home' },
     { id: 'search', label: 'Search' },
+    { id: 'chat', label: 'Chat' },
     { id: 'spaces', label: 'Spaces' },
     { id: 'settings', label: 'Settings' },
   ];

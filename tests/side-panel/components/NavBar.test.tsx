@@ -14,12 +14,13 @@ describe('NavBar Component', () => {
 
 
 
-  it('should render all 4 navigation buttons', () => {
+  it('should render all 5 navigation buttons', () => {
     const root = document.getElementById('app')!;
     render(<NavBar />, root);
     
     expect(document.body.innerHTML).toContain('Home');
     expect(document.body.innerHTML).toContain('Search');
+    expect(document.body.innerHTML).toContain('Chat');
     expect(document.body.innerHTML).toContain('Spaces');
     expect(document.body.innerHTML).toContain('Settings');
   });
@@ -40,5 +41,10 @@ describe('NavBar Component', () => {
     spacesBtn.click();
     expect(activeView.value).toBe('spaces');
 
+    const chatBtn = Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Chat');
+    if (!chatBtn) throw new Error('Chat button not found');
+    
+    chatBtn.click();
+    expect(activeView.value).toBe('chat');
   });
 });

@@ -4,6 +4,7 @@ import { HomeView } from './components/HomeView';
 import { SearchView } from './components/SearchView';
 import { SpacesView } from './components/SpacesView';
 import { SettingsView } from './components/SettingsView';
+import { ChatView } from './components/ChatView';
 import './panel.css';
 
 export const App = () => {
@@ -11,6 +12,7 @@ export const App = () => {
     switch (activeView.value) {
       case 'home': return <HomeView />;
       case 'search': return <SearchView />;
+      case 'chat': return <ChatView />;
       case 'spaces': return <SpacesView />;
       case 'settings': return <SettingsView />;
       default: return <HomeView />;

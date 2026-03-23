@@ -51,6 +51,14 @@ describe('Side Panel App Root', () => {
     // Check for HomeView empty state or content
     expect(document.body.innerHTML).toContain('No highlights yet');
   });
+
+  it('should render ChatView when activeView is chat', async () => {
+    const root = document.getElementById('app')!;
+    activeView.value = 'chat';
+    render(<App />, root);
+    
+    expect(document.body.innerHTML).toContain('Chat interface coming soon...');
+  });
 });
 
 
