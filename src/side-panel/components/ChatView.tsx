@@ -81,7 +81,7 @@ export const ChatView = () => {
       payload: {
         taskId,
         prompt: content,
-        contextTabs: selectedContextTabs.value,
+        spaceId: activeSpaceId.value,
         timestamp
       }
     });

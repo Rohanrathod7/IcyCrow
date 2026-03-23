@@ -79,12 +79,8 @@ export const AiQuerySchema = z.object({
   type: z.literal('AI_QUERY'),
   payload: z.object({
     prompt: z.string(),
-    contextTabs: z.array(z.object({
-      tabId: z.number(),
-      url: z.string().url(),
-      title: z.string(),
-    })),
     spaceId: UUIDSchema,
+    taskId: UUIDSchema,
   }),
   _meta: MetaSchema,
 });
@@ -213,6 +209,7 @@ export const WindowAiQuerySchema = z.object({
   payload: z.object({
     prompt: z.string(),
     taskId: UUIDSchema,
+    spaceId: UUIDSchema,
   }),
   _meta: MetaSchema,
 });

@@ -2,7 +2,7 @@ import { DEFAULT_SETTINGS } from '@lib/constants';
 import type { SessionState, Highlight } from '@lib/types';
 import { InboundMessageSchema, type ValidatedInboundMessage } from '@lib/zod-schemas';
 import { cryptoManager } from './crypto-manager';
-import { getHighlights, updateHighlights } from '@lib/storage';
+import { getHighlights, updateHighlights, getChatHistory } from '@lib/storage';
 import { taskQueue } from '@lib/task-queue';
 import { watchGeminiTab } from './gemini-detector';
 import { GEMINI_SELECTORS } from '@lib/gemini-selectors';
@@ -269,12 +269,16 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
   switch (message.type) {
     case 'AI_QUERY': {
       try {
-        const { taskId, position } = taskQueue.enqueue(async () => {
+        const { taskId, prompt, spaceId } = message.payload;
+        const history = await getChatHistory(spaceId);
+        const contextualPrompt = aiManager.formatContext(history, prompt);
+
+        const { position } = taskQueue.enqueue(async () => {
           const result = await chrome.storage?.session?.get('sessionState');
           const state = (result?.sessionState as SessionState) || {};
           const geminiId = state.geminiTabId;
           if (!geminiId) throw new Error('GEMINI_TAB_NOT_FOUND');
-          return await chrome.tabs?.sendMessage(geminiId, { type: 'AI_QUERY', payload: { prompt: message.payload.prompt } });
+          return await chrome.tabs?.sendMessage(geminiId, { type: 'AI_QUERY', payload: { prompt: contextualPrompt } });
         });
         sendResponse({ ok: true, data: { taskId, position } });
       } catch (err: any) {
@@ -309,8 +313,11 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
     }
     case 'WINDOW_AI_QUERY': {
       try {
-        const { prompt, taskId } = message.payload;
-        aiManager.queryBuiltIn(prompt, (chunk) => {
+        const { prompt, taskId, spaceId } = message.payload;
+        const history = await getChatHistory(spaceId);
+        const contextualPrompt = aiManager.formatContext(history, prompt);
+
+        aiManager.queryBuiltIn(contextualPrompt, (chunk) => {
           chrome.runtime.sendMessage({
             type: 'AI_RESPONSE_STREAM',
             payload: { taskId, chunk, done: false }

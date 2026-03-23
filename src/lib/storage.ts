@@ -88,7 +88,10 @@ export async function appendChatMessage(spaceId: string, msg: ChatMessage): Prom
   return mutex.withLock(key, async () => {
     const history = await getChatHistory(spaceId);
     history.push(msg);
-    await chrome.storage.local.set({ [key]: history });
+    
+    // Prune to last 50 messages
+    const pruned = history.slice(-50);
+    await chrome.storage.local.set({ [key]: pruned });
   });
 }
 

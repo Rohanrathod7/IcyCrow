@@ -1,4 +1,4 @@
-import type { UUID } from '../../lib/types';
+import type { UUID, ChatMessage } from '../../lib/types';
 
 export class AiManager {
   /**
@@ -40,6 +40,21 @@ export class AiManager {
     } finally {
       if (session.destroy) session.destroy();
     }
+  }
+
+  /**
+   * Formats the last 10 messages into a context string for the AI
+   */
+  formatContext(history: ChatMessage[], newPrompt: string): string {
+    if (history.length === 0) return newPrompt;
+
+    const recent = history.slice(-10);
+    const context = recent.map(m => {
+      const role = m.role === 'user' ? 'User' : 'Assistant';
+      return `${role}: ${m.content}`;
+    }).join('\n');
+
+    return `${context}\n\nUser: ${newPrompt}`;
   }
 }
 
