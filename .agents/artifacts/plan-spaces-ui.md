@@ -1,8 +1,8 @@
-# 🏗️ Active Plan: Epic S12 — Side Panel Spaces UI
+# 🏗️ Active Plan: Epic S12 — Side Panel Spaces UI [REVISED v1.1]
 
 ## 1. Requirements & Scope
 * **Goal:** Technical implementation of "Spaces" (tab groups) management in the Side Panel. Allows users to save current windows as named spaces, restore them, and manage them locally.
-* **Blueprint Alignment:** Aligned with `Execution_Plan.md` Slice S12 and `LLD.md` §1.3 & §2.4.
+* **Blueprint Alignment:** Aligned with `Execution_Plan.md` Slice S12, `LLD.md` §1.3 & §2.4, and `PRD.md` §2.5 (Tab Groups).
 * **Out of Scope:** Automatic syncing across devices (focus is on 100% local-first storage).
 
 ## 2. Architecture & Dependencies
@@ -11,16 +11,16 @@
 
 ## 3. Implementation Phases (TDD Ready)
 
-### Phase 1: Space Manager & Messaging
+### Phase 1: Space Manager & Serialization Logic
 * **Action:**
   - `[CREATE] src/background/managers/space-manager.ts`: Controller for space logic.
-    - `createSpace(name, color, captureCurrentTabs)`: Uses `chrome.tabs.query` to capture metadata (url, title, favicon).
-    - `restoreSpace(spaceId)`: Uses `chrome.tabs.create` with `discarded: true` for performance.
-  - `[MODIFY] src/background/index.ts`: Wire `SPACE_CREATE`, `SPACE_RESTORE`, `SPACE_DELETE`, `SPACE_UPDATE` to the manager.
+    - `serializeTab(tab: chrome.tabs.Tab)`: Utility to fetch and convert `favIconUrl` to a Base64 string for 100% local-first rendering (LLD §1.3).
+    - `createSpace(name, color, captureCurrentTabs)`: Captures serialized tabs.
+  - `[MODIFY] src/side-panel/store.ts`: Add `activeSpaceId` signal to track the currently selected workspace.
+  - `[MODIFY] src/background/index.ts`: Wire `SPACE_CREATE`, `SPACE_RESTORE`, `SPACE_DELETE`, `SPACE_UPDATE`.
 * **Required Tests:**
-  - Mock `chrome.tabs.query` to verify tab serialization into the `SpaceTab` structure.
-  - Mock `chrome.storage.local.set` to verify the space is saved with a valid UUID.
-  - Verify `restoreSpace` calls `chrome.tabs.create` for each tab in the space.
+  - Mock `fetch` to verify image-to-Base64 conversion for favicons.
+  - Verify `activeSpaceId` signal updates when a space is restored.
 
 ### Phase 2: Spaces UI — List & Navigation
 * **Action:**
@@ -30,22 +30,22 @@
   - Render `SpacesView` with a mocked `SpacesStore` and verify all space cards appear.
   - Verify clicking "Restore" on a card dispatches the `SPACE_RESTORE` message.
 
-### Phase 3: Space Creation Flow
+### Phase 3: Space Creation Flow & Tab Groups
 * **Action:**
-  - `[CREATE] src/side-panel/components/SpaceForm.tsx`: Modal or inline form to name a space, pick a color (hex), and toggle "Capture current tabs".
-  - `[MODIFY] src/side-panel/components/SpacesView.tsx`: Integrate the form.
+  - `[CREATE] src/side-panel/components/SpaceForm.tsx`: Modal with name, color picker, and "Create Native Tab Group" toggle (PRD §2.5).
+  - `[MODIFY] src/background/managers/space-manager.ts`: Implement `restoreSpace` with optional `chrome.tabs.group()` logic.
 * **Required Tests:**
   - Verify form validation (name required).
-  - Verify submitting the form dispatches `SPACE_CREATE` with correct payload.
+  - Mock `chrome.tabs.group` to verify native grouping on restore.
 
-### Phase 4: Favorited & Dynamic Updates
+### Phase 4: Polish & Performance
 * **Action:**
-  - `[MODIFY] src/side-panel/components/SpaceCard.tsx`: Add a favicon preview strip (limit to 5 icons).
+  - `[MODIFY] src/side-panel/components/SpaceCard.tsx`: Render favicon preview strip using the internal Base64 data (zero network reqs).
   - `[MODIFY] src/side-panel/panel.css`: Add styles for the Spaces Bento Grid and color badges.
 * **Required Tests:**
-  - Verify favicon rendering for valid URLs and fallback for missing icons.
-  - Verify the list updates reactively when `spaces` signal in `store.ts` changes.
+  - Verify zero network requests are made when rendering space card favicons.
+  - Verify performance with 30+ tabs (Chrome discarded state test).
 
 ## 4. Risks & Mitigations
-* ⚠️ **[High Risk]:** Restoring 50+ tabs simultaneously crashing the browser -> **Mitigation:** Open tabs in `discarded: true` state (Chrome only loads them on click) and use a small delay between `chrome.tabs.create` calls if count > 20.
-* ⚠️ **[Med Risk]:** Favicon URLs becoming stale or invalid -> **Mitigation:** Use a CSS fallback (colored block with first letter of title) for broken icons.
+* ⚠️ **[High Risk]:** Base64 serialization bloating storage -> **Mitigation:** Only store Favicon Data for saved Spaces (not active browsing context) and limit icon height/width to 32px before conversion.
+* ⚠️ **[Med Risk]:** Service Worker timeouts during large space capture -> **Mitigation:** Perform capture in foreground if Side Panel is open, or use a serialized async loop in the SW.
