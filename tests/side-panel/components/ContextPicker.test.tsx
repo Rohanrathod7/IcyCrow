@@ -63,4 +63,22 @@ describe('ContextPicker Component', () => {
     fireEvent.click(checkbox);
     expect(selectedContextTabs.value).toHaveLength(0);
   });
+
+  it('should render favicon if present', async () => {
+    const mockTabs = [
+      { id: 1, title: 'Tab 1', url: 'https://example.com/1', favIconUrl: 'https://example.com/icon.png' },
+    ];
+    (chrome.tabs.query as any).mockImplementation((_query: any, callback: (result: any[]) => void) => {
+      if (callback) callback(mockTabs);
+      return Promise.resolve(mockTabs);
+    });
+
+    render(<ContextPicker />);
+    
+    await waitFor(() => {
+      const img = document.querySelector('img.tab-icon') as HTMLImageElement;
+      expect(img).toBeDefined();
+      expect(img.src).toBe('https://example.com/icon.png');
+    });
+  });
 });
