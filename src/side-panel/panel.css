@@ -145,3 +145,124 @@ button:active {
   transform: scale(0.98);
 }
 
+/* Chat Interface */
+.chat-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-messages-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.chat-message {
+  max-width: 85%;
+  padding: 12px;
+  border-radius: 12px;
+  line-height: 1.5;
+  font-size: 0.95em;
+}
+
+.chat-message.user {
+  align-self: flex-end;
+  background: var(--accent-primary);
+  color: white;
+  border-bottom-right-radius: 2px;
+}
+
+.chat-message.assistant {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  border-bottom-left-radius: 2px;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 0.75em;
+  opacity: 0.8;
+}
+
+.message-body pre {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 10px 0;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.message-body code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.chat-input-container {
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.chat-textarea {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 10px;
+  color: white;
+  resize: none;
+  max-height: 150px;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.95em;
+}
+
+.chat-textarea:focus {
+  border-color: var(--accent-primary);
+}
+
+.send-btn {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+}
+
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.1);
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Highlight.js Dark Theme minimal */
+.hljs-keyword { color: #f92672; }
+.hljs-string { color: #e6db74; }
+.hljs-number { color: #ae81ff; }
+.hljs-comment { color: #75715e; }
+.hljs-function { color: #a6e22e; }
+
