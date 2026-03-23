@@ -2,8 +2,9 @@ import { useState, useEffect } from 'preact/hooks';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ContextPicker } from './ContextPicker';
-import { chatMessages, isLoading, selectedContextTabs } from '../store';
-import type { UUID, ISOTimestamp, InboundMessage } from '../../lib/types';
+import { chatMessages, isLoading, selectedContextTabs, chatEngine, activeSpaceId } from '../store';
+import { appendChatMessage } from '@lib/storage';
+import type { UUID, ISOTimestamp, InboundMessage } from '@lib/types';
 
 export const ChatView = () => {
   const [showPicker, setShowPicker] = useState(false);
@@ -53,6 +54,8 @@ export const ChatView = () => {
   }, []);
 
   const handleSendMessage = (content: string) => {
+    if (!activeSpaceId.value) return;
+
     const taskId = crypto.randomUUID() as UUID;
     const timestamp = new Date().toISOString() as ISOTimestamp;
 
@@ -69,8 +72,12 @@ export const ChatView = () => {
     isLoading.value = true;
     setShowPicker(false);
 
+    // Persist to local storage
+    appendChatMessage(activeSpaceId.value, newMessage);
+
+    const useLocal = chatEngine.value === 'window.ai';
     chrome.runtime.sendMessage({
-      type: 'AI_QUERY',
+      type: useLocal ? 'WINDOW_AI_QUERY' : 'AI_QUERY',
       payload: {
         taskId,
         prompt: content,
@@ -83,12 +90,20 @@ export const ChatView = () => {
   return (
     <div className="chat-view">
       <div className="chat-header flex-row">
-        <span className="text-dim">{selectedContextTabs.value.length} tabs in context</span>
+        <select 
+          className="engine-select" 
+          data-testid="engine-selector"
+          value={chatEngine.value}
+          onChange={(e) => chatEngine.value = (e.target as HTMLSelectElement).value as any}
+        >
+          <option value="gemini">Gemini Bridge (Cloud)</option>
+          <option value="window.ai">Gemini Nano (Local)</option>
+        </select>
         <button 
           className="btn-ghost" 
           onClick={() => setShowPicker(!showPicker)}
         >
-          {showPicker ? 'Hide Context' : 'Change Context'}
+          {showPicker ? 'Hide Context' : 'Add Context'}
         </button>
       </div>
 

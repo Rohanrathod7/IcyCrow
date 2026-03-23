@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
+import { chatEngine } from '../store';
 
 interface Props {
   onSubmit: (prompt: string) => void;
@@ -31,8 +32,11 @@ export const ChatInput = ({ onSubmit, disabled }: Props) => {
     }
   }, [value]);
 
+  const engineLabel = chatEngine.value === 'window.ai' ? 'Gemini Nano (Local)' : 'Gemini 1.5 Pro';
+
   return (
     <div className="chat-input-container">
+      <div className="engine-status text-dim">{engineLabel} is active</div>
       <textarea
         ref={textareaRef}
         value={value}
