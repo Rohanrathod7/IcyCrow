@@ -202,7 +202,7 @@ export interface ChatMessage {
   role: ChatRole;
   content: string;
   timestamp: ISOTimestamp;
-  contextTabIds: UUID[];
+  contextTabIds: number[];
   taskId: UUID | null;
 }
 
