@@ -326,6 +326,7 @@ export type AiResponseStreamMsg = BaseMessage<'AI_RESPONSE_STREAM', {
   taskId: UUID;
   chunk: string;
   done: boolean;
+  error?: string;
 }>;
 
 export type SpaceCreateMsg = BaseMessage<'SPACE_CREATE', {

@@ -12,7 +12,10 @@ describe('ContextPicker Component', () => {
     // Mock chrome.tabs.query
     global.chrome = {
       tabs: {
-        query: vi.fn(),
+        query: vi.fn((query, callback) => {
+          if (callback) callback([]);
+          return Promise.resolve([]);
+        }),
       },
       runtime: {
         lastError: null
@@ -25,7 +28,10 @@ describe('ContextPicker Component', () => {
       { id: 1, title: 'Tab 1', url: 'https://example.com/1', favIconUrl: 'icon1.png' },
       { id: 2, title: 'Tab 2', url: 'https://example.com/2', favIconUrl: 'icon2.png' },
     ];
-    (chrome.tabs.query as any).mockResolvedValue(mockTabs);
+    (chrome.tabs.query as any).mockImplementation((_query: any, callback: (result: any[]) => void) => {
+      if (callback) callback(mockTabs);
+      return Promise.resolve(mockTabs);
+    });
 
     const { getByText } = render(<ContextPicker />);
     
@@ -39,7 +45,10 @@ describe('ContextPicker Component', () => {
     const mockTabs = [
       { id: 1, title: 'Tab 1', url: 'https://example.com/1' },
     ];
-    (chrome.tabs.query as any).mockResolvedValue(mockTabs);
+    (chrome.tabs.query as any).mockImplementation((_query: any, callback: (result: any[]) => void) => {
+      if (callback) callback(mockTabs);
+      return Promise.resolve(mockTabs);
+    });
 
     const { getByLabelText } = render(<ContextPicker />);
     

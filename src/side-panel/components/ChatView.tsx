@@ -1,27 +1,79 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ContextPicker } from './ContextPicker';
 import { chatMessages, isLoading, selectedContextTabs } from '../store';
-import type { UUID, ISOTimestamp } from '../../lib/types';
+import type { UUID, ISOTimestamp, InboundMessage } from '../../lib/types';
 
 export const ChatView = () => {
   const [showPicker, setShowPicker] = useState(false);
 
+  useEffect(() => {
+    const handleMessage = (message: InboundMessage) => {
+      if (message.type === 'AI_RESPONSE_STREAM') {
+        const { taskId, chunk, done, error } = message.payload;
+        
+        // Find existing assistant message for this task or create one
+        const messages = [...chatMessages.value];
+        let assistantMsgIndex = messages.findIndex(m => m.taskId === taskId && m.role === 'assistant');
+        
+        if (assistantMsgIndex === -1) {
+          const newAssistantMsg = {
+            id: crypto.randomUUID() as UUID,
+            role: 'assistant' as const,
+            content: chunk,
+            timestamp: new Date().toISOString() as ISOTimestamp,
+            contextTabIds: [],
+            taskId: taskId as UUID
+          };
+          chatMessages.value = [...messages, newAssistantMsg];
+        } else {
+          messages[assistantMsgIndex] = {
+            ...messages[assistantMsgIndex],
+            content: messages[assistantMsgIndex].content + chunk
+          };
+          chatMessages.value = messages;
+        }
+
+        if (done || error) {
+          isLoading.value = false;
+          if (error) {
+            console.error('AI Stream Error:', error);
+          }
+        }
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handleMessage);
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
+  }, []);
+
   const handleSendMessage = (content: string) => {
-    // Phase 4 will handle the real logic, for now we just append to sync UI
+    const taskId = crypto.randomUUID() as UUID;
+    const timestamp = new Date().toISOString() as ISOTimestamp;
+
     const newMessage = {
       id: crypto.randomUUID() as UUID,
       role: 'user' as const,
       content,
-      timestamp: new Date().toISOString() as ISOTimestamp,
+      timestamp,
       contextTabIds: selectedContextTabs.value.map(t => t.tabId),
-      taskId: null
+      taskId
     };
+
     chatMessages.value = [...chatMessages.value, newMessage];
-    // In real app, we might want to clear selection after sending
-    // selectedContextTabs.value = [];
+    isLoading.value = true;
     setShowPicker(false);
+
+    chrome.runtime.sendMessage({
+      type: 'AI_QUERY',
+      payload: {
+        taskId,
+        prompt: content,
+        contextTabs: selectedContextTabs.value,
+        timestamp
+      }
+    });
   };
 
   return (

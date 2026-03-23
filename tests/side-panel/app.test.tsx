@@ -57,7 +57,7 @@ describe('Side Panel App Root', () => {
     activeView.value = 'chat';
     render(<App />, root);
     
-    expect(document.body.innerHTML).toContain('Chat interface coming soon...');
+    expect(document.body.innerHTML).toContain('tabs in context');
   });
 });
 
