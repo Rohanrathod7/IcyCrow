@@ -20,9 +20,11 @@
   - `TaskQueue.processNext()` -> Runs next task. Syncs `consecutiveFailures` to `chrome.storage.session`.
   - Circuit Breaker: Opens after 3 consecutive failures (`isOpen: boolean`).
 
-* Message Flows (S6):
+* Message Flows (S6/S13):
   - **Create**: `Content Script -> HIGHLIGHT_CREATE -> SW (updateHighlights) -> Local Storage`.
   - **Hydrate**: `DOMContentLoaded -> HIGHLIGHTS_FETCH -> SW (getHighlights) -> Content (restoreAnchor)`.
+  - **Update**: `Side Panel (HighlightCard) -> HIGHLIGHT_UPDATE -> SW (updateHighlight) -> Local Storage`.
+  - **Delete**: `Side Panel (HighlightCard) -> HIGHLIGHT_DELETE -> SW (deleteHighlight) -> Local Storage`.
   - **Sync**: `chrome.storage.onChanged -> handleStorageChange -> unwrapHighlight (ID Diff)`.
 
 * Message Flows (S7):

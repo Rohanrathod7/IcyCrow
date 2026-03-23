@@ -207,8 +207,8 @@ The MVP is organised into **five epics**. Each epic contains granular, actionabl
 
 | # | Story | Acceptance Criteria |
 |---|---|---|
-| 3.1 | **Text Highlighting** — Select text on any page; highlighted fragments are stored chronologically. | Highlights appear in sidebar list; clicking a highlight scrolls back to its source. |
-| 3.2 | **Sidebar Highlights Panel** — Chronological list of all highlights with source URL and timestamp. | Filter by date, tab, or search term. |
+| 3.1 | **Text Highlighting** — Select text on any page; highlighted fragments are stored chronologically. | ✅ COMPLETED |
+| 3.2 | **Sidebar Highlights Panel** — Chronological list of all highlights with source URL and timestamp. | ✅ COMPLETED |
 | 3.3 | **Integrated Markdown Notes** — In-extension Markdown editor pre-populated from highlights and AI responses. | Supports headings, code blocks, lists; export to `.md` file. |
 | 3.4 | **Web & PDF Annotator** — Canvas overlay for freehand drawing, shapes, and sticky-note comments on web pages and PDFs. | Annotations are persisted per-URL and re-rendered on revisit. |
 
