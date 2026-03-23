@@ -1,4 +1,4 @@
-[LAST UPDATED: 2026-03-22]
+[LAST UPDATED: 2026-03-23]
 
 ### Side Panel Shell & Navigation (Epic S10)
 
@@ -16,6 +16,8 @@
   - `searchResults: Signal<SearchResult[]>` -> Populated by `SEMANTIC_SEARCH` SW response.
   - `isLoading: Signal<boolean>` -> Global loading HUD indicator.
   - `error: Signal<string | null>` -> Global error banner. Set by view error paths.
+  - `chatMessages: Signal<ChatMessage[]>` -> Current session chat history.
+  - `selectedContextTabs: Signal<TabInfo[]>` -> Tabs selected for AI context.
 
 * `src/lib/messaging.ts` (Type-Safe SW Bridge)
   - `sendToSW<T>(message)` -> `chrome.runtime.sendMessage(message) as Promise<T>`
@@ -35,6 +37,10 @@
   - `HomeView.tsx` -> `chrome.storage.local.get(null)` + filter `highlights:` keys -> `highlights.value = [...]`.
   - `SearchView.tsx` -> `form.submit` -> `sendToSW({ type: 'SEMANTIC_SEARCH' })` -> `searchResults.value = [...]`.
   - `SpacesView.tsx` -> `chrome.storage.local.get('spaces')` -> `spaces.value`. Create via `sendToSW({ type: 'SPACE_CREATE' })`.
+  - `ChatView.tsx` -> Main chat container. Logic: `AI_QUERY` dispatch + `AI_RESPONSE_STREAM` listener.
+  - `ChatMessage.tsx` -> Renders Markdown content via `marked.js` + `DOMPurify`. Syntax highlighting via `highlight.js`.
+  - `ChatInput.tsx` -> Auto-expanding `textarea` with submit handling.
+  - `ContextPicker.tsx` -> Listens to `chrome.tabs.query` to pick context for AI.
   - `SettingsView.tsx` -> Export: `sendToSW({ type: 'EXPORT_WORKSPACE' })` -> `URL.createObjectURL(blob)` -> Download. Import: File -> `arrayBuffer()` -> `sendToSW({ type: 'IMPORT_WORKSPACE' })`.
 
 * Activation Chain:

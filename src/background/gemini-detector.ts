@@ -19,11 +19,15 @@ export function watchGeminiTab(urlPattern: string) {
     });
   };
 
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.url?.match(/gemini\.google\.com/)) {
-      updateId();
-    }
-  });
+  if (chrome.tabs?.onUpdated) {
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      if (changeInfo.status === 'complete' && tab.url?.match(/gemini\.google\.com/)) {
+        updateId();
+      }
+    });
+  }
 
-  chrome.tabs.onRemoved.addListener(updateId);
+  if (chrome.tabs?.onRemoved) {
+    chrome.tabs.onRemoved.addListener(updateId);
+  }
 }

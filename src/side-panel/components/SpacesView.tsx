@@ -20,7 +20,24 @@ export const SpacesView = () => {
         isLoading.value = false;
       }
     };
+    
     fetchSpaces();
+
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.spaces) {
+        spaces.value = (changes.spaces.newValue || {}) as SpacesStore;
+      }
+    };
+
+    if (chrome.storage?.onChanged) {
+      chrome.storage.onChanged.addListener(handleStorageChange);
+    }
+    
+    return () => {
+      if (chrome.storage?.onChanged) {
+        chrome.storage.onChanged.removeListener(handleStorageChange);
+      }
+    };
   }, []);
 
   const handleRestore = async (spaceId: string) => {

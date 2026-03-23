@@ -31,9 +31,9 @@ export async function _closeDBForTests() {
 // Settings
 export async function getSettings(): Promise<IcyCrowSettings | undefined> {
   try {
-    const result = await chrome.storage.local.get('settings');
-    if (chrome.runtime.lastError) throw new Error(chrome.runtime.lastError.message);
-    return result.settings as IcyCrowSettings | undefined;
+    const result = await chrome.storage?.local?.get('settings');
+    if (chrome.runtime?.lastError) throw new Error(chrome.runtime.lastError.message);
+    return result?.settings as IcyCrowSettings | undefined;
   } catch (err) {
     console.error('[IcyCrow] getSettings error:', err);
     return undefined;
@@ -42,8 +42,8 @@ export async function getSettings(): Promise<IcyCrowSettings | undefined> {
 
 export async function setSettings(settings: IcyCrowSettings): Promise<void> {
   try {
-    await chrome.storage.local.set({ settings });
-    if (chrome.runtime.lastError) throw new Error(chrome.runtime.lastError.message);
+    await chrome.storage?.local?.set({ settings });
+    if (chrome.runtime?.lastError) throw new Error(chrome.runtime.lastError.message);
   } catch (err) {
     console.error('[IcyCrow] setSettings error:', err);
     throw err;
@@ -95,9 +95,9 @@ export async function appendChatMessage(spaceId: string, msg: ChatMessage): Prom
 // Spaces
 export async function getSpaces(): Promise<SpacesStore> {
   try {
-    const result = await chrome.storage.local.get('spaces');
-    if (chrome.runtime.lastError) throw new Error(chrome.runtime.lastError.message);
-    return (result.spaces as SpacesStore) || {};
+    const result = await chrome.storage?.local?.get('spaces');
+    if (chrome.runtime?.lastError) throw new Error(chrome.runtime.lastError.message);
+    return (result?.spaces as SpacesStore) || {};
   } catch (err) {
     console.error('[IcyCrow] getSpaces error:', err);
     return {};
@@ -106,8 +106,8 @@ export async function getSpaces(): Promise<SpacesStore> {
 
 export async function setSpaces(spaces: SpacesStore): Promise<void> {
   try {
-    await chrome.storage.local.set({ spaces });
-    if (chrome.runtime.lastError) throw new Error(chrome.runtime.lastError.message);
+    await chrome.storage?.local?.set({ spaces });
+    if (chrome.runtime?.lastError) throw new Error(chrome.runtime.lastError.message);
   } catch (err) {
     console.error('[IcyCrow] setSpaces error:', err);
     throw err;

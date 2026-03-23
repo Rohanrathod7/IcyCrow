@@ -37,6 +37,16 @@ describe('SpaceManager', () => {
       ok: false,
       blob: async () => ({})
     });
+
+    // Mock FileReader for favicon serialization (Synchronous for testing)
+    global.FileReader = class {
+      onload: any;
+      result: any;
+      readAsDataURL() {
+        this.result = 'data:image/x-icon;base64,ZmFrZS1pbWFnZS1kYXRh';
+        if (this.onload) this.onload();
+      }
+    } as any;
   });
 
   afterEach(() => {

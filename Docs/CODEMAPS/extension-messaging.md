@@ -1,4 +1,4 @@
-[LAST UPDATED: 2026-03-22]
+[LAST UPDATED: 2026-03-23]
 
 ### Extension Messaging & Zod Contracts
 
@@ -26,7 +26,7 @@
   - **Sync**: `chrome.storage.onChanged -> handleStorageChange -> unwrapHighlight (ID Diff)`.
 
 * Message Flows (S7):
-  - **AI Query**: `Side Panel -> AI_QUERY -> SW (taskQueue.enqueue) -> Gemini Tab (injectPrompt) -> AI_RESPONSE_STREAM -> SW`.
+  - **AI Query (S7/S11)**: `Side Panel -> AI_QUERY -> SW (taskQueue.enqueue) -> Gemini Tab (injectPrompt) -> AI_RESPONSE_STREAM -> Side Panel (ChatView)`.
   - **Health Check**: `Side Panel -> GEMINI_HEALTH_CHECK -> SW (sessionState.geminiTabId) -> { tabFound, selectors }`.
 * Message Flows (S8):
   - **Save Article**: `Side Panel -> ARTICLE_SAVE -> SW (handleArticleMessage) -> Offscreen (EMBED_TEXT) -> SW (saveEmbedding)`.

@@ -25,13 +25,22 @@ vi.mock('../../src/background/offscreen-manager', () => ({
 }));
 
 // Define global crypto
-globalThis.crypto = {
-  randomUUID: () => 'ca761232-0000-4000-8000-000000000000'
-} as any;
+vi.stubGlobal('crypto', {
+  randomUUID: () => 'ca761232-0000-4000-8000-000000000000',
+  getRandomValues: (arr: Uint8Array) => arr.fill(0),
+  subtle: {
+    importKey: vi.fn().mockResolvedValue({}),
+    deriveKey: vi.fn().mockResolvedValue({}),
+    encrypt: vi.fn().mockResolvedValue(new ArrayBuffer(32)),
+    decrypt: vi.fn().mockResolvedValue(new ArrayBuffer(32)),
+    digest: vi.fn().mockResolvedValue(new ArrayBuffer(32))
+  }
+});
 
 // Define global chrome before any imports
 globalThis.chrome = {
   runtime: {
+    id: 'mock-extension-id',
     onInstalled: {
       addListener: vi.fn((cb) => {
         listeners.onInstalled.push(cb);
@@ -42,7 +51,6 @@ globalThis.chrome = {
         listeners.onMessage.push(cb);
       }),
     },
-    id: 'mock-extension-id',
   },
   storage: {
     local: {

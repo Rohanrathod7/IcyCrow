@@ -73,25 +73,34 @@ export class CryptoManager {
   }
 
   private async updateSessionState(unlocked: boolean): Promise<void> {
-    const result = await chrome.storage.session.get('sessionState');
-    const sessionState: SessionState = (result.sessionState as SessionState) || {};
-    
-    await chrome.storage.session.set({
-      sessionState: {
-        ...sessionState,
-        cryptoKeyUnlocked: unlocked,
-        cryptoKeyLastUsedAt: unlocked ? new Date().toISOString() : null,
-      },
-    });
+    try {
+      const result = await chrome.storage?.session?.get('sessionState') || {};
+      const sessionState: SessionState = (result.sessionState as SessionState) || {};
+      
+      await chrome.storage?.session?.set({
+        sessionState: {
+          ...sessionState,
+          cryptoKeyUnlocked: unlocked,
+          cryptoKeyLastUsedAt: unlocked ? new Date().toISOString() : null,
+        },
+      });
+    } catch (err) {
+      console.error('[CryptoManager] Failed to update session state:', err);
+    }
   }
 
   private async getOrCreateSalt(): Promise<Uint8Array> {
-    const { encryptionSalt } = await chrome.storage.local.get('encryptionSalt');
-    if (Array.isArray(encryptionSalt)) return new Uint8Array(encryptionSalt);
+    try {
+      const { encryptionSalt } = await chrome.storage?.local?.get('encryptionSalt') || {};
+      if (Array.isArray(encryptionSalt)) return new Uint8Array(encryptionSalt);
 
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    await chrome.storage.local.set({ encryptionSalt: Array.from(salt) });
-    return salt;
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      await chrome.storage?.local?.set({ encryptionSalt: Array.from(salt) });
+      return salt;
+    } catch (err) {
+      console.error('[CryptoManager] Error getting/creating salt:', err);
+      return crypto.getRandomValues(new Uint8Array(16)); // Fallback to fresh salt
+    }
   }
 }
 

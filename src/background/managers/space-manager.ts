@@ -13,12 +13,11 @@ export class SpaceManager {
         const response = await fetch(tab.favIconUrl);
         if (response.ok) {
           const blob = await response.blob();
-          const buffer = await blob.arrayBuffer();
-          const base64 = btoa(
-            new Uint8Array(buffer)
-              .reduce((data, byte) => data + String.fromCharCode(byte), '')
-          );
-          faviconBase64 = `data:${blob.type};base64,${base64}`;
+          const reader = new FileReader();
+          faviconBase64 = await new Promise((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
         }
       } catch (err) {
         console.warn(`[IcyCrow] Failed to serialize favicon for ${tab.url}:`, err);
@@ -81,8 +80,7 @@ export class SpaceManager {
 
     if (createTabGroup && tabIds.length > 0) {
       await chrome.tabs.group({
-        tabIds: tabIds as [number, ...number[]],
-        createProperties: { windowId: (await chrome.windows.getCurrent()).id }
+        tabIds: tabIds as [number, ...number[]]
       });
       // Further customization (color, title) could be added here
     }
