@@ -58,7 +58,7 @@ export async function exportWorkspace(payload: WorkspaceBundle, password: string
   const signature = await crypto.subtle.sign('HMAC', hmacKey, hmacInput.buffer as any);
 
   // 4. Final Assembly
-  return assembleBuffer([...prefixParts, new Uint8Array(signature)]).buffer;
+  return assembleBuffer([...prefixParts, new Uint8Array(signature)]).buffer as ArrayBuffer;
 }
 
 /**

@@ -3,6 +3,7 @@
  */
 export class TaskQueue {
   private queue: { taskId: string; fn: () => Promise<any> }[] = [];
+  private isProcessing = false;
   public consecutiveFailures = 0;
   private maxDepth: number;
   private threshold: number;
@@ -23,7 +24,30 @@ export class TaskQueue {
 
     const taskId = crypto.randomUUID();
     this.queue.push({ taskId, fn });
+    
+    // Auto-trigger processing if not already running
+    if (!this.isProcessing) {
+      this.processAll();
+    }
+    
     return { taskId, position: this.queue.length - 1 };
+  }
+
+  async processAll() {
+    if (this.isProcessing) return;
+    this.isProcessing = true;
+    
+    while (this.queue.length > 0) {
+      if (this.isOpen) {
+        console.warn('[IcyCrow] TaskQueue is CLOSED due to circuit breaker.');
+        break;
+      }
+      await this.processNext().catch(err => {
+        console.error('[IcyCrow] Task processing failed:', err);
+      });
+    }
+    
+    this.isProcessing = false;
   }
 
   async processNext(): Promise<any> {

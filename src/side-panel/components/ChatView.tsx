@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'preact/hooks';
+import { aiManager } from '@bg/managers/ai-manager';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ContextPicker } from './ContextPicker';
@@ -8,6 +9,7 @@ import type { UUID, ISOTimestamp, InboundMessage } from '@lib/types';
 
 export const ChatView = () => {
   const [showPicker, setShowPicker] = useState(false);
+  const [connectedTab, setConnectedTab] = useState<{ title: string; url: string; id: number } | null>(null);
 
   useEffect(() => {
     const handleMessage = (message: InboundMessage, sender: chrome.runtime.MessageSender) => {
@@ -15,8 +17,12 @@ export const ChatView = () => {
       if (sender.id !== chrome.runtime.id) return;
       
       if (message.type === 'AI_RESPONSE_STREAM' && message.payload) {
-        const { taskId, chunk, done, error } = message.payload;
+        const { taskId, chunk, done, error, tabInfo } = message.payload as any;
         if (!taskId) return;
+        
+        if (tabInfo) {
+          setConnectedTab(tabInfo);
+        }
         
         // Find existing assistant message for this task or create one
         const messages = [...chatMessages.value];
@@ -33,18 +39,18 @@ export const ChatView = () => {
           };
           chatMessages.value = [...messages, newAssistantMsg];
         } else {
+          // Gemini sends full text, Nano sends chunks
+          const isGemini = chatEngine.value === 'gemini';
           messages[assistantMsgIndex] = {
             ...messages[assistantMsgIndex],
-            content: messages[assistantMsgIndex].content + (chunk || '')
+            content: (isGemini && chunk) ? chunk : (messages[assistantMsgIndex].content + (chunk || ''))
           };
-          chatMessages.value = messages;
+          chatMessages.value = [...messages];
         }
 
         if (done || error) {
           isLoading.value = false;
-          if (error) {
-            console.error('AI Stream Error:', error);
-          }
+          if (error) console.error('AI Stream Error:', error);
         }
       }
     };
@@ -75,16 +81,46 @@ export const ChatView = () => {
     // Persist to local storage
     appendChatMessage(activeSpaceId.value, newMessage);
 
-    const useLocal = chatEngine.value === 'window.ai';
-    chrome.runtime.sendMessage({
-      type: useLocal ? 'WINDOW_AI_QUERY' : 'AI_QUERY',
-      payload: {
-        taskId,
-        prompt: content,
-        spaceId: activeSpaceId.value,
-        timestamp
-      }
-    });
+    if (chatEngine.value === 'window.ai') {
+      aiManager.queryBuiltIn(content, (chunk) => {
+        // Mock the logic from the background to update signals directly
+        const messages = [...chatMessages.value];
+        let assistantMsgIndex = messages.findIndex(m => m.taskId === taskId && m.role === 'assistant');
+        
+        if (assistantMsgIndex === -1) {
+          const newMsg = {
+            id: crypto.randomUUID() as UUID,
+            role: 'assistant' as const,
+            content: chunk || '',
+            timestamp: new Date().toISOString() as ISOTimestamp,
+            contextTabIds: [],
+            taskId: taskId as UUID
+          };
+          chatMessages.value = [...messages, newMsg];
+        } else {
+          messages[assistantMsgIndex] = {
+            ...messages[assistantMsgIndex],
+            content: messages[assistantMsgIndex].content + (chunk || '')
+          };
+          chatMessages.value = messages;
+        }
+      }).then(() => {
+        isLoading.value = false;
+      }).catch(err => {
+        isLoading.value = false;
+        console.error('Local AI Error:', err);
+      });
+    } else {
+      chrome.runtime.sendMessage({
+        type: 'AI_QUERY',
+        payload: {
+          taskId,
+          prompt: content,
+          spaceId: activeSpaceId.value,
+          timestamp
+        }
+      });
+    }
   };
 
   return (
@@ -132,8 +168,13 @@ export const ChatView = () => {
           ))
         )}
         {isLoading.value && (
-          <div className="chat-message assistant loading">
+          <div className="chat-message assistant loading" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span className="dot-flashing">...</span>
+            {connectedTab && (
+              <div className="text-dim" style={{ fontSize: '11px', marginTop: '6px', opacity: 0.8 }}>
+                📡 Linked to: <strong>{connectedTab.title}</strong>
+              </div>
+            )}
           </div>
         )}
       </div>

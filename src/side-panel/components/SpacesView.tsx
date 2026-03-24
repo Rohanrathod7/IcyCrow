@@ -46,6 +46,12 @@ export const SpacesView = () => {
         type: 'SPACE_RESTORE',
         payload: { spaceId }
       } as any);
+      
+      // Also make it the active space in UI
+      import('../store').then(m => {
+        m.activeSpaceId.value = spaceId as UUID;
+        m.activeView.value = 'chat';
+      });
     } catch (err) {
       console.error('Failed to restore space:', err);
     }
@@ -76,7 +82,18 @@ export const SpacesView = () => {
       
       // Refresh list
       const result = await chrome.storage.local.get('spaces');
-      spaces.value = (result.spaces || {}) as any;
+      const newSpaces = (result.spaces || {}) as any;
+      spaces.value = newSpaces;
+      
+      // Auto-focus new space if it's the only one or if we just created it
+      const newId = Object.keys(newSpaces).find(id => !spaces.value[id as UUID]);
+      if (newId || Object.keys(newSpaces).length === 1) {
+        import('../store').then(m => {
+          m.activeSpaceId.value = (newId || Object.keys(newSpaces)[0]) as UUID;
+          m.activeView.value = 'chat';
+        });
+      }
+      
       setShowForm(false);
     } catch (err) {
       console.error('Failed to create space:', err);

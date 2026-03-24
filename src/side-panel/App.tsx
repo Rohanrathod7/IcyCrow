@@ -1,4 +1,5 @@
 import { activeView, isLoading, error, syncAllHighlights, activeSpaceId, loadChatHistory, chatMessages } from './store';
+import type { UUID } from '../lib/types';
 import { NavBar } from './components/NavBar';
 import { HomeView } from './components/HomeView';
 import { SearchView } from './components/SearchView';
@@ -13,6 +14,17 @@ import './panel.css';
 export const App = () => {
   useEffect(() => {
     syncAllHighlights();
+    
+    // Auto-select first space if none active
+    const selectDefaultSpace = async () => {
+      const result = await chrome.storage.local.get('spaces');
+      const loadedSpaces = result.spaces || {};
+      if (!activeSpaceId.value) {
+        const firstId = Object.keys(loadedSpaces)[0];
+        if (firstId) activeSpaceId.value = firstId as UUID;
+      }
+    };
+    selectDefaultSpace();
   }, []);
 
   useEffect(() => {
@@ -47,7 +59,7 @@ export const App = () => {
           </div>
         )}
         
-        {isLoading.value && (
+        {isLoading.value && activeView.value !== 'chat' && (
           <div className="loading-overlay">
             <div className="glass-card card" style={{ padding: '20px' }}>Loading...</div>
           </div>

@@ -6,6 +6,7 @@ export class AiManager {
    */
   async checkCapabilities(): Promise<boolean> {
     const ai = (globalThis as any).ai;
+    console.log('[IcyCrow] Checking SW AI capabilities:', !!ai);
     if (!ai || !ai.assistant) return false;
 
     try {
@@ -59,7 +60,7 @@ export class AiManager {
       return `${label}: ${m.content}`;
     }).join('\n');
 
-    return `${context}\n\nUser: ${newPrompt}`;
+    return `${context}\n\n${newPrompt}`;
   }
 }
 

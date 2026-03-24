@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AiManager } from './ai-manager';
-import type { UUID } from '../../lib/types';
 
 describe('AiManager: window.ai Bridge', () => {
   beforeEach(() => {
@@ -45,7 +44,6 @@ describe('AiManager: window.ai Bridge', () => {
     vi.mocked((globalThis as any).ai.assistant.create).mockResolvedValue(mockSession);
     
     const aiManager = new AiManager();
-    const taskId = 'task-1' as UUID;
     const prompt = 'Hi';
     const chunks: string[] = [];
 

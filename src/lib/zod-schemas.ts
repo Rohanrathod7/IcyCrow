@@ -99,6 +99,12 @@ export const AiResponseStreamSchema = z.object({
     taskId: UUIDSchema,
     chunk: z.string(),
     done: z.boolean(),
+    error: z.string().optional(),
+    tabInfo: z.object({
+      title: z.string(),
+      url: z.string().url(),
+      id: z.number(),
+    }).optional(),
   }),
   _meta: MetaSchema,
 });

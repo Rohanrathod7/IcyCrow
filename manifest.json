@@ -6,23 +6,33 @@
   "action": {
   },
   "background": {
-    "service_worker": "src/background/index.ts",
+    "service_worker": "src/background/service-worker.ts",
     "type": "module"
   },
   "permissions": [
     "tabs",
     "storage",
-    "activeTab",
+    "unlimitedStorage",
+    "sidePanel",
     "scripting",
-    "sidePanel"
+    "offscreen",
+    "idle", 
+    "alarms"
+  ],
+  "host_permissions": [
+    "<all_urls>",
+    "https://gemini.google.com/*"
   ],
   "side_panel": {
     "default_path": "side-panel.html"
   },
   "content_scripts": [
     {
-      "js": ["src/content/index.ts"],
-      "matches": ["<all_urls>"]
+      "js": ["src/content/content-script.ts"],
+      "matches": [
+        "<all_urls>",
+        "https://gemini.google.com/*"
+      ]
     }
   ],
   "commands": {

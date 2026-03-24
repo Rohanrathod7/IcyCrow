@@ -1,6 +1,5 @@
-import { h } from 'preact';
 import { useState } from 'preact/hooks';
-import type { Highlight, HighlightColor } from '../../lib/types';
+import type { Highlight } from '../../lib/types';
 
 interface Props {
   highlight: Highlight;

@@ -4,8 +4,10 @@ import { updateTooltipPosition } from './tooltip-logic';
 import { captureAnchor, restoreAnchor } from './anchoring';
 import { wrapRange, unwrapHighlight } from './highlighter';
 import { sha256Hash, canonicalUrl } from '@lib/url-utils';
+import { injectPrompt, scrapeResponse } from './gemini-bridge';
 
 let restored = false;
+let activeQueryTaskId: string | null = null;
 
 async function withRetry<T>(fn: () => Promise<T>, attempts = 2, delayMs = 1000): Promise<T> {
   try {
@@ -75,6 +77,9 @@ function handleSelectionChange() {
   const rect = range.getBoundingClientRect();
   
   if (rect.width > 0 && rect.height > 0) {
+    // Diagnostic log
+    console.log('[IcyCrow] Text selected. Showing tooltip at:', rect.top, rect.left);
+    
     updateTooltipPosition(rect);
     tooltipVisible.value = true;
   }
@@ -154,9 +159,33 @@ async function handleStorageChange(changes: { [key: string]: chrome.storage.Stor
 /**
  * Handle messages from background (Hotkeys)
  */
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'COMMAND_HIGHLIGHT') {
     performHighlight();
+  } else if (message.type === 'AI_QUERY' && window.location.href.includes('gemini.google.com')) {
+    const { prompt, taskId } = message.payload;
+    
+    // Concurrency guard: Ignore if we're already processing this exact task or a different one
+    if (activeQueryTaskId) {
+      console.warn('[IcyCrow] Query ignored - another query is active:', activeQueryTaskId);
+      sendResponse({ ok: false, error: 'QUERY_IN_PROGRESS' });
+      return;
+    }
+    
+    activeQueryTaskId = taskId;
+    
+    injectPrompt(prompt)
+      .then(() => scrapeResponse(taskId))
+      .catch(err => {
+        chrome.runtime.sendMessage({
+          type: 'AI_RESPONSE_STREAM',
+          payload: { taskId, chunk: '', done: true, error: err.message }
+        });
+      })
+      .finally(() => {
+        activeQueryTaskId = null;
+      });
+    sendResponse({ ok: true });
   }
 });
 
@@ -164,14 +193,17 @@ chrome.runtime.onMessage.addListener((message) => {
  * IcyCrow Content Script Entry Point
  */
 export async function main() {
+  console.log('[IcyCrow] Content Script Main initializing...');
   initUiRoot();
   
   document.addEventListener('mouseup', handleSelectionChange);
   document.addEventListener('keyup', handleSelectionChange);
+  document.addEventListener('selectionchange', handleSelectionChange);
   
   chrome.storage.onChanged.addListener(handleStorageChange);
   
   await restoreHighlightsFromStorage();
+  console.log('[IcyCrow] Content Script Main ready.');
 }
 
 /**
@@ -180,6 +212,7 @@ export async function main() {
 export function teardown() {
   document.removeEventListener('mouseup', handleSelectionChange);
   document.removeEventListener('keyup', handleSelectionChange);
+  document.removeEventListener('selectionchange', handleSelectionChange);
   chrome.storage.onChanged.removeListener(handleStorageChange);
   restored = false;
 }
