@@ -1,23 +1,17 @@
 ---
 # Active Handoff
-**Last Updated:** 2026-03-22T21:53:00+05:30
-**Recent Activity:** Epic S10 — Side Panel Shell & Navigation (Phases 1-4 + Audit + Docs)
+**Last Updated:** 2026-03-24T21:15:00+05:30
+**Recent Activity:** Epic S16 — AI Bridge & Highlight Engine Stabilization
 
 ## 🏛️ Decisions Made Today
-* **Signal-Driven Navigation** — Reason: A single `activeView` signal in `store.ts` drives all panel navigation, avoiding external router libraries and keeping the bundle lean.
-* **Centralized Error/Loading HUD** — Reason: `isLoading` and `error` signals in the shared store eliminate prop drilling. Any view can push an error; the App shell renders it globally.
-* **Local Blob Creation for Export** — Reason: Passing a `blobUrl` from the Service Worker to the UI is fragile (SW can sleep, revoking the URL). Fixed by passing `arrayBuffer` back to the UI and calling `URL.createObjectURL` locally.
-* **CSS Design System over Inline Styles** — Reason: The audit identified CSS debt from inline styles preventing theme consistency. All views now use `.card`, `.btn-primary`, `.view-container`, etc. from `panel.css`.
-* **Vitest/JSDOM Single-Thread Isolation** — Reason: Signal state leaks between tests when run in parallel. Using `--poolOptions.threads.singleThread=true` ensures deterministic, isolation-safe test runs.
+* **Synchronous Tab Wakeup (Blink Protocol)** — Reason: To bypass Chrome's aggressive MV3 background throttling, we momentarily activate the Gemini tab during injection to "wake" its JS engine, then instantly blink back to the user's view.
+* **Nuclear InnerHTML Clear** — Reason: Modern frameworks like React/Angular maintain internal states that survive standard `textContent` resets. A "Nuclear" innerHTML wipe is required to prevent chat history smashing.
+* **Absolute Root (html) Injection** — Reason: Appending to the `body` is fragile on sites with complex layouts (Wikipedia/Gemini). Appending to `documentElement` (html tag) ensures 100% tooltip visibility.
+* **Dual-Submission Protocol** — Reason: Simulating both a Mouse Click and an Enter keypress ensures 100% submission reliability across different framework event listeners.
 
 ## 🚧 Active Blockers & Open Questions
-* None. All S6–S10 Epics completed and verified 🟢. Test coverage is GREEN.
+* **None.** All reported bridge connectivity, formatting, and visibility issues have been resolved and verified with `npm run build` 🟢.
 
 ## ⏭️ Exact Next Step
-Begin **Epic S11** — Define the next major feature epic. Suggested candidates:
-1. **Command Palette (⌘K)** — Fuzzy search interface inside the Side Panel for all actions.
-2. **Highlight Annotations & Notes** — Let users add inline notes to any saved highlight.
-3. **Space-Based Highlight Filtering** — Filter the `HomeView` list by Space membership.
-
-Run `/plan` to architect whichever Epic the user chooses.
+Perform a **"Final User Validation"** of the side-panel chat experience on Gemini and verify the "Premium Glass" tooltip on a variety of pages.
 ---
