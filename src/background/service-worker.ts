@@ -1,0 +1,454 @@
+import { DEFAULT_SETTINGS } from '@lib/constants';
+import type { SessionState, Highlight } from '@lib/types';
+import { InboundMessageSchema, type ValidatedInboundMessage } from '@lib/zod-schemas';
+import { cryptoManager } from './crypto-manager';
+import { getHighlights, updateHighlights, getChatHistory } from '@lib/storage';
+import { taskQueue } from '@lib/task-queue';
+import { watchGeminiTab } from './gemini-detector';
+import { GEMINI_SELECTORS } from '@lib/gemini-selectors';
+import { offscreenManager } from './offscreen-manager';
+import { spaceManager } from './managers/space-manager';
+import { saveArticle, saveEmbedding, getAllEmbeddings, saveBackupManifest } from '@lib/idb-store';
+import { validateExportPassword } from '@lib/export-worker';
+import { aiManager } from './managers/ai-manager';
+import type { IDBArticle, UUID, ISOTimestamp } from '@lib/types';
+
+console.log('IcyCrow MV3 Service Worker installed.');
+
+/**
+ * Handle hotkey commands
+ */
+chrome.commands?.onCommand?.addListener(async (command) => {
+  if (command === 'highlight-selection') {
+    const [tab] = await chrome.tabs?.query({ active: true, currentWindow: true }) || [];
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'COMMAND_HIGHLIGHT' });
+    }
+  }
+});
+
+chrome.runtime?.onInstalled?.addListener(async (details) => {
+  if (details.reason === 'install') {
+    const existing = await chrome.storage?.local?.get('settings');
+    if (existing && !existing.settings) {
+      await chrome.storage?.local?.set({ settings: DEFAULT_SETTINGS });
+      console.log('Initialized default settings.');
+    }
+  }
+});
+
+chrome.alarms?.onAlarm?.addListener((alarm) => {
+  if (alarm.name === 'keepalive') {
+    // No-op
+  } else if (alarm.name === 'crypto-autolock') {
+    cryptoManager.checkAutoLock();
+  }
+});
+
+export async function boot() {
+  try {
+    const result = await chrome.storage?.session?.get('sessionState') || {};
+    const currentState: SessionState = (result.sessionState as SessionState) || {
+      swRestartCount: 0,
+      cryptoKeyUnlocked: false,
+      geminiTabId: null,
+      geminiBridgeHealthy: false,
+      lastSelectorCheckAt: null,
+      cryptoKeyLastUsedAt: null,
+      swBootedAt: (new Date().toISOString() as any)
+    };
+
+    const newState: SessionState = {
+      ...currentState,
+      swRestartCount: (currentState.swRestartCount || 0) + 1,
+      cryptoKeyUnlocked: false,
+      swBootedAt: (new Date().toISOString() as any)
+    };
+
+    await chrome.storage?.session?.set({ sessionState: newState });
+    console.log(`[IcyCrow] SW Booted: Restart #${newState.swRestartCount}`);
+    
+    chrome.alarms?.create('keepalive', { periodInMinutes: 0.4 });
+    chrome.alarms?.create('crypto-autolock', { periodInMinutes: 1.0 });
+  } catch (err) {
+    console.error('[IcyCrow] SW Boot failed:', err);
+  }
+}
+
+chrome.runtime?.onMessage?.addListener((request, sender, sendResponse) => {
+  // Security: Verify sender is our own extension (if sender provided)
+  if (sender && sender.id !== chrome.runtime?.id) {
+    console.warn('[IcyCrow] Blocked message from external sender:', sender.id);
+    return false;
+  }
+
+  // Prevent background script from processing its own broadcasted messages
+  // In MV3, messages from background to runtime trigger onMessage in background too.
+  if (!sender || (!sender.tab && sender.url?.includes('background'))) {
+    return false;
+  }
+
+  const result = InboundMessageSchema.safeParse(request);
+  if (!result.success) {
+    sendResponse({ ok: false, error: { code: 'VALIDATION_ERROR', message: result.error.message } });
+    return false;
+  }
+
+  handleMessage(result.data, sendResponse);
+  return true; 
+});
+
+export async function handleMessage(
+  message: ValidatedInboundMessage,
+  sendResponse: (response: any) => void
+) {
+  try {
+    switch (message.type) {
+      case 'HIGHLIGHT_CREATE':
+      case 'HIGHLIGHTS_FETCH':
+      case 'HIGHLIGHT_DELETE':
+      case 'HIGHLIGHT_UPDATE':
+        return await handleHighlightMessage(message, sendResponse);
+
+      case 'CRYPTO_UNLOCK':
+      case 'CRYPTO_LOCK':
+        return await handleCryptoMessage(message, sendResponse);
+
+      case 'SCRAPE_CONTENT':
+        return await handleScrapeMessage(sendResponse);
+
+      case 'ARTICLE_SAVE':
+        return await handleArticleMessage(message, sendResponse);
+
+      case 'AI_QUERY':
+      case 'AI_QUERY_STATUS':
+      case 'GEMINI_HEALTH_CHECK':
+      case 'EXPORT_WORKSPACE':
+      case 'IMPORT_WORKSPACE':
+      case 'SEMANTIC_SEARCH':
+      case 'WINDOW_AI_QUERY':
+      case 'AI_RESPONSE_STREAM':
+        return await handleAiMessage(message, sendResponse);
+
+      case 'SPACE_CREATE':
+      case 'SPACE_RESTORE':
+      case 'SPACE_DELETE':
+      case 'SPACE_UPDATE':
+        return await handleSpaceMessage(message, sendResponse);
+
+      default:
+        sendResponse({ ok: false, error: { code: 'NOT_IMPLEMENTED', message: `Handler for ${(message as any).type} not yet implemented` } });
+    }
+  } catch (err: any) {
+    sendResponse({ ok: false, error: { code: 'INTERNAL_ERROR', message: err.message || 'Unknown error' } });
+  }
+}
+
+async function handleHighlightMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'HIGHLIGHT_CREATE': {
+      const hId = crypto.randomUUID();
+      const createdAt = new Date().toISOString() as any;
+      try {
+        let alreadyExists = false;
+        let existingData: { id: string, createdAt: string } | null = null;
+        await updateHighlights(message.payload.urlHash, (highlights) => {
+          const existing = highlights.find(h => h.anchor.exact === message.payload.anchor.exact && h.url === message.payload.url);
+          if (existing) {
+            alreadyExists = true;
+            existingData = { id: existing.id, createdAt: existing.createdAt };
+            return highlights;
+          }
+          const newHighlight: Highlight = { ...message.payload, id: hId as any, createdAt, note: null };
+          return [...highlights, newHighlight];
+        });
+        if (alreadyExists && existingData) sendResponse({ ok: true, data: existingData });
+        else sendResponse({ ok: true, data: { id: hId, createdAt } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message || 'Quota exceeded' } });
+      }
+      break;
+    }
+    case 'HIGHLIGHTS_FETCH': {
+      const highlights = await getHighlights(message.payload.urlHash);
+      const pageChanged = highlights.length > 0 && highlights[0].pageMeta.domFingerprint !== message.payload.currentDomFingerprint;
+      sendResponse({ ok: true, data: { highlights, pageChanged } });
+      break;
+    }
+    case 'HIGHLIGHT_DELETE': {
+      try {
+        let deleted = false;
+        await updateHighlights(message.payload.urlHash, (highlights) => {
+          const filtered = highlights.filter(h => h.id !== message.payload.highlightId);
+          deleted = filtered.length < highlights.length;
+          return filtered;
+        });
+        sendResponse({ ok: true, data: { deleted } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'HIGHLIGHT_UPDATE': {
+      try {
+        let updated = false;
+        await updateHighlights(message.payload.urlHash, (highlights) => {
+          const idx = highlights.findIndex(h => h.id === message.payload.highlightId);
+          if (idx === -1) return highlights;
+          highlights[idx] = { ...highlights[idx], ...message.payload.updates };
+          updated = true;
+          return [...highlights];
+        });
+        sendResponse({ ok: true, data: { updated } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+  }
+}
+
+async function handleScrapeMessage(sendResponse: (r: any) => void) {
+  try {
+    const [tab] = await chrome.tabs?.query({ active: true, currentWindow: true }) || [];
+    if (!tab || !tab.id) return sendResponse({ ok: false, error: { code: 'TAB_NOT_FOUND', message: 'No active tab found' } });
+    const response = await chrome.tabs?.sendMessage(tab.id, { type: 'SCRAPE_CONTENT' });
+    sendResponse(response);
+  } catch (err: any) {
+    sendResponse({ ok: false, error: { code: 'SCRAPE_FAILURE', message: err.message || 'Unknown error' } });
+  }
+}
+
+async function handleArticleMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  if (message.type !== 'ARTICLE_SAVE') return;
+  try {
+    const scrapeRes: any = await new Promise((resolve) => handleScrapeMessage(resolve));
+    if (!scrapeRes.ok) return sendResponse(scrapeRes);
+    const { url, title, content } = scrapeRes.data;
+    const articleId = crypto.randomUUID() as any;
+    const article: IDBArticle = {
+      id: articleId,
+      url: message.payload.url || url,
+      title: message.payload.title || title,
+      fullText: content,
+      aiSummary: null,
+      userNotes: '',
+      savedAt: (new Date().toISOString() as any),
+      spaceId: message.payload.spaceId || null,
+      encryption: { encrypted: false }
+    };
+    await saveArticle(article);
+    const embedRes: any = await offscreenManager.sendToOffscreen({
+      type: 'BATCH_EMBED',
+      payload: { articles: [{ id: articleId, content: article.fullText || article.title }] }
+    });
+    if (embedRes.ok && embedRes.data.embeddings?.length > 0) {
+      const { vector } = embedRes.data.embeddings[0];
+      await saveEmbedding({
+        articleId,
+        vector: new Float32Array(vector),
+        modelVersion: 1,
+        createdAt: (new Date().toISOString() as any)
+      });
+    }
+    sendResponse({ ok: true, data: { id: articleId, embedded: !!embedRes.ok } });
+  } catch (err: any) {
+    sendResponse({ ok: false, error: { code: 'ARTICLE_SAVE_FAILURE', message: err.message } });
+  }
+}
+
+async function handleCryptoMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'CRYPTO_UNLOCK': {
+      const unlocked = await cryptoManager.unlock(message.payload.passphrase);
+      sendResponse({ ok: true, data: { unlocked, autoLockMinutes: 30 } });
+      break;
+    }
+    case 'CRYPTO_LOCK': {
+      await cryptoManager.lock();
+      sendResponse({ ok: true, data: { locked: true } });
+      break;
+    }
+  }
+}
+
+async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'AI_QUERY': {
+      try {
+        const { taskId, prompt } = message.payload;
+        // Optimization: Gemini Bridge already maintains session context in the tab.
+        // We only format context for Local Nano (window.ai) or if specifically required.
+        // For Gemini, we send the RAW prompt to avoid "smashed" history bubbles.
+        const contextualPrompt = prompt;
+
+        const { position } = taskQueue.enqueue(async () => {
+          const result = await chrome.storage?.session?.get('sessionState');
+          const state = (result?.sessionState as any) || {};
+          const geminiIds = state.geminiTabIds || [];
+          
+          if (geminiIds.length === 0) throw new Error('GEMINI_TAB_NOT_FOUND');
+          
+          let lastErr: any = null;
+          for (const tabId of geminiIds) {
+            try {
+              const tab = await chrome.tabs.get(tabId);
+              
+              // 1. Synchronous Wakeup Protocol: Momentarily activate the tab to bypass throttling
+              // Capture the user's current view so we can blink back
+              const [currentView] = await chrome.tabs.query({ active: true, currentWindow: true });
+              await chrome.tabs.update(tabId, { active: true });
+              
+              // Tell Side Panel we found a tab before starting injection
+              chrome.runtime.sendMessage({
+                type: 'AI_RESPONSE_STREAM', 
+                payload: { taskId, chunk: '', done: false, tabInfo: { title: tab.title, url: tab.url, id: tabId } }
+              });
+              
+              const bridgeResponse = await chrome.tabs?.sendMessage(tabId, { type: 'AI_QUERY', payload: { prompt: contextualPrompt, taskId } });
+              
+              // 2. Blink back to the user's previous tab immediately after injection starts
+              if (currentView?.id && currentView.id !== tabId) {
+                await chrome.tabs.update(currentView.id, { active: true });
+              }
+              
+              return bridgeResponse;
+            } catch (err) {
+              lastErr = err;
+              continue;
+            }
+          }
+          
+          if (lastErr) console.warn('[IcyCrow] All Gemini bridges failed:', lastErr);
+          throw new Error('BRIDGE_OFFLINE: Please refresh your Gemini tab once to restore connection.');
+        });
+        sendResponse({ ok: true, data: { taskId, position } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'QUEUE_ERROR', message: err.message } });
+      }
+      break;
+    }
+    case 'AI_QUERY_STATUS': {
+      sendResponse({ ok: true, data: { status: 'PENDING' } });
+      break;
+    }
+    case 'GEMINI_HEALTH_CHECK': {
+      const result = await chrome.storage?.session?.get('sessionState');
+      const state = (result?.sessionState as SessionState) || {};
+      const tabId = state.geminiTabId;
+      sendResponse({ ok: true, data: { tabFound: !!tabId, selectors: GEMINI_SELECTORS } });
+      break;
+    }
+    case 'SEMANTIC_SEARCH': {
+      try {
+        const stored = await getAllEmbeddings();
+        if (stored.length === 0) return sendResponse({ ok: true, data: { results: [] } });
+        const searchRes: any = await offscreenManager.sendToOffscreen({
+          type: 'SEMANTIC_SEARCH',
+          payload: { query: message.payload.query, stored: stored.map(s => ({ ...s, vector: Array.from(s.vector as any) })), topKCount: message.payload.topK }
+        });
+        sendResponse(searchRes);
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'SEARCH_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'WINDOW_AI_QUERY': {
+      try {
+        const { prompt, taskId, spaceId } = message.payload;
+        const history = await getChatHistory(spaceId);
+        const contextualPrompt = aiManager.formatContext(history, prompt);
+
+        // Run async without blocking the main SW loop
+        aiManager.queryBuiltIn(contextualPrompt, (chunk) => {
+          chrome.runtime.sendMessage({
+            type: 'AI_RESPONSE_STREAM',
+            payload: { taskId, chunk, done: false }
+          });
+        }).then(() => {
+          chrome.runtime.sendMessage({ type: 'AI_RESPONSE_STREAM', payload: { taskId, chunk: '', done: true } });
+        }).catch((err) => {
+          chrome.runtime.sendMessage({ type: 'AI_RESPONSE_STREAM', payload: { taskId, chunk: '', done: true, error: err.message } });
+        });
+
+        sendResponse({ ok: true, data: { status: 'started' } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'WINDOW_AI_ERROR', message: err.message } });
+      }
+      break;
+    }
+    case 'EXPORT_WORKSPACE': {
+      try {
+        const password = message.payload.password;
+        const validation = validateExportPassword(password);
+        if (validation !== true) return sendResponse({ ok: false, error: { code: 'WEAK_PASSWORD', message: 'Min 8 chars, 1 digit, 1 special char' } });
+        const res: any = await offscreenManager.sendToOffscreen({ type: 'EXPORT_WORKSPACE', payload: { password } });
+        if (res.ok) {
+          await saveBackupManifest({
+            id: (crypto.randomUUID() as UUID),
+            timestamp: (new Date().toISOString() as ISOTimestamp),
+            fileSize: res.data.arrayBuffer ? res.data.arrayBuffer.byteLength : 0,
+            checksum: 'SHA-256-PENDING',
+            location: 'Browser Download'
+          });
+        }
+        sendResponse(res);
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'EXPORT_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'IMPORT_WORKSPACE': {
+      try {
+        const res = await offscreenManager.sendToOffscreen({ type: 'IMPORT_WORKSPACE', payload: message.payload });
+        sendResponse(res);
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'IMPORT_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'AI_RESPONSE_STREAM': {
+      // Just relay to all extension contexts (Side Panel)
+      chrome.runtime.sendMessage(message);
+      sendResponse({ ok: true });
+      break;
+    }
+  }
+}
+
+async function handleSpaceMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'SPACE_CREATE': {
+      const space = await spaceManager.createSpace(message.payload.name, message.payload.color, message.payload.captureCurrentTabs);
+      sendResponse({ ok: true, data: { space } });
+      break;
+    }
+    case 'SPACE_RESTORE': {
+      const tabsOpened = await spaceManager.restoreSpace(message.payload.spaceId, true);
+      sendResponse({ ok: true, data: { tabsOpened } });
+      break;
+    }
+    case 'SPACE_DELETE': {
+      const deleted = await spaceManager.deleteSpace(message.payload.spaceId);
+      sendResponse({ ok: true, data: { deleted } });
+      break;
+    }
+    case 'SPACE_UPDATE': {
+      const updated = await spaceManager.updateSpace(message.payload.spaceId, message.payload.updates);
+      sendResponse({ ok: true, data: { updated } });
+      break;
+    }
+  }
+}
+
+watchGeminiTab('https://gemini.google.com/*');
+
+if (typeof chrome !== 'undefined' && chrome.action?.onClicked) {
+  chrome.action.onClicked.addListener((tab) => {
+    if (tab.windowId) {
+      (chrome as any).sidePanel?.open?.({ windowId: tab.windowId });
+    }
+  });
+}
+
+boot().catch(console.error);
