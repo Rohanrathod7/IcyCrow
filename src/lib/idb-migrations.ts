@@ -34,7 +34,7 @@ const MIGRATIONS: Record<number, MigrationFn> = {
     // Version 2 was backupManifest store (handled in v1 logic for fresh installs)
   },
   3: (_db, tx) => {
-    const annotations = tx.objectStore('annotations');
+    const annotations = tx.objectStore('annotations') as any;
     annotations.createIndex('pageNumber', 'data.pageNumber');
   }
 };
