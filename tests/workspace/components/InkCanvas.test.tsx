@@ -2,8 +2,13 @@
 /** @jsx h */
 import { h } from 'preact';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/preact';
+import { render, fireEvent, waitFor } from '@testing-library/preact';
 import { InkCanvas } from '../../../src/workspace/components/InkCanvas';
+
+vi.mock('../../../src/lib/storage', () => ({
+  saveSpatialAnnotation: vi.fn().mockResolvedValue(undefined),
+  getSpatialAnnotationsByPage: vi.fn().mockResolvedValue([]),
+}));
 
 describe('InkCanvas', () => {
   let mockCtx: any;
@@ -32,7 +37,7 @@ describe('InkCanvas', () => {
   });
 
   it('should trigger drawing on pointer events', () => {
-    const { container } = render(<InkCanvas width={800} height={600} />);
+    const { container } = render(<InkCanvas width={800} height={600} fileUrl="test.pdf" pageNumber={1} />);
     const canvas = container.querySelector('canvas')!;
 
     // Start stroke
@@ -49,16 +54,22 @@ describe('InkCanvas', () => {
     expect(mockCtx.fillStyle).toBe('#90CAF9');
   });
 
-  it('should simplify path on pointer up', () => {
-    const consoleSpy = vi.spyOn(console, 'log');
-    const { container } = render(<InkCanvas width={800} height={600} />);
+  it('should simplify and save path on pointer up', async () => {
+    const { saveSpatialAnnotation } = await import('../../../src/lib/storage');
+    const { container } = render(<InkCanvas width={800} height={600} fileUrl="test.pdf" pageNumber={1} />);
     const canvas = container.querySelector('canvas')!;
 
     fireEvent.pointerDown(canvas, { clientX: 0, clientY: 0 });
     fireEvent.pointerMove(canvas, { clientX: 10, clientY: 10 });
-    fireEvent.pointerMove(canvas, { clientX: 20, clientY: 20 });
+     fireEvent.pointerMove(canvas, { clientX: 20, clientY: 20 });
     fireEvent.pointerUp(canvas);
 
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Stroke Complete. Compressed 3 points'));
+    await waitFor(() => {
+      expect(saveSpatialAnnotation).toHaveBeenCalledWith('test.pdf', expect.objectContaining({
+        kind: 'spatial',
+        pageNumber: 1,
+        color: '#90CAF9'
+      }));
+    });
   });
 });

@@ -7,7 +7,9 @@ import type {
   SpacesStore, 
   IDBArticle, 
   IDBEmbedding,
-  ChatMessage
+  IDBAnnotation,
+  ChatMessage,
+  SpatialData
 } from './types';
 
 const mutex = new StorageMutex();
@@ -142,4 +144,23 @@ export async function getEmbedding(articleId: string): Promise<IDBEmbedding | un
 export async function saveEmbedding(embedding: IDBEmbedding): Promise<void> {
   const db = await getDB();
   await db.put('embeddings', embedding);
+}
+
+// IDB Annotations
+export async function saveSpatialAnnotation(url: string, data: SpatialData): Promise<void> {
+  const db = await getDB();
+  const annotation: IDBAnnotation = {
+    id: crypto.randomUUID() as any,
+    url,
+    type: 'spatial',
+    data,
+    createdAt: new Date().toISOString() as any
+  };
+  await db.put('annotations', annotation);
+}
+
+export async function getSpatialAnnotationsByPage(url: string, pageNumber: number): Promise<IDBAnnotation[]> {
+  const db = await getDB();
+  const allForUrl = await db.getAllFromIndex('annotations', 'url', url);
+  return allForUrl.filter(a => a.type === 'spatial' && (a.data as SpatialData).pageNumber === pageNumber);
 }

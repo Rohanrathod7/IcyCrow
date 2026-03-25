@@ -39,5 +39,5 @@ export const CRYPTO_AUTO_LOCK_MINUTES = 30;
 export const HIGHLIGHT_PREFIX_SUFFIX_LENGTH = 50;
 export const TEXT_SELECTION_MAX_CHARS = 10_000;
 export const IDB_NAME = 'IcyCrowDB';
-export const IDB_VERSION = 1;
+export const IDB_VERSION = 3;
 export const OFFSCREEN_PATH = 'src/offscreen/offscreen.html';

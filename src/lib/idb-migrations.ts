@@ -29,6 +29,13 @@ const MIGRATIONS: Record<number, MigrationFn> = {
 
     const backups = db.createObjectStore('backupManifest', { keyPath: 'id' });
     backups.createIndex('timestamp', 'timestamp');
+  },
+  2: () => {
+    // Version 2 was backupManifest store (handled in v1 logic for fresh installs)
+  },
+  3: (_db, tx) => {
+    const annotations = tx.objectStore('annotations');
+    annotations.createIndex('pageNumber', 'data.pageNumber');
   }
 };
 
@@ -37,7 +44,7 @@ export async function initDB(): Promise<IDBPDatabase<any>> {
     upgrade(db, oldVersion, newVersion, transaction) {
       for (let version = oldVersion + 1; version <= (newVersion || DB_VERSION); version++) {
         const migration = MIGRATIONS[version];
-        if (migration) {
+        if (typeof migration === 'function') {
           migration(db, transaction);
         }
       }

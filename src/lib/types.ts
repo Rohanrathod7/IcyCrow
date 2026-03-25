@@ -38,7 +38,7 @@ export interface IDBEmbedding {
 }
 
 // IDB Store: annotations
-export type AnnotationType = 'drawing' | 'comment' | 'shape';
+export type AnnotationType = 'drawing' | 'comment' | 'shape' | 'spatial';
 
 export interface DrawingData {
   kind: 'drawing';
@@ -62,11 +62,19 @@ export interface ShapeData {
   fillColor: string | null;
 }
 
+export interface SpatialData {
+  kind: 'spatial';
+  pageNumber: number;
+  normalizedPoints: Array<{ x: number; y: number; pressure?: number }>;
+  strokeWidth: number;
+  color: string;
+}
+
 export interface IDBAnnotation {
   id: UUID;
   url: string;
   type: AnnotationType;
-  data: DrawingData | CommentData | ShapeData;
+  data: DrawingData | CommentData | ShapeData | SpatialData;
   createdAt: ISOTimestamp;
 }
 

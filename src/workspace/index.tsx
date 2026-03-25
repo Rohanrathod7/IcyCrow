@@ -49,7 +49,12 @@ function WorkspaceApp() {
         <div style={{ position: 'relative', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', overflow: 'hidden' }}>
           <PdfViewer fileUrl={fileUrl} onLoad={handlePdfLoad} />
           {canvasDim.width > 0 && (
-            <InkCanvas width={canvasDim.width} height={canvasDim.height} />
+            <InkCanvas 
+              width={canvasDim.width} 
+              height={canvasDim.height} 
+              fileUrl={fileUrl} 
+              pageNumber={1} 
+            />
           )}
         </div>
 

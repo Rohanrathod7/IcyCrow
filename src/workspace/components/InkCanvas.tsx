@@ -2,6 +2,8 @@ import { useRef, useEffect } from 'preact/hooks';
 import { getStroke } from 'perfect-freehand';
 import { signal } from '@preact/signals';
 import { simplifyPath } from '../../lib/spatial-engine/path-simplifier';
+import { normalizePath, denormalizePath } from '../../lib/spatial-engine/coordinates';
+import { saveSpatialAnnotation, getSpatialAnnotationsByPage } from '../../lib/storage';
 
 interface Point {
   x: number;
@@ -12,36 +14,58 @@ interface Point {
 interface InkCanvasProps {
   width: number;
   height: number;
+  fileUrl: string | null;
+  pageNumber: number;
 }
 
 const currentStroke = signal<Point[]>([]);
+const savedAnnotations = signal<any[]>([]);
 
-export function InkCanvas({ width, height }: InkCanvasProps) {
+export function InkCanvas({ width, height, fileUrl, pageNumber }: InkCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
 
-  const draw = () => {
-    const canvas = canvasRef.current;
-    if (!canvas || currentStroke.value.length === 0) return;
+  // Load existing annotations
+  useEffect(() => {
+    if (!fileUrl) return;
+    const loadAnnotations = async () => {
+      const annotations = await getSpatialAnnotationsByPage(fileUrl, pageNumber);
+      savedAnnotations.value = annotations;
+      drawAll();
+    };
+    loadAnnotations();
+  }, [fileUrl, pageNumber, width, height]);
 
+  const drawAll = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // We only clear if we want to redraw the whole frame, 
-    // but for active drawing, we just append or redraw current stroke.
-    // For simplicity here, we clear and redraw the current stroke.
     ctx.clearRect(0, 0, width, height);
 
-    const stroke = getStroke(currentStroke.value, {
-      size: 4,
+    // Draw saved annotations
+    savedAnnotations.value.forEach(ann => {
+      const points = denormalizePath(ann.data.normalizedPoints, width, height);
+      renderStroke(ctx, points, ann.data.color, ann.data.strokeWidth);
+    });
+
+    // Draw active stroke
+    if (currentStroke.value.length > 0) {
+      renderStroke(ctx, currentStroke.value, '#90CAF9', 4);
+    }
+  };
+
+  const renderStroke = (ctx: CanvasRenderingContext2D, points: Point[], color: string, size: number) => {
+    const stroke = getStroke(points, {
+      size,
       thinning: 0.5,
       smoothing: 0.5,
       streamline: 0.5,
     });
-
     if (stroke.length === 0) return;
 
-    ctx.fillStyle = '#90CAF9';
+    ctx.fillStyle = color;
     ctx.beginPath();
     const [first, ...rest] = stroke;
     ctx.moveTo(first[0], first[1]);
@@ -76,19 +100,32 @@ export function InkCanvas({ width, height }: InkCanvasProps) {
     };
 
     currentStroke.value = [...currentStroke.value, newPoint];
-    draw();
+    drawAll();
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = async () => {
     if (!isDrawing.current) return;
     isDrawing.current = false;
 
-    const rawCount = currentStroke.value.length;
-    const simplified = simplifyPath(currentStroke.value, 0.5);
-    console.log(`[IcyCrow] Stroke Complete. Compressed ${rawCount} points to ${simplified.length}. Ratio: ${((simplified.length / rawCount) * 100).toFixed(1)}%`);
+    if (currentStroke.value.length > 0 && fileUrl) {
+      const simplified = simplifyPath(currentStroke.value, 0.5);
+      const normalized = normalizePath(simplified, width, height);
+
+      await saveSpatialAnnotation(fileUrl, {
+        kind: 'spatial',
+        pageNumber,
+        normalizedPoints: normalized,
+        strokeWidth: 4,
+        color: '#90CAF9'
+      });
+
+      // Refresh local state (in a reactive app, we might use a store)
+      const annotations = await getSpatialAnnotationsByPage(fileUrl, pageNumber);
+      savedAnnotations.value = annotations;
+    }
     
-    // In a real app, we'd save 'simplified' to the store here.
     currentStroke.value = [];
+    drawAll();
   };
 
   return (
