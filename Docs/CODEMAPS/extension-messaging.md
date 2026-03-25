@@ -36,3 +36,8 @@
 * Message Flows (S9):
   - **Export**: `UI -> EXPORT_WORKSPACE -> SW (Validator) -> Offscreen (exportWorker) -> Serialise + AES-GCM + HMAC -> UI`.
   - **Import**: `UI -> IMPORT_WORKSPACE -> SW -> Offscreen (exportWorker) -> Verify HMAC + Decrypt -> IDB (Batched Restore) -> SW`.
+
+* Message Flows (Spatial Engine):
+  - **Intercept**: `External PDF URL -> Declarative Net Request (DNR) -> Workspace Redirect`.
+  - **Save**: `InkCanvas (Up) -> simplify -> normalize -> saveSpatialAnnotation (IDB)`.
+  - **Load**: `InkCanvas (Mount) -> getSpatialAnnotationsByPage -> denormalize -> render`.

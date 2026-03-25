@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'preact/hooks';
 import { getStroke } from 'perfect-freehand';
-import { signal } from '@preact/signals';
+import { useSignal } from '@preact/signals';
 import { simplifyPath } from '../../lib/spatial-engine/path-simplifier';
 import { normalizePath, denormalizePath } from '../../lib/spatial-engine/coordinates';
 import { saveSpatialAnnotation, getSpatialAnnotationsByPage } from '../../lib/storage';
@@ -18,12 +18,11 @@ interface InkCanvasProps {
   pageNumber: number;
 }
 
-const currentStroke = signal<Point[]>([]);
-const savedAnnotations = signal<any[]>([]);
-
 export function InkCanvas({ width, height, fileUrl, pageNumber }: InkCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
+  const currentStroke = useSignal<Point[]>([]);
+  const savedAnnotations = useSignal<any[]>([]);
 
   // Load existing annotations
   useEffect(() => {
@@ -119,7 +118,7 @@ export function InkCanvas({ width, height, fileUrl, pageNumber }: InkCanvasProps
         color: '#90CAF9'
       });
 
-      // Refresh local state (in a reactive app, we might use a store)
+      // Refresh local state
       const annotations = await getSpatialAnnotationsByPage(fileUrl, pageNumber);
       savedAnnotations.value = annotations;
     }

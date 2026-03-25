@@ -6,25 +6,28 @@ export async function setupPdfInterceptor() {
   const ruleId = 1;
   const redirectUrl = chrome.runtime.getURL('workspace/index.html?file=\\1');
 
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: [ruleId],
-    addRules: [
-      {
-        id: ruleId,
-        priority: 1,
-        action: {
-          type: 'redirect' as chrome.declarativeNetRequest.RuleActionType,
-          redirect: {
-            regexSubstitution: redirectUrl,
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [ruleId],
+      addRules: [
+        {
+          id: ruleId,
+          priority: 1,
+          action: {
+            type: 'redirect' as chrome.declarativeNetRequest.RuleActionType,
+            redirect: {
+              regexSubstitution: redirectUrl,
+            },
+          },
+          condition: {
+            regexFilter: '^(https?://.*\\.pdf(?:\\?.*)?)$',
+            resourceTypes: ['main_frame' as chrome.declarativeNetRequest.ResourceType],
           },
         },
-        condition: {
-          regexFilter: '^(https?://.*\\.pdf(?:\\?.*)?)$',
-          resourceTypes: ['main_frame' as chrome.declarativeNetRequest.ResourceType],
-        },
-      },
-    ],
-  });
-
-  console.log('[IcyCrow] PDF Interceptor dynamic rule injected.');
+      ],
+    });
+    console.log('[IcyCrow] PDF Interceptor dynamic rule injected.');
+  } catch (err) {
+    console.error('[IcyCrow] Failed to inject PDF dynamic rules:', err);
+  }
 }

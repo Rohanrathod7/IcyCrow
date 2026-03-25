@@ -25,4 +25,5 @@
 * `IndexedDB` (Persistent Articles & Embeddings)
   - `articles` -> `IDBArticle` (Key: id, Index: url)
   - `embeddings` -> `IDBEmbedding` (Key: articleId)
+  - `annotations` -> `IDBAnnotation` (Index: url, data.pageNumber) [v3]
   - `backupManifest` -> `IDBBackupManifest` (Key: id, Index: timestamp) [v2]

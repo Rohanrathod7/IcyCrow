@@ -323,6 +323,7 @@ icycrow/
 > **Summary:** Implemented 100% local Gemini Nano bridge with sliding-window context (10 msgs) and space-aware history pruning (50 msgs).
 | **S15** | Side Panel — Settings & Export UI | ✅ COMPLETED | 8a4c1e2 | 2026-03-23 |
 | **S16** | Integration Testing & Polish | ✅ COMPLETED | 145212e | 2026-03-24 |
+| **S17** | **Spatial Document Engine (PDF)** | ✅ COMPLETED | 6eaf4bb | 2026-03-25 |
 
 ### Total Estimated Effort: ~30 hours
 
@@ -781,5 +782,6 @@ DO:
 | S13 | **Side Panel — Highlights UI** | ✅ COMPLETED | 18e6ddc | 2026-03-23 |
 | S15 | **Side Panel — Settings & Export UI** | ✅ COMPLETED | 8a4c1e2 | 2026-03-23 |
 | **S16** | **Integration Testing & Polish** | ✅ COMPLETED | 145212e | 2026-03-24 |
-> **Summary:** Implemented premium Settings dashboard with Security Toggles (Lock/Unlock/Nuke), Encrypted .icycrow backups (AES-GCM), and Storage Diagnostics with real-time bytes reporting.
+| **S17** | **Spatial Document Engine (PDF)** | ✅ COMPLETED | 6eaf4bb | 2026-03-25 |
+> **Summary:** Implemented premium Settings dashboard with Security Toggles (Lock/Unlock/Nuke), Encrypted .icycrow backups (AES-GCM), and Storage Diagnostics with real-time bytes reporting. Transformed IcyCrow into a Spatial OS with pressure-sensitive PDF annotation, RDP path simplification, and binary export with Y-axis compensation.
 

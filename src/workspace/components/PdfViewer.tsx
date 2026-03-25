@@ -1,8 +1,10 @@
 import { useRef, useEffect } from 'preact/hooks';
 import * as pdfjs from 'pdfjs-dist';
 
-// Configure PDF.js worker for Vite
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+// Configure PDF.js worker for Vite (Local-First: Bundled via URL)
+// @ts-ignore
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface PdfViewerProps {
   fileUrl: string | null;
@@ -11,14 +13,19 @@ interface PdfViewerProps {
 
 export function PdfViewer({ fileUrl, onLoad }: PdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const loadingTaskRef = useRef<any>(null);
 
   useEffect(() => {
     if (!fileUrl || !canvasRef.current) return;
 
     const loadPdf = async () => {
       try {
-        const loadingTask = pdfjs.getDocument(fileUrl);
-        const pdf = await loadingTask.promise;
+        if (loadingTaskRef.current) {
+          await loadingTaskRef.current.destroy();
+        }
+
+        loadingTaskRef.current = pdfjs.getDocument(fileUrl);
+        const pdf = await loadingTaskRef.current.promise;
         const page = await pdf.getPage(1);
         
         const viewport = page.getViewport({ scale: 1.5 });
@@ -31,7 +38,6 @@ export function PdfViewer({ fileUrl, onLoad }: PdfViewerProps) {
         const renderContext = {
           canvasContext: context,
           viewport: viewport,
-          // Support for older or newer pdfjs-dist versions that might require the element
           canvas: canvas
         };
 
@@ -43,6 +49,12 @@ export function PdfViewer({ fileUrl, onLoad }: PdfViewerProps) {
     };
 
     loadPdf();
+
+    return () => {
+      if (loadingTaskRef.current) {
+        loadingTaskRef.current.destroy();
+      }
+    };
   }, [fileUrl]);
 
   return (

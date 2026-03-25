@@ -4,6 +4,9 @@ Welcome to the **IcyCrow** repository. To maintain high velocity without sacrifi
 
 Instead of treating the AI as a generic chatbot, we treat it as a disciplined engineering team. We use specific **Commands** to force the AI through a strict CI/CD loop: Planning -> Test-Driven Execution -> Security Auditing -> Archiving.
 
+### 🌟 Latest Feature: Spatial Document Engine
+Transform PDFs into a spatial operating system with tactile ink, coordinate normalization, and binary annotation flattening.
+
 ---
 
 ## 🗺️ The Core Workflow Diagram
