@@ -19,6 +19,11 @@ export default defineConfig({
     }
   },
   build: {
-    target: 'esnext'
+    target: 'esnext',
+    rollupOptions: {
+      input: {
+        workspace: 'src/workspace/index.html'
+      }
+    }
   }
 });

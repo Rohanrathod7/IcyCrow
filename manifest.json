@@ -16,6 +16,8 @@
     "sidePanel",
     "scripting",
     "offscreen",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
     "idle", 
     "alarms"
   ],

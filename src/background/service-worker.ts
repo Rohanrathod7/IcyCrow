@@ -11,6 +11,7 @@ import { spaceManager } from './managers/space-manager';
 import { saveArticle, saveEmbedding, getAllEmbeddings, saveBackupManifest } from '@lib/idb-store';
 import { validateExportPassword } from '@lib/export-worker';
 import { aiManager } from './managers/ai-manager';
+import { setupPdfInterceptor } from './managers/pdf-interceptor';
 import type { IDBArticle, UUID, ISOTimestamp } from '@lib/types';
 
 console.log('IcyCrow MV3 Service Worker installed.');
@@ -34,6 +35,7 @@ chrome.runtime?.onInstalled?.addListener(async (details) => {
       await chrome.storage?.local?.set({ settings: DEFAULT_SETTINGS });
       console.log('Initialized default settings.');
     }
+    await setupPdfInterceptor();
   }
 });
 
