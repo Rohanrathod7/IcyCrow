@@ -2,6 +2,7 @@ import { render } from 'preact';
 import { useMemo, useState } from 'preact/hooks';
 import { PdfViewer } from './components/PdfViewer';
 import { InkCanvas } from './components/InkCanvas';
+import { ExportButton } from './components/ExportButton';
 
 function WorkspaceApp() {
   const fileUrl = useMemo(() => {
@@ -35,9 +36,12 @@ function WorkspaceApp() {
         }}>
           IcyCrow Spatial Workspace
         </h1>
-        <p style={{ color: '#aaa', marginTop: '8px' }}>
-          Coordinate-based Annotation Engine
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+          <p style={{ color: '#aaa', margin: 0 }}>
+            Coordinate-based Annotation Engine
+          </p>
+          <ExportButton fileUrl={fileUrl} />
+        </div>
       </header>
 
       <main style={{ 

@@ -164,3 +164,9 @@ export async function getSpatialAnnotationsByPage(url: string, pageNumber: numbe
   const allForUrl = await db.getAllFromIndex('annotations', 'url', url);
   return allForUrl.filter(a => a.type === 'spatial' && (a.data as SpatialData).pageNumber === pageNumber);
 }
+
+export async function getAllSpatialAnnotations(url: string): Promise<IDBAnnotation[]> {
+  const db = await getDB();
+  const allForUrl = await db.getAllFromIndex('annotations', 'url', url);
+  return allForUrl.filter(a => a.type === 'spatial');
+}
