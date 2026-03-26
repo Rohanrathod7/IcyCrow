@@ -1,79 +1,55 @@
-import { openDB, IDBPDatabase } from 'idb';
+import { type IDBPDatabase } from 'idb';
+import { initDB } from './idb-migrations';
 import type { IDBArticle, IDBEmbedding, IDBOnnxModel, IDBBackupManifest, UUID } from './types';
 
-const DB_NAME = 'icycrow-db';
-const DB_VERSION = 2;
-
-export async function initDB(): Promise<IDBPDatabase> {
-  return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db, oldVersion) {
-      // v1 stores — only create if not already present
-      if (!db.objectStoreNames.contains('articles')) {
-        db.createObjectStore('articles', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('embeddings')) {
-        db.createObjectStore('embeddings', { keyPath: 'articleId' });
-      }
-      if (!db.objectStoreNames.contains('onnxModelCache')) {
-        db.createObjectStore('onnxModelCache', { keyPath: 'modelName' });
-      }
-
-      // v2 — backupManifest store (safe migration guard)
-      if (oldVersion < 2) {
-        const backups = db.createObjectStore('backupManifest', { keyPath: 'id' });
-        backups.createIndex('timestamp', 'timestamp');
-      }
-    },
-  });
-}
 
 export async function saveArticle(article: IDBArticle): Promise<void> {
-  const db = await initDB();
+  const db = await initDB() as IDBPDatabase<any>;
   await db.put('articles', article);
 }
 
 export async function getArticle(id: UUID): Promise<IDBArticle | undefined> {
-  const db = await initDB();
+  const db = await initDB() as IDBPDatabase<any>;
   return db.get('articles', id);
 }
 
 export async function saveEmbedding(embedding: IDBEmbedding): Promise<void> {
-  const db = await initDB();
+  const db = await initDB() as IDBPDatabase<any>;
   await db.put('embeddings', embedding);
 }
 
 export async function getEmbedding(articleId: UUID): Promise<IDBEmbedding | undefined> {
-  const db = await initDB();
+  const db = await initDB() as IDBPDatabase<any>;
   return db.get('embeddings', articleId);
 }
 
 export async function cacheModel(model: IDBOnnxModel): Promise<void> {
-  const db = await initDB();
+  const db = await initDB() as IDBPDatabase<any>;
   await db.put('onnxModelCache', model);
 }
 
 export async function getCachedModel(modelName: string): Promise<IDBOnnxModel | undefined> {
-  const db = await initDB();
+  const db = await initDB() as IDBPDatabase<any>;
   return db.get('onnxModelCache', modelName);
 }
 
 export async function getAllEmbeddings(): Promise<IDBEmbedding[]> {
-  const db = await initDB();
+  const db = await initDB() as IDBPDatabase<any>;
   return db.getAll('embeddings');
 }
 
 export async function getAllArticles(): Promise<IDBArticle[]> {
-  const db = await initDB();
+  const db = await initDB() as IDBPDatabase<any>;
   return db.getAll('articles');
 }
 
 export async function saveBackupManifest(manifest: IDBBackupManifest): Promise<void> {
-  const db = await initDB();
+  const db = await initDB() as IDBPDatabase<any>;
   await db.put('backupManifest', manifest);
 }
 
 export async function getBackupManifest(id: string): Promise<IDBBackupManifest | undefined> {
-  const db = await initDB();
+  const db = await initDB() as IDBPDatabase<any>;
   return db.get('backupManifest', id);
 }
 
@@ -94,4 +70,15 @@ export async function getAllHighlights(): Promise<Record<string, any[]>> {
 export async function getAllSpaces(): Promise<Record<string, any>> {
   const result = await chrome.storage.local.get('spaces');
   return (result.spaces as Record<string, any>) ?? {};
+}
+
+export async function savePdfToCache(url: string, buffer: ArrayBuffer): Promise<void> {
+  const db = await initDB() as IDBPDatabase<any>;
+  await db.put('pdf_cache', { url, buffer, savedAt: new Date().toISOString() });
+}
+
+export async function getPdfFromCache(url: string): Promise<ArrayBuffer | undefined> {
+  const db = await initDB() as IDBPDatabase<any>;
+  const entry = await db.get('pdf_cache', url);
+  return entry?.buffer;
 }

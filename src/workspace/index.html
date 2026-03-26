@@ -17,49 +17,6 @@
       width: 100vw;
       min-height: 100vh;
     }
-    .textLayer {
-      position: absolute;
-      text-align: initial;
-      left: 0 !important;
-      top: 0 !important;
-      right: 0 !important;
-      bottom: 0 !important;
-      overflow: visible !important;
-      opacity: 1 !important;
-      line-height: 1 !important;
-      text-size-adjust: none;
-      forced-color-adjust: none;
-      transform-origin: 0 0;
-      z-index: 50 !important;
-      box-sizing: border-box !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      border: none !important;
-      user-select: text !important; /* Restore anchoring to the whole container */
-      pointer-events: auto !important;
-    }
-    .textLayer > span, .textLayer > br {
-      color: transparent;
-      position: absolute;
-      white-space: pre;
-      cursor: text;
-      transform-origin: 0% 0%;
-      margin: 0;
-      padding: 0;
-      box-sizing: content-box;
-      user-select: text !important; /* ONLY the text spans are selectable */
-      pointer-events: auto;
-    }
-    .textLayer > br {
-      display: none !important; /* Eliminate line-break ghost bars */
-    }
-    /* Subtle hover diagnostic for the user */
-    .textLayer > span:hover {
-      background: rgba(99, 102, 241, 0.05);
-    }
-    ::selection {
-      background: rgba(99, 102, 241, 0.4);
-    }
   </style>
 </head>
 <body>

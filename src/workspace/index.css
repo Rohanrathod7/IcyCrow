@@ -1,0 +1,51 @@
+/* The Dark Desk */
+.pdf-workspace-bg {
+  background-color: #171717; /* Deeper, more premium dark mode */
+  height: 100vh;
+  width: 100vw;
+  overflow-y: scroll; /* Force vertical scroll */
+  overflow-x: auto;
+  position: relative;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* The Vertical Stack Enforcer */
+.pdf-document-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Center pages horizontally */
+  gap: 32px; /* CRITICAL: The gap between pages */
+  padding: 40px 20px 100px 20px; /* Top padding, side padding, and bottom padding to clear the toolbar */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* The Physical Paper */
+.pdf-artboard {
+  background-color: #ffffff !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.3); /* Premium double shadow */
+  border-radius: 4px; /* Subtle rounded corners like real paper */
+  overflow: hidden; /* Keeps highlights from bleeding off the edge */
+  transition: transform 0.15s ease-out; /* Smooth zooming */
+  margin-bottom: 0 !important; /* Managed by wrapper gap */
+}
+
+/* Glassmorphism Toolbar Refinement */
+.floating-toolbar {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: rgba(40, 40, 40, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 8px 16px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  user-select: none;
+}

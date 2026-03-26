@@ -1,8 +1,8 @@
 import { openDB, type IDBPDatabase, type IDBPTransaction } from 'idb';
-import { IDB_NAME as CONST_DB_NAME, IDB_VERSION as CONST_DB_VERSION } from './constants';
+import { IDB_NAME as CONST_DB_NAME } from './constants';
 
 export const DB_NAME = CONST_DB_NAME;
-export const DB_VERSION = CONST_DB_VERSION;
+export const DB_VERSION = 4;
 
 // Use 'any' to bypass strict TS issues with idb generics if necessary
 type MigrationFn = (db: IDBPDatabase<any>, tx: IDBPTransaction<any, any, any>) => void;
@@ -36,6 +36,11 @@ const MIGRATIONS: Record<number, MigrationFn> = {
   3: (_db, tx) => {
     const annotations = tx.objectStore('annotations') as any;
     annotations.createIndex('pageNumber', 'data.pageNumber');
+  },
+  4: (db) => {
+    if (!db.objectStoreNames.contains('pdf_cache')) {
+      db.createObjectStore('pdf_cache', { keyPath: 'url' });
+    }
   }
 };
 
