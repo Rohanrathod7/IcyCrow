@@ -1,56 +1,55 @@
-import { type IDBPDatabase } from 'idb';
 import { initDB } from './idb-migrations';
 import type { IDBArticle, IDBEmbedding, IDBOnnxModel, IDBBackupManifest, UUID } from './types';
 
 
 export async function saveArticle(article: IDBArticle): Promise<void> {
-  const db = await initDB() as IDBPDatabase<any>;
+  const db = await initDB();
   await db.put('articles', article);
 }
 
 export async function getArticle(id: UUID): Promise<IDBArticle | undefined> {
-  const db = await initDB() as IDBPDatabase<any>;
+  const db = await initDB();
   return db.get('articles', id);
 }
 
 export async function saveEmbedding(embedding: IDBEmbedding): Promise<void> {
-  const db = await initDB() as IDBPDatabase<any>;
+  const db = await initDB();
   await db.put('embeddings', embedding);
 }
 
 export async function getEmbedding(articleId: UUID): Promise<IDBEmbedding | undefined> {
-  const db = await initDB() as IDBPDatabase<any>;
+  const db = await initDB();
   return db.get('embeddings', articleId);
 }
 
 export async function cacheModel(model: IDBOnnxModel): Promise<void> {
-  const db = await initDB() as IDBPDatabase<any>;
+  const db = await initDB();
   await db.put('onnxModelCache', model);
 }
 
 export async function getCachedModel(modelName: string): Promise<IDBOnnxModel | undefined> {
-  const db = await initDB() as IDBPDatabase<any>;
+  const db = await initDB();
   return db.get('onnxModelCache', modelName);
 }
 
 export async function getAllEmbeddings(): Promise<IDBEmbedding[]> {
-  const db = await initDB() as IDBPDatabase<any>;
+  const db = await initDB();
   return db.getAll('embeddings');
 }
 
 export async function getAllArticles(): Promise<IDBArticle[]> {
-  const db = await initDB() as IDBPDatabase<any>;
+  const db = await initDB();
   return db.getAll('articles');
 }
 
 export async function saveBackupManifest(manifest: IDBBackupManifest): Promise<void> {
-  const db = await initDB() as IDBPDatabase<any>;
+  const db = await initDB();
   await db.put('backupManifest', manifest);
 }
 
 export async function getBackupManifest(id: string): Promise<IDBBackupManifest | undefined> {
-  const db = await initDB() as IDBPDatabase<any>;
-  return db.get('backupManifest', id);
+  const db = await initDB();
+  return db.get('backupManifest', id as UUID);
 }
 
 /**
@@ -73,12 +72,12 @@ export async function getAllSpaces(): Promise<Record<string, any>> {
 }
 
 export async function savePdfToCache(url: string, buffer: ArrayBuffer): Promise<void> {
-  const db = await initDB() as IDBPDatabase<any>;
-  await db.put('pdf_cache', { url, buffer, savedAt: new Date().toISOString() });
+  const db = await initDB();
+  await db.put('pdf_cache', { url, buffer, savedAt: new Date().toISOString() as any });
 }
 
 export async function getPdfFromCache(url: string): Promise<ArrayBuffer | undefined> {
-  const db = await initDB() as IDBPDatabase<any>;
+  const db = await initDB();
   const entry = await db.get('pdf_cache', url);
   return entry?.buffer;
 }

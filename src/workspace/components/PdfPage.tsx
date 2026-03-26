@@ -20,7 +20,7 @@ interface PdfPageProps {
 export default function PdfPage({ fileUrl, pageNumber }: PdfPageProps) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  const onRenderSuccess = (page: any) => {
+  const onRenderSuccess = (page: { width: number; height: number }) => {
     // react-pdf already handles scaling internally, but we need the raw width/height for overlays
     setDimensions({ width: page.width, height: page.height });
   };

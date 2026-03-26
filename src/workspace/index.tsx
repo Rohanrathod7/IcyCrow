@@ -27,6 +27,9 @@ function WorkspaceApp() {
       return;
     }
 
+    const controller = new AbortController();
+    const { signal } = controller;
+
     const loadBuffer = async () => {
       try {
         setIsLoading(true);
@@ -36,13 +39,15 @@ function WorkspaceApp() {
         if (!buffer) {
           // 2. Fetch from network
           console.log('[IcyCrow] Fetching PDF from network...');
-          const response = await fetch(fileUrl);
+          const response = await fetch(fileUrl, { signal });
           buffer = await response.arrayBuffer();
           // 3. Save to Cache
           await savePdfToCache(fileUrl, buffer);
         } else {
           console.log('[IcyCrow] Loading PDF from IndexDB cache.');
         }
+
+        if (signal.aborted) return;
 
         // 4. Integrity Check & Direct Blob Passing for CSP compliance
         if (!buffer || buffer.byteLength === 0) {
@@ -52,14 +57,18 @@ function WorkspaceApp() {
         const blob = new Blob([buffer], { type: 'application/pdf' });
         setPdfBlob(blob);
         console.log(`[PDF Pipeline] Blob created directly. Size: ${blob.size} bytes`);
-      } catch (err) {
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
         console.error('[IcyCrow] PDF Buffer synchronization failed:', err);
       } finally {
-        setIsLoading(false);
+        if (!signal.aborted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadBuffer();
+    return () => controller.abort();
   }, [fileUrl]);
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {

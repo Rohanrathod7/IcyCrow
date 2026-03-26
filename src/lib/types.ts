@@ -115,6 +115,50 @@ export interface IDBBackupManifest {
   location: string;
 }
 
+// IDB Store: pdf_cache [v4]
+export interface IDBPdfCache {
+  url: string;
+  buffer: ArrayBuffer;
+  savedAt: ISOTimestamp;
+}
+
+/** Central IndexedDB Schema for IcyCrow */
+export interface IcyCrowDBSchema {
+  articles: {
+    key: UUID;
+    value: IDBArticle;
+    indexes: { url: string; savedAt: ISOTimestamp; spaceId: UUID | null };
+  };
+  embeddings: {
+    key: UUID;
+    value: IDBEmbedding;
+    indexes: { modelVersion: number };
+  };
+  annotations: {
+    key: UUID;
+    value: IDBAnnotation;
+    indexes: { url: string; pageNumber: number };
+  };
+  taskQueue: {
+    key: UUID;
+    value: IDBTask;
+    indexes: { status: TaskStatus; createdAt: ISOTimestamp };
+  };
+  onnxModelCache: {
+    key: string;
+    value: IDBOnnxModel;
+  };
+  backupManifest: {
+    key: UUID;
+    value: IDBBackupManifest;
+    indexes: { timestamp: ISOTimestamp };
+  };
+  pdf_cache: {
+    key: string;
+    value: IDBPdfCache;
+  };
+}
+
 // chrome.storage.local: Settings
 export interface IcyCrowSettings {
   hibernation: {

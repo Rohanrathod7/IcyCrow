@@ -1,11 +1,11 @@
 import { openDB, type IDBPDatabase, type IDBPTransaction } from 'idb';
 import { IDB_NAME as CONST_DB_NAME } from './constants';
+import { type IcyCrowDBSchema } from './types';
 
 export const DB_NAME = CONST_DB_NAME;
 export const DB_VERSION = 4;
 
-// Use 'any' to bypass strict TS issues with idb generics if necessary
-type MigrationFn = (db: IDBPDatabase<any>, tx: IDBPTransaction<any, any, any>) => void;
+type MigrationFn = (db: IDBPDatabase<IcyCrowDBSchema>, tx: IDBPTransaction<IcyCrowDBSchema, any, 'versionchange'>) => void;
 
 /** Registry of all schema migrations. NEVER delete old entries. */
 const MIGRATIONS: Record<number, MigrationFn> = {
@@ -44,8 +44,8 @@ const MIGRATIONS: Record<number, MigrationFn> = {
   }
 };
 
-export async function initDB(): Promise<IDBPDatabase<any>> {
-  return openDB<any>(DB_NAME, DB_VERSION, {
+export async function initDB(): Promise<IDBPDatabase<IcyCrowDBSchema>> {
+  return openDB<IcyCrowDBSchema>(DB_NAME, DB_VERSION, {
     upgrade(db, oldVersion, newVersion, transaction) {
       for (let version = oldVersion + 1; version <= (newVersion || DB_VERSION); version++) {
         const migration = MIGRATIONS[version];
