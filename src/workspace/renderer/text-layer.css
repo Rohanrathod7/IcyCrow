@@ -1,0 +1,4 @@
+/* Relying on pdfjs-dist/web/pdf_viewer.css imported in PageRenderer.tsx */
+/* Custom highlights or annotation styles should go here later if needed */
+/* PDF Text Layer rules are now handled via inline <style> injection in PageRenderer.tsx
+   to bypass bundler scoping and ensure 100% specificity. */

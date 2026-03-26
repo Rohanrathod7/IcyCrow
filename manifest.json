@@ -45,5 +45,14 @@
       },
       "description": "Highlight current selection"
     }
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "pdf_rules",
+        "enabled": true,
+        "path": "src/background/rules.json"
+      }
+    ]
   }
 }

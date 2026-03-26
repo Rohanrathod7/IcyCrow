@@ -15,7 +15,7 @@ export function HighlightOverlay({ width, height, fileUrl, pageNumber }: Highlig
   const loadHighlights = async () => {
     if (!fileUrl) return;
     const all = await getSpatialAnnotationsByPage(fileUrl, pageNumber);
-    highlights.value = all.filter(a => a.type === 'spatial-highlight');
+    highlights.value = all.filter(a => a.type === 'spatial');
   };
 
   useEffect(() => {

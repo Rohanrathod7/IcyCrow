@@ -26,4 +26,5 @@
   - `articles` -> `IDBArticle` (Key: id, Index: url)
   - `embeddings` -> `IDBEmbedding` (Key: articleId)
   - `annotations` -> `IDBAnnotation` (Index: url, data.pageNumber) [v3]
+  - `pdf_cache` -> `IDBBlobStore` (Key: url) - Persists PDF binaries for offline mode [v4]
   - `backupManifest` -> `IDBBackupManifest` (Key: id, Index: timestamp) [v2]

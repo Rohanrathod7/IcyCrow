@@ -1,10 +1,13 @@
-# [LAST UPDATED: 2026-03-23]
-# HIGHLIGHTS UI ARCHITECTURE (Epic S13)
+# [LAST UPDATED: 2026-03-27]
+# HIGHLIGHTS UI ARCHITECTURE (Epic S13 & S18)
 
 ## 🧩 Component Tree
 * `HighlightsPanel.tsx` (Container)
   * Iterates `allHighlights` (Sorted by `createdAt` DESC)
   * Groups by `URL` -> `HighlightCard` list
+* `workspace/index.tsx` (Pro Viewer)
+  * `FloatingToolbar.tsx` -> Glassmorphic pill for Zoom/Tools.
+  * `PdfPage.tsx` -> Scale-aware document renderer.
 * `HighlightCard.tsx` (Atomic Unit)
   * Props: `highlight: Highlight`, `isGhost?: boolean` (default: false)
   * Visuals: Snippet rendering, color-coded marker, `createdAt` relative time

@@ -1,10 +1,18 @@
-[LAST UPDATED: 2026-03-25]
+[LAST UPDATED: 2026-03-27]
 
 ### Spatial Document Engine & Canvas Overlay
 
 * `background/managers/pdf-interceptor.ts` (The Hijack)
   - `setupPdfInterceptor()` -> Injects dynamic `chrome.declarativeNetRequest` rule (ID: 1).
   - Redirects `*.pdf` -> `workspace/index.html?file={url}`.
+
+* `workspace/index.tsx` (Pro Viewer Entry)
+  - Composition layer with **Vertical Page Stacking**.
+  - Enforces `.pdf-document-wrapper` for perfect centering and 32px gaps.
+
+* `workspace/components/PdfPage.tsx` (Scale-Aware Renderer)
+  - Powered by `react-pdf` + `pdfjs-dist@5.4.296`.
+  - Connects to `viewerScale` signal for sub-pixel zooming.
 
 * `workspace/components/InkCanvas.tsx` (The Engine)
   - Layers over PDF.js canvas.

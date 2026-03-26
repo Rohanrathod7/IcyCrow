@@ -16,9 +16,10 @@
     "marked": "^17.0.5",
     "onnxruntime-web": "^1.24.3",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^5.5.207",
+    "pdfjs-dist": "^5.4.296",
     "perfect-freehand": "^1.2.3",
     "preact": "^10.29.0",
+    "react-pdf": "^10.4.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

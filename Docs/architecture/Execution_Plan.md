@@ -324,6 +324,7 @@ icycrow/
 | **S15** | Side Panel — Settings & Export UI | ✅ COMPLETED | 8a4c1e2 | 2026-03-23 |
 | **S16** | Integration Testing & Polish | ✅ COMPLETED | 145212e | 2026-03-24 |
 | **S17** | **Spatial Document Engine (PDF)** | ✅ COMPLETED | 6eaf4bb | 2026-03-25 |
+| **S18** | **Pro Viewer UI & Scale Engine** | ✅ COMPLETED | faacfd6 | 2026-03-27 |
 
 ### Total Estimated Effort: ~30 hours
 
