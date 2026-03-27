@@ -4,6 +4,9 @@ import { Document, pdfjs } from 'react-pdf';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { PdfPage } from './components/PdfPage';
 import { ToolbarManager } from './components/ToolbarManager';
+import { ToolCustomizer } from './components/ToolCustomizer';
+import { ToolLibraryPicker } from './components/ToolLibraryPicker';
+import { ToolbarSettingsModal } from './components/ToolbarSettingsModal';
 import { getPdfFromCache, savePdfToCache } from '../lib/idb-store';
 // Inject Professional Styles
 import './index.css';
@@ -125,6 +128,9 @@ function WorkspaceApp() {
       ) : null}
 
       <ToolbarManager />
+      <ToolCustomizer />
+      <ToolLibraryPicker />
+      <ToolbarSettingsModal />
     </div>
   );
 }

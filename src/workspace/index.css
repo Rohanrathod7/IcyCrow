@@ -30,22 +30,214 @@
   margin-bottom: 0 !important; /* Managed by wrapper gap */
 }
 
-/* Glassmorphism Toolbar Refinement */
-.floating-toolbar {
-  position: fixed;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  background: rgba(40, 40, 40, 0.85);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+/* Glassmorphism Toolbar Refinement (V2 Unified Dial) */
+.toolbar-manager-root {
+  position: fixed; /* CRITICAL: Locks to viewport, won't scroll with page */
+  z-index: 10000;
+  top: 0; left: 0;
+  pointer-events: none; /* Let clicks pass through empty space */
+}
+
+.unified-dial-wrapper {
+  pointer-events: auto;
+  position: relative;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: rgba(28, 28, 30, 0.85); /* Deep Apple-style dark mode */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  padding: 8px 16px;
-  border-radius: 30px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.1);
   display: flex;
   align-items: center;
-  gap: 12px;
-  user-select: none;
+  justify-content: center;
+  /* Smooth transition ONLY for state changes, not drag */
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.3s;
+}
+
+.dial-center-hub {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: #2b2b2d;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  z-index: 2;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+  border: none;
+  outline: none;
+  color: white;
+}
+.dial-center-hub:active { cursor: grabbing; transform: scale(0.95); }
+
+.dial-tool-button {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: transparent;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dial-tool-button:hover { background: rgba(255,255,255,0.1); transform: scale(1.1); }
+.dial-tool-button.active { background: rgba(129, 140, 248, 0.3); color: #818cf8; }
+
+/* V3 Visual Details */
+.dial-tick {
+  position: absolute;
+  width: 2px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 1px;
+}
+
+.dial-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+/* Corner positions around hub */
+.corner-tl { top: -45px; left: -45px; border-right: none; border-bottom: none; }
+.corner-tr { top: -45px; right: -45px; border-left: none; border-bottom: none; }
+.corner-bl { bottom: -45px; left: -45px; border-right: none; border-top: none; }
+.corner-br { bottom: -45px; right: -45px; border-left: none; border-top: none; }
+
+.cardinal-arrow {
+  position: absolute;
+  color: rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.arrow-up { top: 12px; left: 50%; transform: translateX(-50%); }
+.arrow-down { bottom: 12px; left: 50%; transform: translateX(-50%); }
+.arrow-left { left: 12px; top: 50%; transform: translateY(-50%); }
+.arrow-right { right: 12px; top: 50%; transform: translateY(-50%); }
+
+.tool-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #000;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 5;
+}
+
+.dial-arc-indicator {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 4px solid transparent;
+  border-top-color: #4ade80; /* Align with top-center tool */
+  pointer-events: none;
+  opacity: 0.9;
+  z-index: 1;
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+
+.tool-item {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.tool-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: scale(1.05);
+}
+
+.tool-item.active {
+  background: #2b2b2d;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.1);
+}
+
+.dial-center-hub:hover {
+  transform: scale(1.05);
+  background: #252529;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+}
+
+/* Specific tool highlights */
+.dial-tool-button.highlight-green {
+  background: rgba(74, 222, 128, 0.2);
+  border: 1.5px solid #4ade80;
+  color: #4ade80;
+}
+
+/* Legacy styles removal if any ... none other than .floating-toolbar */
+
+/* Premium Customizer Slider */
+.premium-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+  margin: 10px 0;
+}
+
+.premium-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  border: 2px solid #121214;
+  transition: all 0.2s ease;
+}
+
+.premium-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+}
+
+.premium-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  border: 2px solid #121214;
+}
+
+.tool-customizer-modal {
+  animation: modalEnter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalEnter {
+  from { opacity: 0; transform: translate(-50%, -45%) scale(0.95); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
