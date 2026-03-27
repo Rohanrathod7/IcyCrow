@@ -81,3 +81,13 @@ export async function getPdfFromCache(url: string): Promise<ArrayBuffer | undefi
   const entry = await db.get('pdf_cache', url);
   return entry?.buffer;
 }
+
+export async function saveAnnotations(url: string, data: { highlights: any[], strokes: any[] }): Promise<void> {
+  const db = await initDB();
+  await db.put('document_annotations', { url, ...data });
+}
+
+export async function getAnnotations(url: string): Promise<{ highlights: any[], strokes: any[] } | undefined> {
+  const db = await initDB();
+  return db.get('document_annotations', url);
+}

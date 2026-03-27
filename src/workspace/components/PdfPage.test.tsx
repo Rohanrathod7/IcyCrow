@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { vi, describe, it, expect } from 'vitest';
 import { render, waitFor } from '@testing-library/preact';
-import PdfPage from './PdfPage';
+import { PdfPage } from '../../../src/workspace/components/PdfPage';
 
 // Mock react-pdf
 vi.mock('react-pdf', () => ({
@@ -29,11 +29,7 @@ vi.mock('./InkCanvas', () => ({
 
 describe('PdfPage (react-pdf Architectural Pivot)', () => {
   it('should implement the 4-Layer Cake architecture with react-pdf', async () => {
-    const { container } = render(
-      <div className="mock-document">
-        <PdfPage fileUrl="test.pdf" pageNumber={1} />
-      </div>
-    );
+    const { container } = render(<PdfPage pageNumber={1} url="mock.pdf" />);
 
     // 1. Container Check
     const root = container.firstChild as HTMLElement;

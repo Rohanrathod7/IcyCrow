@@ -157,6 +157,10 @@ export interface IcyCrowDBSchema {
     key: string;
     value: IDBPdfCache;
   };
+  document_annotations: {
+    key: string;
+    value: { url: string; highlights: any[]; strokes: any[] };
+  };
 }
 
 // chrome.storage.local: Settings

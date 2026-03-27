@@ -2,8 +2,8 @@ import { render } from 'preact';
 import { useMemo, useState, useEffect } from 'preact/hooks';
 import { Document, pdfjs } from 'react-pdf';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import PdfPage from './components/PdfPage';
-import FloatingToolbar from './components/FloatingToolbar';
+import { PdfPage } from './components/PdfPage';
+import { ToolbarManager } from './components/ToolbarManager';
 import { getPdfFromCache, savePdfToCache } from '../lib/idb-store';
 // Inject Professional Styles
 import './index.css';
@@ -109,11 +109,11 @@ function WorkspaceApp() {
           onLoadError={(error: Error) => console.error("[react-pdf Error]:", error)}
         >
           <div className="pdf-document-wrapper">
-            {Array.from({ length: numPages }, (_, i) => (
+            {Array.from({ length: numPages }, (_, index) => (
               <PdfPage 
-                key={i + 1}
-                fileUrl={fileUrl!}
-                pageNumber={i + 1}
+                key={index}
+                url={fileUrl!} // Changed fileUrl to url, kept original value
+                pageNumber={index + 1}
               />
             ))}
           </div>
@@ -124,7 +124,7 @@ function WorkspaceApp() {
         </div>
       ) : null}
 
-      <FloatingToolbar />
+      <ToolbarManager />
     </div>
   );
 }
