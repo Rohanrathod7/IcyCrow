@@ -94,7 +94,7 @@ export const ToolCustomizer = () => {
         </div>
 
         <div style={{ marginTop: '20px', color: '#666', fontSize: '14px', fontWeight: 500 }}>
-           {isEraser ? 'Eraser Impact Zone' : (isSticky ? 'Note Icon Size' : 'Stroke Thickness')}
+           {isEraser ? 'Eraser Impact Zone' : (isSticky ? 'Note Icon Size' : (isCallout ? 'Arrow Thickness' : 'Stroke Thickness'))}
         </div>
       </div>
 
@@ -136,7 +136,7 @@ export const ToolCustomizer = () => {
         {/* Thickness Slider */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontWeight: 600 }}>
-            <span>{isSticky ? 'Icon Size' : (isEraser ? 'Eraser Size' : 'Thickness')}</span>
+            <span>{isSticky ? 'Icon Size' : (isEraser ? 'Eraser Size' : (isCallout ? 'Arrow Thickness' : 'Thickness'))}</span>
             <span style={{ color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px' }}>{settings.size}pt</span>
           </div>
           <div className="custom-slider-container">
