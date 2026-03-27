@@ -22,48 +22,74 @@ export function CalloutLayer({ pageNumber }: CalloutLayerProps) {
         overflow: 'visible'
       }}
     >
-      <defs>
-        <marker
-          id="arrowhead"
-          markerWidth="10"
-          markerHeight="7"
-          refX="9"
-          refY="3.5"
-          orient="auto"
-        >
-          <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" />
-        </marker>
-      </defs>
-
       {/* Render Saved Callouts */}
-      {pageCallouts.map(callout => (
-        <line
-          key={callout.id}
-          x1={callout.anchor.x * scale}
-          y1={callout.anchor.y * scale}
-          x2={callout.box.x * scale}
-          y2={callout.box.y * scale}
-          stroke={callout.color}
-          strokeWidth="2"
-          marker-end="url(#arrowhead)"
-          style={{ color: callout.color }}
-        />
-      ))}
+      {pageCallouts.map(callout => {
+        const { anchor, box } = callout;
+        const x1 = anchor.x * scale;
+        const y1 = anchor.y * scale;
+        const x2 = box.x * scale;
+        const y2 = box.y * scale;
+        
+        // Calculate angle for arrowhead
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const headLen = 12;
+        // Arrowhead points
+        const px1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
+        const py1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
+        const px2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
+        const py2 = y2 - headLen * Math.sin(angle + Math.PI / 6);
+
+        return (
+          <g key={callout.id}>
+            <line
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke={callout.color}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}
+            />
+            <polygon
+              points={`${x2},${y2} ${px1},${py1} ${px2},${py2}`}
+              fill={callout.color}
+            />
+          </g>
+        );
+      })}
 
       {/* Render Draft Preview */}
-      {draft && (
-        <line
-          x1={draft.anchor.x * scale}
-          y1={draft.anchor.y * scale}
-          x2={draft.current.x * scale}
-          y2={draft.current.y * scale}
-          stroke="rgba(255,255,255,0.5)"
-          strokeWidth="2"
-          strokeDasharray="4 4"
-          marker-end="url(#arrowhead)"
-          style={{ color: 'rgba(255,255,255,0.5)' }}
-        />
-      )}
+      {draft && (() => {
+        const x1 = draft.anchor.x * scale;
+        const y1 = draft.anchor.y * scale;
+        const x2 = draft.current.x * scale;
+        const y2 = draft.current.y * scale;
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const headLen = 10;
+        const px1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
+        const py1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
+        const px2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
+        const py2 = y2 - headLen * Math.sin(angle + Math.PI / 6);
+
+        return (
+          <g>
+            <line
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke="rgba(255,255,255,0.6)"
+              strokeWidth="2"
+              strokeDasharray="4 4"
+            />
+            <polygon
+              points={`${x2},${y2} ${px1},${py1} ${px2},${py2}`}
+              fill="rgba(255,255,255,0.6)"
+            />
+          </g>
+        );
+      })()}
     </svg>
   );
 }
