@@ -241,3 +241,32 @@
   from { opacity: 0; transform: translate(-50%, -45%) scale(0.95); }
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
+
+/* Premium Callout UI (S25-V2) */
+.callout-container {
+  background: rgba(30, 30, 32, 0.85); /* Clean, flat translucent dark mode */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15); /* Subtle rim light */
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); /* Soft drop shadow underneath, NOT inset */
+  color: #ffffff;
+  min-width: 150px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.callout-textarea {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  width: 100%;
+}
+.callout-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}

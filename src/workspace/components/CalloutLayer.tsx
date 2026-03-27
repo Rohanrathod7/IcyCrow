@@ -47,8 +47,9 @@ export function CalloutLayer({ pageNumber }: CalloutLayerProps) {
               x2={x2}
               y2={y2}
               stroke={callout.color}
-              strokeWidth="2.5"
+              strokeWidth="3"
               strokeLinecap="round"
+              strokeLinejoin="round"
               style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }}
             />
             <polygon
@@ -66,7 +67,7 @@ export function CalloutLayer({ pageNumber }: CalloutLayerProps) {
         const x2 = draft.current.x * scale;
         const y2 = draft.current.y * scale;
         const angle = Math.atan2(y2 - y1, x2 - x1);
-        const headLen = 10;
+        const headLen = 12;
         const px1 = x2 - headLen * Math.cos(angle - Math.PI / 6);
         const py1 = y2 - headLen * Math.sin(angle - Math.PI / 6);
         const px2 = x2 - headLen * Math.cos(angle + Math.PI / 6);
@@ -80,7 +81,7 @@ export function CalloutLayer({ pageNumber }: CalloutLayerProps) {
               x2={x2}
               y2={y2}
               stroke="rgba(255,255,255,0.6)"
-              strokeWidth="2"
+              strokeWidth="2.5"
               strokeDasharray="4 4"
             />
             <polygon

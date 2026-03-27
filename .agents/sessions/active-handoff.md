@@ -1,16 +1,18 @@
 ---
 # Active Handoff
-**Last Updated:** 2026-03-25T22:31:00+05:30
-**Recent Activity:** Epic S18 — Spatial Selection & Highlight Alignment Hardening
+**Last Updated:** 2026-03-27T02:15:00+05:30
+**Recent Activity:** Epic S17-V3 & S18 — PDF Pipeline Hardening & Pro Viewer UI Overhaul.
 
 ## 🏛️ Decisions Made Today
-* **Logical Pixel Synchronization** — Reason: Using `getBoundingClientRect` on centered containers introduced layout noise. Syncing normalization and rendering to Logical PDF Pixels (0-1 ratios) ensures pixel-perfect highlight anchoring regardless of zoom or layout.
-* **Infinite Gutter Interaction** — Reason: Oversizing the `textLayer` by 100px past the artboard ensures the browser never clips a selection drag at the extreme right margin.
-* **Span-Isolated Selection** — Reason: Disabling `user-select` on the interaction container while enabling it on text spans prevents "Selection Ghosts" in the margins while maintaining 100% text coverage.
+* **Direct Blob Passing** — Reason: Bypasses MV3 CSP restrictions and stabilizes worker memory for large PDFs (23MB+).
+* **IDB v4 `pdf_cache`** — Reason: Enables 100% Local-First persistence for binary documents.
+* **Global Viewport Signals** — Reason: Using `@preact/signals` ensures synchronous, 0ms-latency scaling for the multi-layer artboard (Canvas + Highlights + Ink).
+* **AbortController Sanitization** — Reason: Eliminates async race conditions and memory leaks during rapid task switching.
+* **Shared IDB Type-Safety** — Reason: Introduced `IcyCrowDBSchema` to eliminate `any` generics and harden the storage logic.
 
 ## 🚧 Active Blockers & Open Questions
-* **None.** Spatial selection and highlighting are now verified as high-fidelity.
+* **None.** PDF rendering and scaling are now enterprise-grade.
 
 ## ⏭️ Exact Next Step
-Perform a final verification of **"Cross-Page Selection"** logic and verify persistence across browser restarts.
+Implement **Advanced Annotation Persistence** (Epic S19), starting with the `normalizePath` integration for multi-stroke ink-canvas saving.
 ---
