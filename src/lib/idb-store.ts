@@ -82,12 +82,12 @@ export async function getPdfFromCache(url: string): Promise<ArrayBuffer | undefi
   return entry?.buffer;
 }
 
-export async function saveAnnotations(url: string, data: { highlights: any[], strokes: any[], stickyNotes?: any[] }): Promise<void> {
+export async function saveAnnotations(url: string, data: { highlights: any[], strokes: any[], stickyNotes?: any[], callouts?: any[] }): Promise<void> {
   const db = await initDB();
   await db.put('document_annotations', { url, ...data });
 }
 
-export async function getAnnotations(url: string): Promise<{ highlights: any[], strokes: any[], stickyNotes?: any[] } | undefined> {
+export async function getAnnotations(url: string): Promise<{ highlights: any[], strokes: any[], stickyNotes?: any[], callouts?: any[] } | undefined> {
   const db = await initDB();
   return db.get('document_annotations', url);
 }
