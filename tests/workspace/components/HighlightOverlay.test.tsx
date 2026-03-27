@@ -6,6 +6,12 @@ import { viewerScale } from '../../../src/workspace/store/viewer-state';
 
 // @vitest-environment jsdom
 
+vi.mock('../../../src/lib/idb-store', () => ({
+  saveAnnotations: vi.fn(),
+  getAnnotations: vi.fn(),
+  initDB: vi.fn(),
+}));
+
 describe('HighlightOverlay', () => {
   beforeEach(() => {
     highlights.value = [];
@@ -13,7 +19,7 @@ describe('HighlightOverlay', () => {
   });
 
   it('renders nothing when there are no highlights for the page', () => {
-    const { container } = render(<HighlightOverlay pageNumber={1} />);
+    const { container } = render(<HighlightOverlay pageNumber={1} url="mock.pdf" />);
     expect(container.firstChild).toBeNull();
   });
 
@@ -32,7 +38,7 @@ describe('HighlightOverlay', () => {
     // Scale at 2.0
     viewerScale.value = 2.0;
 
-    const { getByTestId } = render(<HighlightOverlay pageNumber={1} />);
+    const { getByTestId } = render(<HighlightOverlay pageNumber={1} url="mock.pdf" />);
     const highlightDiv = getByTestId('highlight-h1-0');
 
     expect(highlightDiv.style.top).toBe('200px'); // 100 * 2
@@ -49,7 +55,7 @@ describe('HighlightOverlay', () => {
       { id: 'p2', pageNumber: 2, color: 'blue', rects: [{ top: 20, left: 20, width: 20, height: 20 }] }
     ];
 
-    const { queryByTestId, getByTestId } = render(<HighlightOverlay pageNumber={1} />);
+    const { queryByTestId, getByTestId } = render(<HighlightOverlay pageNumber={1} url="mock.pdf" />);
     expect(getByTestId('highlight-p1-0')).toBeDefined();
     expect(queryByTestId('highlight-p2-0')).toBeNull();
   });
