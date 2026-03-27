@@ -30,7 +30,8 @@ import {
   ChevronLeft,
   ChevronRight,
   StickyNote,
-  PenTool
+  PenTool,
+  ArrowUpRight
 } from 'lucide-preact';
 import './Toolbar.css';
 
@@ -43,6 +44,7 @@ const ICONS: any = {
   eraser: Eraser,
   text: Type,
   sticky: StickyNote,
+  callout: ArrowUpRight,
   more: MoreHorizontal,
   zoomReset: RotateCcw,
 };
@@ -108,7 +110,7 @@ export const CircularToolbar = () => {
           e.stopPropagation();
           const id = activeTool.value;
           const baseType = (id as string).split('-')[0];
-          if (['draw', 'brush', 'eraser', 'highlight', 'sticky'].includes(baseType)) {
+          if (['draw', 'brush', 'eraser', 'highlight', 'sticky', 'callout'].includes(baseType)) {
             activeCustomizationTool.value = activeCustomizationTool.value === id ? null : id;
           }
         }}
@@ -116,7 +118,7 @@ export const CircularToolbar = () => {
           e.stopPropagation();
           const id = activeTool.value;
           const baseType = (id as string).split('-')[0];
-          if (['draw', 'brush', 'eraser', 'highlight', 'sticky'].includes(baseType)) {
+          if (['draw', 'brush', 'eraser', 'highlight', 'sticky', 'callout'].includes(baseType)) {
              activeCustomizationTool.value = activeCustomizationTool.value === id ? null : id;
           }
         }}
@@ -163,7 +165,7 @@ export const CircularToolbar = () => {
         const isActive = activeTool.value === (id as any);
         const toolMeta = metadata[id];
         const baseType = id.split('-')[0];
-        const isCustomizable = ['draw', 'brush', 'eraser', 'highlight', 'sticky'].includes(baseType);
+        const isCustomizable = ['draw', 'brush', 'eraser', 'highlight', 'sticky', 'callout'].includes(baseType);
 
         const iconColor = toolMeta?.color || (isActive ? '#818cf8' : 'rgba(255,255,255,0.7)');
         const extraClass = (id === 'text' && isActive) ? 'highlight-green' : '';

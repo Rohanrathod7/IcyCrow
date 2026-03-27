@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals';
 
-export type ToolType = 'pan' | 'select' | 'highlight' | 'draw' | 'brush' | 'eraser' | 'more' | 'color' | 'text' | 'sticky' | 'zoomReset';
+export type ToolType = 'pan' | 'select' | 'highlight' | 'draw' | 'brush' | 'eraser' | 'more' | 'color' | 'text' | 'sticky' | 'callout' | 'zoomReset';
 
 export interface ToolSettings {
   size: number;
@@ -17,5 +17,6 @@ export const toolSettings = signal<Record<string, ToolSettings>>({
   brush: { size: 8, color: '#fb923c' },
   eraser: { size: 20 },
   highlight: { size: 20, color: '#fef08a', opacity: 0.8 },
-  sticky: { size: 24, color: '#fbbf24' }
+  sticky: { size: 24, color: '#fbbf24' },
+  callout: { size: 2, color: '#3b82f6' }
 });

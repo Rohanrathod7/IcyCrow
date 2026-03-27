@@ -11,7 +11,8 @@ import {
   Type, 
   MoreHorizontal, 
   RotateCcw,
-  StickyNote
+  StickyNote,
+  ArrowUpRight
 } from 'lucide-preact';
 import { ToolId, toolMetadata } from '../store/toolbar-state';
 import { activeTool, activeCustomizationTool, toolSettings } from '../store/viewer-state';
@@ -26,6 +27,7 @@ const ICONS: Record<ToolId, any> = {
   color: Palette,
   text: Type,
   sticky: StickyNote,
+  callout: ArrowUpRight,
   more: MoreHorizontal,
   zoomReset: RotateCcw
 };
@@ -55,7 +57,7 @@ export const SortableToolItem = ({ id }: ToolItemProps) => {
   const Icon = ICONS[baseType] || ICONS[id as ToolId] || MousePointer2;
   
   const isActive = activeTool.value === id;
-  const isCustomizable = ['draw', 'brush', 'eraser', 'highlight', 'sticky'].includes(baseType);
+  const isCustomizable = ['draw', 'brush', 'eraser', 'highlight', 'sticky', 'callout'].includes(baseType);
   const settings = toolSettings.value[id] || toolSettings.value[baseType];
   const metadata = toolMetadata.value[id] || toolMetadata.value[baseType];
 

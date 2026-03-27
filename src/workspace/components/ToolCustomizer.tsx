@@ -32,6 +32,7 @@ export const ToolCustomizer = () => {
 
   const isEraser = baseType === 'eraser';
   const isSticky = baseType === 'sticky';
+  const isCallout = baseType === 'callout';
 
   return (
     <div 

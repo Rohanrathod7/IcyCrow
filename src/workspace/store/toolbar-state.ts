@@ -12,6 +12,7 @@ export type ToolId =
   | 'color' 
   | 'text' 
   | 'sticky'
+  | 'callout'
   | 'more'
   | 'zoomReset';
 
@@ -41,7 +42,8 @@ export const toolMetadata = signal<Record<string, { badge?: string | number; col
   text: { color: '#4ade80' },
   select: { badge: 2 },
   eraser: { color: '#f87171' },
-  sticky: { color: '#fbbf24' }
+  sticky: { color: '#fbbf24' },
+  callout: { color: '#3b82f6' }
 });
 
 export const isToolPickerOpen = signal<boolean>(false);
@@ -64,6 +66,7 @@ export const TOOL_LIBRARY = [
   { id: 'highlight-pink', type: 'highlight', label: 'Pink Marker', color: '#ec4899', size: 20 },
   { id: 'text-caption', type: 'text', label: 'Caption Tool', color: '#f59e0b' },
   { id: 'sticky-note', type: 'sticky', label: 'Sticky Note', color: '#fbbf24' },
+  { id: 'callout-blue', type: 'callout', label: 'Blue Callout', color: '#3b82f6' },
 ];
 
 import { toolSettings } from './viewer-state';
