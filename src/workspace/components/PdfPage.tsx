@@ -3,8 +3,16 @@ import { Page, pdfjs } from 'react-pdf';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { HighlightOverlay } from './HighlightOverlay';
 import { InkCanvas } from './InkCanvas';
-import { viewerScale, activeTool } from '../store/viewer-state';
-import { highlights, Highlight, initializeAnnotations, persistAnnotations } from '../store/annotation-state';
+import { viewerScale, activeTool, toolSettings } from '../store/viewer-state';
+import { 
+  highlights, 
+  Highlight, 
+  initializeAnnotations, 
+  persistAnnotations,
+  stickyNotes,
+  addSticky
+} from '../store/annotation-state';
+import { StickyNote } from './StickyNote';
 
 // Standard react-pdf styles
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -21,6 +29,27 @@ interface PdfPageProps {
 export function PdfPage({ url, pageNumber }: PdfPageProps) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const handlePageClick = (e: MouseEvent) => {
+    // Only if sticky tool is active
+    const tool = activeTool.value as string;
+    if (tool !== 'sticky' && !tool.startsWith('sticky')) return;
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const scale = viewerScale.value;
+
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
+
+    const currentSettings = toolSettings.value[tool] || toolSettings.value['sticky'] || { color: '#fbbf24' };
+
+    // Use current tool's color if available in settings, else default
+    addSticky(pageNumber, x, y, currentSettings.color || '#fbbf24');
+    persistAnnotations(url);
+  };
 
   // Persistence: Load on mount
   useEffect(() => {
@@ -75,6 +104,7 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
       data-url={url}
       ref={containerRef}
       onPointerUp={handlePointerUp}
+      onClick={handlePageClick}
       style={{ 
         position: 'relative', 
         display: 'inline-block'
@@ -91,8 +121,12 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
       />
       {dimensions.width > 0 && (
         <>
-          <HighlightOverlay pageNumber={pageNumber} />
+          <HighlightOverlay pageNumber={pageNumber} url={url} />
           <InkCanvas pageNumber={pageNumber} url={url} />
+          {stickyNotes.value
+            .filter(n => n.pageNumber === pageNumber)
+            .map(note => <StickyNote key={note.id} note={note} url={url} />)
+          }
         </>
       )}
     </div>

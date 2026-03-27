@@ -4,13 +4,14 @@ import {
   Hand, 
   MousePointer2, 
   Highlighter, 
-  Pencil, 
-  Eraser,
-  Brush,
+  PenTool, 
+  Brush, 
+  Eraser, 
   Palette, 
   Type, 
-  MoreHorizontal,
-  RotateCcw 
+  MoreHorizontal, 
+  RotateCcw,
+  StickyNote
 } from 'lucide-preact';
 import { ToolId, toolMetadata } from '../store/toolbar-state';
 import { activeTool, activeCustomizationTool, toolSettings } from '../store/viewer-state';
@@ -19,13 +20,14 @@ const ICONS: Record<ToolId, any> = {
   pan: Hand,
   select: MousePointer2,
   highlight: Highlighter,
-  draw: Pencil,
+  draw: PenTool,
   brush: Brush,
   eraser: Eraser,
   color: Palette,
   text: Type,
+  sticky: StickyNote,
   more: MoreHorizontal,
-  zoomReset: RotateCcw,
+  zoomReset: RotateCcw
 };
 
 interface ToolItemProps {
@@ -53,9 +55,9 @@ export const SortableToolItem = ({ id }: ToolItemProps) => {
   const Icon = ICONS[baseType] || ICONS[id as ToolId] || MousePointer2;
   
   const isActive = activeTool.value === id;
-  const isCustomizable = ['draw', 'brush', 'eraser', 'highlight'].includes(baseType);
-  const settings = toolSettings.value[id];
-  const metadata = toolMetadata.value[id];
+  const isCustomizable = ['draw', 'brush', 'eraser', 'highlight', 'sticky'].includes(baseType);
+  const settings = toolSettings.value[id] || toolSettings.value[baseType];
+  const metadata = toolMetadata.value[id] || toolMetadata.value[baseType];
 
   const iconColor = metadata?.color || (isActive ? '#818cf8' : 'rgba(255,255,255,0.7)');
 
@@ -67,12 +69,18 @@ export const SortableToolItem = ({ id }: ToolItemProps) => {
       {...(listeners as any)}
       className={`tool-item ${isActive ? 'active' : ''}`}
       onClick={() => {
-        activeTool.value = id as any;
+        if (activeTool.value === id) {
+          if (isCustomizable) {
+            activeCustomizationTool.value = activeCustomizationTool.value === id ? null : (id as any);
+          }
+        } else {
+          activeTool.value = id as any;
+        }
       }}
       onDblClick={(e) => {
         e.stopPropagation();
         if (isCustomizable) {
-          activeCustomizationTool.value = id as any;
+          activeCustomizationTool.value = activeCustomizationTool.value === id ? null : (id as any);
         }
       }}
       data-testid={`tool-${id}`}

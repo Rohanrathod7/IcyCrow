@@ -1,12 +1,14 @@
-import { highlights } from '../store/annotation-state';
-import { viewerScale } from '../store/viewer-state';
+import { highlights, deleteHighlight } from '../store/annotation-state';
+import { viewerScale, activeTool } from '../store/viewer-state';
 
 interface HighlightOverlayProps {
   pageNumber: number;
+  url: string;
 }
 
-export const HighlightOverlay = ({ pageNumber }: HighlightOverlayProps) => {
+export const HighlightOverlay = ({ pageNumber, url }: HighlightOverlayProps) => {
   const currentScale = viewerScale.value;
+  const isEraser = activeTool.value === 'eraser';
   const pageHighlights = highlights.value.filter(h => h.pageNumber === pageNumber);
 
   if (pageHighlights.length === 0) return null;
@@ -17,7 +19,7 @@ export const HighlightOverlay = ({ pageNumber }: HighlightOverlayProps) => {
       style={{
         position: 'absolute',
         inset: 0,
-        pointerEvents: 'none',
+        pointerEvents: isEraser ? 'auto' : 'none',
         zIndex: 1,
         overflow: 'hidden'
       }}
@@ -27,6 +29,11 @@ export const HighlightOverlay = ({ pageNumber }: HighlightOverlayProps) => {
           <div
             key={`${highlight.id}-${index}`}
             data-testid={`highlight-${highlight.id}-${index}`}
+            onPointerDown={() => {
+              if (isEraser) {
+                deleteHighlight(highlight.id, url);
+              }
+            }}
             style={{
               position: 'absolute',
               top: `${rect.top * currentScale}px`,
@@ -36,7 +43,8 @@ export const HighlightOverlay = ({ pageNumber }: HighlightOverlayProps) => {
               backgroundColor: highlight.color,
               mixBlendMode: 'multiply',
               opacity: 0.8,
-              borderRadius: '2px'
+              borderRadius: '2px',
+              cursor: isEraser ? 'crosshair' : 'default'
             }}
           />
         ))

@@ -11,6 +11,7 @@ export type ToolId =
   | 'eraser'
   | 'color' 
   | 'text' 
+  | 'sticky'
   | 'more'
   | 'zoomReset';
 
@@ -39,7 +40,8 @@ export const toolMetadata = signal<Record<string, { badge?: string | number; col
   highlight: { badge: 20, color: '#4ade80' },
   text: { color: '#4ade80' },
   select: { badge: 2 },
-  eraser: { color: '#f87171' }
+  eraser: { color: '#f87171' },
+  sticky: { color: '#fbbf24' }
 });
 
 export const isToolPickerOpen = signal<boolean>(false);
@@ -61,6 +63,7 @@ export const TOOL_LIBRARY = [
   { id: 'brush-purple', type: 'brush', label: 'Art Brush', color: '#8b5cf6', size: 15 },
   { id: 'highlight-pink', type: 'highlight', label: 'Pink Marker', color: '#ec4899', size: 20 },
   { id: 'text-caption', type: 'text', label: 'Caption Tool', color: '#f59e0b' },
+  { id: 'sticky-note', type: 'sticky', label: 'Sticky Note', color: '#fbbf24' },
 ];
 
 import { toolSettings } from './viewer-state';
