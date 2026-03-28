@@ -117,10 +117,13 @@ export async function injectPrompt(prompt: string): Promise<void> {
   await humanType(input, prompt);
 
   // 2. Definitive Wait for State Sync (Critical for React/Angular)
-  // We wait for the Send button to become enabled if it's disabled.
-  for (let i = 0; i < 10; i++) {
+  // In background, setTimeout is throttled to 1Hz, so we check every 20ms or fallback.
+  const isBackground = document.visibilityState === 'hidden';
+  const maxSyncWait = isBackground ? 5 : 20; // Fewer attempts in background to avoid hanging
+  
+  for (let i = 0; i < maxSyncWait; i++) {
     if (!sendBtn.hasAttribute('disabled')) break;
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, isBackground ? 0 : 50)); 
   }
 
   // 3. Dual-Submission Protocol (Synthetic Enter + Click)
@@ -129,14 +132,19 @@ export async function injectPrompt(prompt: string): Promise<void> {
   input.dispatchEvent(enterDown);
   
   // Attempt 2: Comprehensive Click Simulation
-  sendBtn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-  sendBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-  sendBtn.click();
-  sendBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-  sendBtn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+  // We dispatch multiple events to ensure the framework picks up the interaction
+  const events = [
+    new PointerEvent('pointerdown', { bubbles: true }),
+    new MouseEvent('mousedown', { bubbles: true }),
+    new MouseEvent('pointerup', { bubbles: true }),
+    new MouseEvent('mouseup', { bubbles: true }),
+    new MouseEvent('click', { bubbles: true })
+  ];
+  
+  events.forEach(ev => sendBtn.dispatchEvent(ev));
   
   // Final delay to ensure injection was handled
-  await new Promise(r => setTimeout(r, 300));
+  await new Promise(r => setTimeout(r, isBackground ? 0 : 300));
 }
 
 /**
