@@ -45,7 +45,7 @@ export const AiActionBar = () => {
     // and PdfPage handles tool clicks, we'll just use a generic placement for now 
     // or assume the user will drag it later.
     
-    addSticky(pos.pageNumber, 50, 50, '#fbbf24'); // Generic top-left of page for now
+    addSticky(pos.pageNumber, 50, 50, '#fbbf24', response); // Pass the AI response text
     // Actually, we should ideally have the PDF-space coordinates.
     // But for V1 "Add to Sticky", a visible drop is fine.
     

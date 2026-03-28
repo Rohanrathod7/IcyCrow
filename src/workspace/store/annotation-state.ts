@@ -95,13 +95,13 @@ export async function deleteHighlight(id: string, url: string) {
 }
 
 /** Sticky Note Actions */
-export function addSticky(pageNumber: number, x: number, y: number, color: string) {
+export function addSticky(pageNumber: number, x: number, y: number, color: string, text: string = '') {
   const newSticky: StickyNote = {
     id: `sticky-${Date.now()}`,
     pageNumber,
     x,
     y,
-    text: '',
+    text,
     color
   };
   stickyNotes.value = [...stickyNotes.value, newSticky];
