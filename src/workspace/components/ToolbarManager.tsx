@@ -200,7 +200,7 @@ export const ToolbarManager = () => {
         onClick={() => isSidebarOpen.value = !isSidebarOpen.value}
         style={{
           position: 'fixed',
-          top: '30px',
+          top: '90px', /* Below Export FAB */
           right: isSidebarOpen.value ? '340px' : '30px', /* Move with sidebar if open */
           zIndex: 10002,
           background: 'rgba(28, 28, 30, 0.8)',

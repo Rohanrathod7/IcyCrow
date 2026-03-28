@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { pdfUrl } from '../store/viewer-state';
 import { highlights, strokes, stickyNotes, callouts } from '../store/annotation-state';
-import { Sparkles, X, ChevronRight } from 'lucide-preact';
+import { Sparkles, X, Settings } from 'lucide-preact';
 import { isToolbarSettingsOpen } from '../store/toolbar-state';
 
 export const WorkspaceRecommendation = () => {
@@ -15,7 +15,6 @@ export const WorkspaceRecommendation = () => {
                    callouts.value.length > 0;
 
   useEffect(() => {
-    // SUPPRESS if notes already exist or document is clean but user says no
     if (!url || hasNotes || dismissed) {
       setSuggestion(null);
       return;
@@ -41,37 +40,36 @@ export const WorkspaceRecommendation = () => {
         bottom: '100px',
         left: '50%',
         transform: 'translateX(-50%)',
-        background: 'rgba(30, 30, 32, 0.9)',
-        backdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255, 255, 255, 0.15)',
-        padding: '12px 16px',
-        borderRadius: '20px',
+        background: 'rgba(32, 32, 35, 0.95)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        padding: '12px 18px',
+        borderRadius: '24px',
         color: '#fff',
         zIndex: 99999,
         display: 'flex',
         alignItems: 'center',
         gap: '16px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-        animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+        animation: 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
         pointerEvents: 'auto'
       }}
     >
       <div style={{ 
         background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', 
-        width: '32px', 
-        height: '32px', 
-        borderRadius: '10px', 
+        width: '36px', 
+        height: '34px', 
+        borderRadius: '12px', 
         display: 'flex', 
         alignItems: 'center', 
-        justifyContent: 'center',
-        boxShadow: '0 0 15px rgba(59, 130, 246, 0.5)'
+        justifyContent: 'center'
       }}>
-        <Sparkles size={16} color="#fff" />
+        <Sparkles size={18} color="#fff" />
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <span style={{ fontSize: '12px', fontWeight: 700, opacity: 0.9 }}>Recover Annotations?</span>
-        <span style={{ fontSize: '11px', opacity: 0.5 }}>Previous workspace found for this document.</span>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <span style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>Recover Workspace?</span>
+        <span style={{ fontSize: '11px', opacity: 0.6 }}>Found existing annotations for this document.</span>
       </div>
 
       <button 
@@ -80,36 +78,41 @@ export const WorkspaceRecommendation = () => {
           setDismissed(true);
         }}
         style={{
-          background: '#3b82f6',
-          border: 'none',
+          background: 'rgba(255, 255, 255, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
           color: '#fff',
-          padding: '6px 12px',
-          borderRadius: '10px',
+          padding: '8px 14px',
+          borderRadius: '12px',
           fontSize: '11px',
           fontWeight: 700,
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
-          gap: '4px'
+          gap: '6px',
+          transition: 'background 0.2s'
         }}
       >
-        Open Settings
-        <ChevronRight size={12} />
+        <Settings size={12} />
+        Restore
       </button>
 
       <button 
-        onClick={() => setDismissed(true)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setDismissed(true);
+        }}
         style={{ 
-          background: 'transparent', 
+          background: 'rgba(255,255,255,0.05)', 
           border: 'none', 
           color: '#fff', 
-          opacity: 0.3, 
+          opacity: 0.8, 
           cursor: 'pointer', 
           padding: '8px', 
-          margin: '-4px', 
+          borderRadius: '50%',
           display: 'flex', 
           alignItems: 'center', 
-          justifyContent: 'center' 
+          justifyContent: 'center',
+          transition: 'opacity 0.2s'
         }}
       >
         <X size={16} />
