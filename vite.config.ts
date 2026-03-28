@@ -12,6 +12,10 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      'react': 'preact/compat',
+      'react-dom': 'preact/compat',
+      'react-dom/test-utils': 'preact/test-utils',
+      'react/jsx-runtime': 'preact/jsx-runtime',
       '@lib': path.resolve(__dirname, 'src/lib'),
       '@bg': path.resolve(__dirname, 'src/background'),
       '@ui': path.resolve(__dirname, 'src/side-panel'),
@@ -25,5 +29,20 @@ export default defineConfig({
         workspace: 'src/workspace/index.html'
       }
     }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    alias: [
+      { find: /^react$/, replacement: 'preact/compat' },
+      { find: /^react-dom$/, replacement: 'preact/compat' },
+      { find: /^react-dom\/test-utils$/, replacement: 'preact/test-utils' },
+      { find: /^react\/jsx-runtime$/, replacement: 'preact/jsx-runtime' }
+    ],
+    server: {
+      deps: {
+        inline: [/@dnd-kit/, /@preact\/signals/]
+      }
+    }
   }
-});
+} as any);

@@ -1586,4 +1586,21 @@ export const cryptoManager = new CryptoManager();
 
 ---
 
-> **End of LLD v1.0** — This document is the strict technical contract for AI coding agents. Every TypeScript interface, message payload, algorithm, and resilience pattern defined here must be implemented exactly as specified. Cross-reference with [PRD v3.1](./PRD.md) for requirements and [HLA v2.1](./HLA.md) for architectural boundaries.
+## 5. Pro Toolbar Engine (Epic S20)
+
+### 5.1 State Model (`toolbar-state.ts`)
+- `toolbarPosition`: `'top' | 'bottom' | 'left' | 'right' | 'floating'`.
+- `floatingCoordinates`: `{ x, y }` clamped to viewport.
+- `toolsOrder`: `ToolId[]` persistent list.
+- `toolbarIsDragging`: Boolean interaction lock.
+
+### 5.2 Interaction Logic (`ToolbarManager.tsx`)
+- **Docking Proximity:** < 50px triggers preview/snap.
+- **Undocking Hysteresis:** > 100px drag required to break edge stickiness.
+- **Performance:** rAF-throttled pointer move updates.
+
+### 5.3 UI Geometry (`CircularToolbar.tsx`)
+- Tools distributed via `[r*cos(θ), r*sin(θ)]`.
+- Reorder Mode via linear list overlay to avoid circular D&D complexity.
+
+> **End of LLD v1.1** — Updated with S20 Toolbar Engine.
