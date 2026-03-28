@@ -1,4 +1,4 @@
-[LAST UPDATED: 2026-03-23]
+[LAST UPDATED: 2026-03-28]
 
 ### Storage System & Atomic Transactions
 
@@ -21,6 +21,11 @@
 
 * `chrome.storage.session` (Runtime State)
   - `sessionState` -> `SessionState` (Restart counts, Crypto status).
+
+* `In-Memory (Preact Signals)`
+  - `viewerScale`, `activeTool`, `toolSettings`
+  - `originalPdfBlob` -> Holds original document binary for Export Engine
+
 
 * `IndexedDB` (Persistent Articles & Embeddings)
   - `articles` -> `IDBArticle` (Key: id, Index: url)
