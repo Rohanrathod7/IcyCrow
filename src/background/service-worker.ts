@@ -415,12 +415,6 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
       }
       break;
     }
-    case 'AI_RESPONSE_STREAM': {
-      // Just relay to all extension contexts (Side Panel)
-      chrome.runtime.sendMessage(message);
-      sendResponse({ ok: true });
-      break;
-    }
     case 'MANUAL_REGISTER_BRIDGE': {
       try {
         const { tabId } = message.payload;

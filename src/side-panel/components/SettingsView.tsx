@@ -218,19 +218,40 @@ export const SettingsView = () => {
                 fontSize: '0.8rem',
                 borderBottom: '1px solid rgba(255,255,255,0.05)'
               }}>
-                <span className="truncate" style={{ flex: 1, marginRight: '8px' }}>{tab.title}</span>
-                <button 
-                  onClick={() => tab.id && handleRegisterBridge(tab.id)}
-                  className={`btn-ghost small ${isManual ? 'active' : ''}`}
-                  style={{ 
-                    padding: '2px 8px', 
-                    fontSize: '10px',
-                    borderColor: isManual ? 'var(--accent-primary)' : 'transparent',
-                    background: isManual ? 'rgba(var(--accent-rgb), 0.2)' : 'transparent'
-                  }}
-                >
-                  {isManual ? 'Manual Bridge' : isAuto ? 'Auto Detected' : 'Set as Bridge'}
-                </button>
+                <span className="truncate" style={{ 
+                  flex: 1, 
+                  marginRight: '8px',
+                  fontWeight: (isManual || isAuto) ? '600' : '400',
+                  color: (isManual || isAuto) ? 'var(--accent-primary)' : 'inherit'
+                }}>
+                  {tab.title}
+                </span>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {(isManual || isAuto) && (
+                    <span style={{ 
+                      fontSize: '9px', 
+                      background: isManual ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)',
+                      color: isManual ? '#000' : '#888',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      fontWeight: 'bold'
+                    }}>
+                      {isManual ? 'MANUAL' : 'AUTO'}
+                    </span>
+                  )}
+                  <button 
+                    onClick={() => tab.id && handleRegisterBridge(tab.id)}
+                    className="btn-ghost small"
+                    style={{ 
+                      padding: '2px 8px', 
+                      fontSize: '10px',
+                      background: isManual ? 'rgba(var(--accent-rgb), 0.1)' : 'transparent',
+                      border: isManual ? '1px solid var(--accent-primary)' : '1px solid rgba(255,255,255,0.1)'
+                    }}
+                  >
+                    {isManual ? 'Current Bridge' : 'Connect'}
+                  </button>
+                </div>
               </div>
             );
           })}

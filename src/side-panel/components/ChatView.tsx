@@ -5,13 +5,28 @@ import { ChatInput } from './ChatInput';
 import { ContextPicker } from './ContextPicker';
 import { chatMessages, isLoading, selectedContextTabs, chatEngine, activeSpaceId } from '../store';
 import { appendChatMessage } from '@lib/storage';
-import type { UUID, ISOTimestamp, InboundMessage } from '@lib/types';
+import type { UUID, ISOTimestamp, InboundMessage, SessionState } from '@lib/types';
 
 export const ChatView = () => {
   const [showPicker, setShowPicker] = useState(false);
   const [connectedTab, setConnectedTab] = useState<{ title: string; url: string; id: number } | null>(null);
 
   useEffect(() => {
+    const fetchInitialStatus = async () => {
+      const res = await chrome.storage.session.get('sessionState');
+      const state = (res.sessionState as SessionState) || {};
+      const targetId = state.manualGeminiTabId || (state.geminiTabIds?.[0] || state.geminiTabId);
+      if (targetId) {
+        try {
+          const tab = await chrome.tabs.get(targetId);
+          if (tab) setConnectedTab({ title: tab.title || 'Gemini', url: tab.url || '', id: tab.id! });
+        } catch (e) {
+          console.warn('[ChatView] Failed to fetch initial bridge tab:', e);
+        }
+      }
+    };
+    fetchInitialStatus();
+
     const handleMessage = (message: InboundMessage, sender: chrome.runtime.MessageSender) => {
       // Security: Validate sender
       if (sender.id !== chrome.runtime.id) return;
