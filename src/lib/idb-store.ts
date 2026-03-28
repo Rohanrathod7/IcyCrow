@@ -91,3 +91,23 @@ export async function getAnnotations(url: string): Promise<{ highlights: any[], 
   const db = await initDB();
   return db.get('document_annotations', url);
 }
+
+export async function saveWorkspaceHandle(url: string, handle: any, filename: string): Promise<void> {
+  const db = await initDB();
+  await db.put('workspace_handles', { 
+    url, 
+    handle, 
+    filename, 
+    lastLinked: new Date().toISOString() 
+  });
+}
+
+export async function getWorkspaceHandle(url: string): Promise<{ handle: any, filename: string, lastLinked: string } | undefined> {
+  const db = await initDB();
+  return db.get('workspace_handles', url);
+}
+
+export async function deleteWorkspaceHandle(url: string): Promise<void> {
+  const db = await initDB();
+  await db.delete('workspace_handles', url);
+}

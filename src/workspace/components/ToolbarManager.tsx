@@ -11,6 +11,11 @@ import { saveToHandle } from '../services/StateSyncService';
 import { EdgeToolbar } from './EdgeToolbar';
 import { CircularToolbar } from './CircularToolbar';
 import { WorkspaceImportModal } from './WorkspaceImportModal';
+import { ToolbarSettingsModal } from './ToolbarSettingsModal';
+import { WorkspaceRecommendation } from './WorkspaceRecommendation';
+import { SyncToast, showSyncToast } from './SyncToast';
+import { getWorkspaceHandle } from '../../lib/idb-store';
+import { verifyPermission } from '../services/StateSyncService';
 
 export const ToolbarManager = () => {
   const rafId = useRef<number | null>(null);
@@ -44,6 +49,30 @@ export const ToolbarManager = () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
     };
   }, []);
+
+  // Sync Restoration Effect
+  useEffect(() => {
+    if (!pdfUrl.value) return;
+
+    const restoreSync = async () => {
+      const entry = await getWorkspaceHandle(pdfUrl.value);
+      if (entry && entry.handle) {
+        // Try to verify permission
+        const hasPermission = await verifyPermission(entry.handle, 'readwrite');
+        if (hasPermission) {
+          autoSaveFileHandle.value = entry.handle;
+          isAutoSaveEnabled.value = true;
+          showSyncToast(`Sync Restored: ${entry.filename}`, 'success');
+        } else {
+          // Keep handle but enable manual re-auth in settings
+          autoSaveFileHandle.value = entry.handle;
+          showSyncToast(`Sync Pending: Permission Needed`, 'info');
+        }
+      }
+    };
+
+    restoreSync();
+  }, [pdfUrl.value]);
 
   const startDragCoords = useRef<{ x: number; y: number } | null>(null);
 
@@ -157,7 +186,10 @@ export const ToolbarManager = () => {
           <EdgeToolbar />
         )}
       </div>
+      <ToolbarSettingsModal />
       <WorkspaceImportModal />
+      <SyncToast />
+      <WorkspaceRecommendation />
     </div>
   );
 };

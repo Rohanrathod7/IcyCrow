@@ -11,7 +11,9 @@ export const WorkspaceImportModal = () => {
   const isMismatch = data.documentUrl && data.documentUrl !== currentUrl;
 
   const handleConfirm = async () => {
-    await commitWorkspaceToStore(data, currentUrl);
+    // If the import was triggered by a file handle, we use it for auto-save
+    const sourceHandle = (data as any)._fileHandle; 
+    await commitWorkspaceToStore(data, currentUrl, sourceHandle);
     isImportModalOpen.value = false;
     pendingImportData.value = null;
   };
@@ -44,7 +46,8 @@ export const WorkspaceImportModal = () => {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        fontFamily: 'system-ui, -apple-system, sans-serif'
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        pointerEvents: 'auto'
       }}
     >
       <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '12px' }}>

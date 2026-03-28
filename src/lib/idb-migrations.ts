@@ -3,7 +3,7 @@ import { IDB_NAME as CONST_DB_NAME } from './constants';
 import { type IcyCrowDBSchema } from './types';
 
 export const DB_NAME = CONST_DB_NAME;
-export const DB_VERSION = 5;
+export const DB_VERSION = 6;
 
 type MigrationFn = (db: IDBPDatabase<IcyCrowDBSchema>, tx: IDBPTransaction<IcyCrowDBSchema, any, 'versionchange'>) => void;
 
@@ -45,6 +45,11 @@ const MIGRATIONS: Record<number, MigrationFn> = {
   5: (db) => {
     if (!db.objectStoreNames.contains('document_annotations')) {
       db.createObjectStore('document_annotations', { keyPath: 'url' });
+    }
+  },
+  6: (db) => {
+    if (!db.objectStoreNames.contains('workspace_handles')) {
+      db.createObjectStore('workspace_handles', { keyPath: 'url' });
     }
   }
 };

@@ -20,7 +20,6 @@ import { exportAnnotatedPdf, downloadBlob } from '../services/PdfExportService';
 import { StickyNote } from './StickyNote';
 import { CalloutLayer } from './CalloutLayer';
 import { CalloutBox } from './CalloutBox';
-import { WorkspaceRecommendation } from './WorkspaceRecommendation';
 
 // Standard react-pdf styles
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -255,7 +254,6 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
           }
         </>
       )}
-      <WorkspaceRecommendation />
     </div>
   );
 }

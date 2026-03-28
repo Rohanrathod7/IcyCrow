@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { highlights, strokes, stickyNotes, callouts, persistAnnotations } from '../store/annotation-state';
+import { saveWorkspaceHandle } from '../../lib/idb-store';
+import { autoSaveFileHandle, isAutoSaveEnabled } from '../store/viewer-state';
 
 /**
  * Zod Schema for strict validation
@@ -78,18 +80,25 @@ export async function validateWorkspaceFile(file: File): Promise<WorkspacePayloa
 /**
  * Commit validated data to the store and IDB
  */
-export async function commitWorkspaceToStore(data: WorkspacePayload, url: string) {
+export async function commitWorkspaceToStore(data: WorkspacePayload, url: string, handle?: any) {
   // 1. Update live signals
   highlights.value = data.highlights;
   strokes.value = data.strokes;
   stickyNotes.value = data.stickyNotes;
   callouts.value = data.callouts;
 
-  // 2. Persist to IDB
+  // 2. Persist to IDB (Internal cache)
   await persistAnnotations(url);
   
-  // 3. Register this document association
+  // 3. Register this document association in storage registry
   registerWorkspace(url, data.documentUrl || 'Untitled Workspace');
+
+  // 4. Auto-link for Pro Sync if handle provided
+  if (handle) {
+    autoSaveFileHandle.value = handle;
+    isAutoSaveEnabled.value = true;
+    await saveWorkspaceHandle(url, handle, handle.name);
+  }
 }
 
 /**
@@ -130,15 +139,48 @@ export async function saveToHandle(handle: any, data: WorkspacePayload) {
 export async function getSaveHandle(suggestedName: string) {
   try {
     // @ts-ignore - File System Access API
-    return await window.showSaveFilePicker({
+    const handle = await window.showSaveFilePicker({
       suggestedName,
       types: [{
         description: 'IcyCrow Workspace JSON',
         accept: { 'application/json': ['.json'] },
       }],
     });
+    return handle;
   } catch (err) {
     console.error("Picker cancelled or failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Verify if we have read/write permission for a handle
+ */
+export async function verifyPermission(handle: any, mode: 'read' | 'readwrite' = 'readwrite') {
+  if (!handle) return false;
+  const options = { mode };
+  // Check if we already have permission
+  if ((await handle.queryPermission(options)) === 'granted') {
+    return true;
+  }
+  // Request permission
+  if ((await handle.requestPermission(options)) === 'granted') {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Load workspace from a handle
+ */
+export async function loadFromHandle(handle: any): Promise<WorkspacePayload | null> {
+  try {
+    const file = await handle.getFile();
+    const content = await file.text();
+    const parsed = JSON.parse(content);
+    return WorkspaceSchema.parse(parsed);
+  } catch (err) {
+    console.error("Load from handle failed:", err);
     return null;
   }
 }

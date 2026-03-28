@@ -15,6 +15,7 @@ export const WorkspaceRecommendation = () => {
                    callouts.value.length > 0;
 
   useEffect(() => {
+    // SUPPRESS if notes already exist or document is clean but user says no
     if (!url || hasNotes || dismissed) {
       setSuggestion(null);
       return;
@@ -40,17 +41,17 @@ export const WorkspaceRecommendation = () => {
         bottom: '100px',
         left: '50%',
         transform: 'translateX(-50%)',
-        background: 'rgba(18, 18, 20, 0.85)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        background: 'rgba(30, 30, 32, 0.9)',
+        backdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.15)',
         padding: '12px 16px',
         borderRadius: '20px',
         color: '#fff',
-        zIndex: 9999,
+        zIndex: 99999,
         display: 'flex',
         alignItems: 'center',
         gap: '16px',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
         animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
         pointerEvents: 'auto'
       }}
@@ -98,9 +99,20 @@ export const WorkspaceRecommendation = () => {
 
       <button 
         onClick={() => setDismissed(true)}
-        style={{ background: 'transparent', border: 'none', color: '#fff', opacity: 0.3, cursor: 'pointer', padding: '4px' }}
+        style={{ 
+          background: 'transparent', 
+          border: 'none', 
+          color: '#fff', 
+          opacity: 0.3, 
+          cursor: 'pointer', 
+          padding: '8px', 
+          margin: '-4px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }}
       >
-        <X size={14} />
+        <X size={16} />
       </button>
     </div>
   );

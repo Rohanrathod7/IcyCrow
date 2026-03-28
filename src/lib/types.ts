@@ -161,6 +161,10 @@ export interface IcyCrowDBSchema {
     key: string;
     value: { url: string; highlights: any[]; strokes: any[] };
   };
+  workspace_handles: {
+    key: string;
+    value: { url: string; handle: any; filename: string; lastLinked: string };
+  };
 }
 
 // chrome.storage.local: Settings
