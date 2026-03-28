@@ -3,7 +3,7 @@ import { Page, pdfjs } from 'react-pdf';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { HighlightOverlay } from './HighlightOverlay';
 import { InkCanvas } from './InkCanvas';
-import { viewerScale, activeTool, toolSettings, originalPdfBlob } from '../store/viewer-state';
+import { viewerScale, activeTool, toolSettings, originalPdfBlob, pdfUrl } from '../store/viewer-state';
 import { 
   highlights, 
   Highlight, 
@@ -70,6 +70,7 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
 
   // Persistence: Load on mount
   useEffect(() => {
+    pdfUrl.value = url;
     initializeAnnotations(url);
   }, [url]);
 

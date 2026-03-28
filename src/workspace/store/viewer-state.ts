@@ -22,3 +22,4 @@ export const toolSettings = signal<Record<string, ToolSettings>>({
 });
 
 export const originalPdfBlob = signal<Blob | null>(null);
+export const pdfUrl = signal<string>('');

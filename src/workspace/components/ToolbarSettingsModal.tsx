@@ -7,6 +7,7 @@ import {
   toolMetadata,
   ToolbarPosition
 } from '../store/toolbar-state';
+import { pdfUrl } from '../store/viewer-state';
 import { 
   Trash2, 
   RefreshCcw, 
@@ -19,8 +20,11 @@ import {
   Brush,
   Highlighter,
   Type,
-  Eraser
+  Eraser,
+  Download,
+  Upload
 } from 'lucide-preact';
+import { exportWorkspace, importWorkspace } from '../services/StateSyncService';
 
 const ICONS: Record<string, any> = {
   draw: PenTool,
@@ -145,6 +149,66 @@ export const ToolbarSettingsModal = () => {
                 </div>
               );
             })}
+          </div>
+        </section>
+
+        {/* Workspace Backup Section */}
+        <section>
+          <h3 style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.4, letterSpacing: '1px', marginBottom: '16px' }}>Workspace Backup</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <button
+              onClick={() => exportWorkspace('icycrow_notes')}
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.05)',
+                padding: '16px 8px',
+                borderRadius: '16px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Download size={18} />
+              <span style={{ fontSize: '11px', fontWeight: 600 }}>Save (.json)</span>
+            </button>
+
+            <button
+              onClick={() => document.getElementById('workspace-import-input')?.click()}
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.05)',
+                padding: '16px 8px',
+                borderRadius: '16px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s'
+              }}
+            >
+              <Upload size={18} />
+              <span style={{ fontSize: '11px', fontWeight: 600 }}>Load Workspace</span>
+            </button>
+            <input 
+              id="workspace-import-input"
+              type="file" 
+              accept=".json"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (file) {
+                  const url = pdfUrl.value || window.location.href; 
+                  await importWorkspace(file, url);
+                  (e.target as HTMLInputElement).value = ''; // Reset
+                }
+              }}
+            />
           </div>
         </section>
 
