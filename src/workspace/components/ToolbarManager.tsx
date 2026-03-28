@@ -15,6 +15,9 @@ import { ToolbarSettingsModal } from './ToolbarSettingsModal';
 import { WorkspaceRecommendation } from './WorkspaceRecommendation';
 import { SyncToast, showSyncToast } from './SyncToast';
 import { getWorkspaceHandle } from '../../lib/idb-store';
+import { isSidebarOpen } from '../store/ui-state';
+import { PanelRight, X } from 'lucide-preact';
+import { AnnotationSidebar } from './AnnotationSidebar';
 import { verifyPermission } from '../services/StateSyncService';
 
 export const ToolbarManager = () => {
@@ -190,6 +193,35 @@ export const ToolbarManager = () => {
       <WorkspaceImportModal />
       <SyncToast />
       <WorkspaceRecommendation />
+      
+      {/* Sidebar Toggle Button */}
+      <button 
+        data-testid="sidebar-toggle-btn"
+        onClick={() => isSidebarOpen.value = !isSidebarOpen.value}
+        style={{
+          position: 'fixed',
+          top: '30px',
+          right: isSidebarOpen.value ? '340px' : '30px', /* Move with sidebar if open */
+          zIndex: 10002,
+          background: 'rgba(28, 28, 30, 0.8)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          color: '#ffffff',
+          width: '48px',
+          height: '48px',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
+        {isSidebarOpen.value ? <X size={20} /> : <PanelRight size={20} />}
+      </button>
+
+      <AnnotationSidebar />
     </div>
   );
 };

@@ -120,8 +120,9 @@ export function updateStickyPosition(id: string, x: number, y: number) {
   );
 }
 
-export function deleteSticky(id: string) {
+export async function deleteSticky(id: string, url: string) {
   stickyNotes.value = stickyNotes.value.filter(s => s.id !== id);
+  await persistAnnotations(url);
 }
 
 /** Callout Actions */
@@ -150,6 +151,7 @@ export function updateCalloutBoxPosition(id: string, x: number, y: number) {
   );
 }
 
-export function deleteCallout(id: string) {
+export async function deleteCallout(id: string, url: string) {
   callouts.value = callouts.value.filter(c => c.id !== id);
+  await persistAnnotations(url);
 }

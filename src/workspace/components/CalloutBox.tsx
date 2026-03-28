@@ -34,8 +34,7 @@ export function CalloutBox({ callout, url }: CalloutBoxProps) {
 
   const handlePointerEnter = () => {
     if (isEraser) {
-      deleteCallout(callout.id);
-      persistAnnotations(url);
+      deleteCallout(callout.id, url);
     }
   };
 

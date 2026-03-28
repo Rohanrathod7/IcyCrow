@@ -35,8 +35,7 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
 
   const handleEraserHover = () => {
     if (activeTool.value === 'eraser') {
-      deleteSticky(note.id);
-      persistAnnotations(url);
+      deleteSticky(note.id, url);
     }
   };
 
