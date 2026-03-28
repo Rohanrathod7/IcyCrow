@@ -1,4 +1,4 @@
-import { StickyNote as StickyNoteType, activeStickyId, updateStickyText, deleteSticky, persistAnnotations, updateStickyPosition } from '../store/annotation-state';
+import { StickyNote as StickyNoteType, activeStickyId, updateStickyText, deleteSticky, persistAnnotations, updateStickyPosition, updateStickySize } from '../store/annotation-state';
 import { viewerScale, activeTool, toolSettings } from '../store/viewer-state';
 import { MessageSquare } from 'lucide-preact';
 import { useRef, useEffect, useState } from 'preact/hooks';
@@ -18,11 +18,27 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
 
+  // Resize State
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeStartPoint, setResizeStartPoint] = useState({ x: 0, y: 0 });
+  const [currentSize, setCurrentSize] = useState({ 
+    width: note.width || 220, 
+    height: note.height || 140 
+  });
+
   useEffect(() => {
     if (isExpanded && textareaRef.current) {
       textareaRef.current.focus();
     }
   }, [isExpanded]);
+
+  useEffect(() => {
+    // Sync currentSize with note state if it changes externally
+    setCurrentSize({ 
+      width: note.width || 220, 
+      height: note.height || 140 
+    });
+  }, [note.width, note.height]);
 
   const handleBlur = () => {
     activeStickyId.value = null;
@@ -41,7 +57,7 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
 
   // Drag Handlers
   const handlePointerDown = (e: PointerEvent) => {
-    if (activeTool.value !== 'select') return;
+    if (activeTool.value !== 'select' || isResizing) return;
     
     e.stopPropagation();
     setIsDragging(true);
@@ -71,6 +87,38 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
     setDragOffset({ x: 0, y: 0 });
   };
 
+  // Resize Handlers
+  const handleResizePointerDown = (e: PointerEvent) => {
+    e.stopPropagation();
+    setIsResizing(true);
+    setResizeStartPoint({ x: e.clientX, y: e.clientY });
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handleResizePointerMove = (e: PointerEvent) => {
+    if (!isResizing) return;
+    e.stopPropagation();
+
+    const dx = (e.clientX - resizeStartPoint.x) / scale;
+    const dy = (e.clientY - resizeStartPoint.y) / scale;
+
+    setCurrentSize({
+      width: Math.max(120, (note.width || 220) + dx),
+      height: Math.max(60, (note.height || 140) + dy)
+    });
+  };
+
+  const handleResizePointerUp = (e: PointerEvent) => {
+    if (!isResizing) return;
+    e.stopPropagation();
+
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    setIsResizing(false);
+
+    updateStickySize(note.id, currentSize.width, currentSize.height);
+    persistAnnotations(url);
+  };
+
   const getIconSize = () => {
      const settings = toolSettings.value[activeTool.value] || toolSettings.value['sticky'];
      return (settings?.size || 24) * scale;
@@ -82,9 +130,9 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
     position: 'absolute',
     left: '0',
     top: '0',
-    zIndex: isExpanded || isDragging ? 2000 : 1000,
+    zIndex: isExpanded || isDragging || isResizing ? 2000 : 1000,
     transform: `translate(${note.x * scale + dragOffset.x}px, ${note.y * scale + dragOffset.y}px) translate(-50%, -50%)`,
-    transition: isDragging ? 'none' : 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+    transition: isDragging || isResizing ? 'none' : 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
     pointerEvents: 'auto'
   };
 
@@ -127,16 +175,19 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
     <div 
       style={{
         ...baseStyles,
-        width: '200px',
-        background: 'rgba(28, 28, 30, 0.8)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
+        width: `${currentSize.width * scale}px`,
+        height: `${currentSize.height * scale}px`,
+        background: 'rgba(28, 28, 30, 0.85)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         borderRadius: '16px',
         padding: '12px',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1)',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.15)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px'
+        gap: '8px',
+        position: 'relative',
+        overflow: 'hidden'
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -152,19 +203,49 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
         onPointerDown={(e) => e.stopPropagation()} // Prevent drag while typing
         style={{
           width: '100%',
-          minHeight: '80px',
+          flex: 1, // Fill available space
           background: 'transparent',
           border: 'none',
           color: '#fff',
-          fontSize: '13px',
+          fontSize: `${13 * scale}px`,
           lineHeight: '1.5',
           resize: 'none',
           outline: 'none',
           fontFamily: 'inherit'
         }}
       />
-      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: note.color }} />
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: note.color, opacity: 0.8 }} />
+         
+         {/* Resize Handle */}
+         <div 
+            onPointerDown={handleResizePointerDown}
+            onPointerMove={handleResizePointerMove}
+            onPointerUp={handleResizePointerUp}
+            style={{
+              width: '16px',
+              height: '16px',
+              cursor: 'nwse-resize',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'flex-end',
+              padding: '2px',
+              opacity: 0.5,
+              transition: 'opacity 0.2s',
+              zIndex: 10
+            }}
+            onMouseEnter={(e: any) => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={(e: any) => e.currentTarget.style.opacity = '0.5'}
+         >
+            <div style={{ 
+              width: '8px', 
+              height: '8px', 
+              borderRight: '2px solid #fff', 
+              borderBottom: '2px solid #fff',
+              borderBottomRightRadius: '2px'
+            }} />
+         </div>
       </div>
     </div>
   );

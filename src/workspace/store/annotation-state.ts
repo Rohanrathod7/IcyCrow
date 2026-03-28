@@ -36,6 +36,8 @@ export interface StickyNote {
   y: number;
   text: string;
   color: string;
+  width?: number;
+  height?: number;
 }
 
 export interface Callout {
@@ -111,6 +113,12 @@ export function addSticky(pageNumber: number, x: number, y: number, color: strin
 export function updateStickyText(id: string, text: string) {
   stickyNotes.value = stickyNotes.value.map(s => 
     s.id === id ? { ...s, text } : s
+  );
+}
+
+export function updateStickySize(id: string, width: number, height: number) {
+  stickyNotes.value = stickyNotes.value.map(s => 
+    s.id === id ? { ...s, width, height } : s
   );
 }
 
