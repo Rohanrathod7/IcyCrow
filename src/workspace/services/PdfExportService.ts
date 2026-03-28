@@ -82,46 +82,74 @@ export async function exportAnnotatedPdf(
       }
     }
 
-    // 3. Draw Sticky Notes
+    // 3. Draw Sticky Notes as Icons
     const pageNotes = annotations.stickyNotes.filter(n => n.pageNumber === pageNum);
     for (const note of pageNotes) {
-      if (!note.text) continue;
       const color = hexToRgb(note.color);
+      const noteSize = 24;
+      const nX = (note.x / 1000) * width;
+      const nY = (note.y / 1000) * height;
       
-      page.drawText(note.text, {
-        x: (note.x / 1000) * width,
-        y: height - (note.y / 1000) * height,
-        size: 12,
-        color
+      page.drawRectangle({
+        x: nX - noteSize / 2,
+        y: height - nY - noteSize / 2, // Center on (x,y)
+        width: noteSize,
+        height: noteSize,
+        color,
+        borderColor: rgb(0, 0, 0),
+        borderWidth: 1
       });
     }
 
-    // 4. Draw Callouts
+    // 4. Draw Callouts with Arrowheads and Boxes
     const pageCallouts = annotations.callouts.filter(c => c.pageNumber === pageNum);
     for (const callout of pageCallouts) {
       const color = hexToRgb(callout.color);
+      
+      const aX = (callout.anchor.x / 1000) * width;
+      const aY = height - (callout.anchor.y / 1000) * height;
+      const bX = (callout.box.x / 1000) * width;
+      const bY = height - (callout.box.y / 1000) * height;
 
-      // Arrow line
+      // 4a. The Line
       page.drawLine({
-        start: { 
-          x: (callout.anchor.x / 1000) * width, 
-          y: height - (callout.anchor.y / 1000) * height 
-        },
-        end: { 
-          x: (callout.box.x / 1000) * width, 
-          y: height - (callout.box.y / 1000) * height 
-        },
+        start: { x: aX, y: aY },
+        end: { x: bX, y: bY },
         thickness: 2,
         color
       });
 
-      // Text box content
+      // 4b. The Arrowhead at Anchor
+      const angle = Math.atan2(bY - aY, bX - aX);
+      const headLen = 10;
+      const angle1 = angle - Math.PI / 6;
+      const angle2 = angle + Math.PI / 6;
+      const p1 = { x: aX + headLen * Math.cos(angle1), y: aY + headLen * Math.sin(angle1) };
+      const p2 = { x: aX + headLen * Math.cos(angle2), y: aY + headLen * Math.sin(angle2) };
+      
+      const arrowPath = `M ${aX},${aY} L ${p1.x},${p1.y} L ${p2.x},${p2.y} Z`;
+      page.drawSvgPath(arrowPath, { color, borderColor: color });
+
+      // 4c. The Text Box
+      const boxW = 120;
+      const boxH = 35;
+      
+      page.drawRectangle({
+        x: bX - boxW / 2,
+        y: bY - boxH / 2,
+        width: boxW,
+        height: boxH,
+        color: rgb(0.12, 0.12, 0.13), // Premium dark gray
+        opacity: 0.85
+      });
+
+      // 4d. The Text
       if (callout.text) {
-        page.drawText(callout.text, {
-          x: (callout.box.x / 1000) * width + 5,
-          y: height - (callout.box.y / 1000) * height,
+        page.drawText(callout.text.substring(0, 30), {
+          x: bX - boxW / 2 + 8,
+          y: bY - 4,
           size: 10,
-          color
+          color: rgb(1, 1, 1) // White text
         });
       }
     }
