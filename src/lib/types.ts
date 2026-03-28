@@ -290,6 +290,7 @@ export interface QueueState {
 // chrome.storage.session: Session State
 export interface SessionState {
   geminiTabId: number | null;
+  geminiTabIds: number[];
   geminiBridgeHealthy: boolean;
   lastSelectorCheckAt: ISOTimestamp | null;
   cryptoKeyUnlocked: boolean;

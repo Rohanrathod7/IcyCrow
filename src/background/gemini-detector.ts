@@ -15,7 +15,11 @@ export function watchGeminiTab(urlPattern: string) {
     const result = await chrome.storage.session.get('sessionState');
     const state = result.sessionState || {};
     await chrome.storage.session.set({
-      sessionState: { ...state, geminiTabIds: ids }
+      sessionState: { 
+        ...state, 
+        geminiTabIds: ids,
+        geminiTabId: ids[0] || null 
+      }
     });
     
     // Proactive injection into matched tabs

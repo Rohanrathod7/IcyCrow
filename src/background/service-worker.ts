@@ -296,26 +296,29 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
             try {
               const tab = await chrome.tabs.get(tabId);
               
-              // 1. Synchronous Wakeup Protocol: Momentarily activate the tab to bypass throttling
-              // Capture the user's current view so we can blink back
+              // 1. Synchronous Wakeup Protocol
               const [currentView] = await chrome.tabs.query({ active: true, currentWindow: true });
               await chrome.tabs.update(tabId, { active: true });
               
-              // Tell Side Panel we found a tab before starting injection
               chrome.runtime.sendMessage({
                 type: 'AI_RESPONSE_STREAM', 
                 payload: { taskId, chunk: '', done: false, tabInfo: { title: tab.title, url: tab.url, id: tabId } }
               });
               
-              const bridgeResponse = await chrome.tabs?.sendMessage(tabId, { type: 'AI_QUERY', payload: { prompt: contextualPrompt, taskId } });
+              // 2. Message with 15s timeout
+              const bridgeResponse = await Promise.race([
+                chrome.tabs.sendMessage(tabId, { type: 'AI_QUERY', payload: { prompt: contextualPrompt, taskId } }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('BRIDGE_TIMEOUT')), 15000))
+              ]);
               
-              // 2. Blink back to the user's previous tab immediately after injection starts
+              // 3. Blink back
               if (currentView?.id && currentView.id !== tabId) {
                 await chrome.tabs.update(currentView.id, { active: true });
               }
               
               return bridgeResponse;
-            } catch (err) {
+            } catch (err: any) {
+              console.warn(`[IcyCrow] Failed to message Gemini tab ${tabId}:`, err.message);
               lastErr = err;
               continue;
             }
@@ -337,7 +340,7 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
     case 'GEMINI_HEALTH_CHECK': {
       const result = await chrome.storage?.session?.get('sessionState');
       const state = (result?.sessionState as SessionState) || {};
-      const tabId = state.geminiTabId;
+      const tabId = state.geminiTabId || (state.geminiTabIds && state.geminiTabIds[0]);
       sendResponse({ ok: true, data: { tabFound: !!tabId, selectors: GEMINI_SELECTORS } });
       break;
     }
