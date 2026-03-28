@@ -1,4 +1,4 @@
-import { StickyNote as StickyNoteType, activeStickyId, updateStickyText, deleteSticky, persistAnnotations, updateStickyPosition, updateStickySize } from '../store/annotation-state';
+import { StickyNote as StickyNoteType, activeStickyId, updateStickyText, deleteSticky, persistAnnotations, updateStickyPosition } from '../store/annotation-state';
 import { viewerScale, activeTool, toolSettings } from '../store/viewer-state';
 import { MessageSquare } from 'lucide-preact';
 import { useRef, useEffect, useState } from 'preact/hooks';
@@ -6,11 +6,9 @@ import { useRef, useEffect, useState } from 'preact/hooks';
 interface StickyNoteProps {
   note: StickyNoteType;
   url: string;
-  pageWidth: number;
-  pageHeight: number;
 }
 
-export const StickyNote = ({ note, url, pageWidth, pageHeight }: StickyNoteProps) => {
+export const StickyNote = ({ note, url }: StickyNoteProps) => {
   const isExpanded = activeStickyId.value === note.id;
   const scale = viewerScale.value;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -20,30 +18,11 @@ export const StickyNote = ({ note, url, pageWidth, pageHeight }: StickyNoteProps
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
 
-  // Resize State
-  const [isResizing, setIsResizing] = useState(false);
-  const [resizeStartPoint, setResizeStartPoint] = useState({ x: 0, y: 0 });
-  const [currentSize, setCurrentSize] = useState({ 
-    width: note.width || 220, 
-    height: note.height || 140 
-  });
-
   useEffect(() => {
     if (isExpanded && textareaRef.current) {
       textareaRef.current.focus();
     }
   }, [isExpanded]);
-
-  useEffect(() => {
-    // Sync currentSize with note state if it changes externally
-    // But DON'T overwrite during an active resize gesture
-    if (isResizing) return;
-    
-    setCurrentSize({ 
-      width: note.width || 220, 
-      height: note.height || 140 
-    });
-  }, [note.width, note.height, isResizing]);
 
   const handleBlur = () => {
     activeStickyId.value = null;
@@ -62,7 +41,7 @@ export const StickyNote = ({ note, url, pageWidth, pageHeight }: StickyNoteProps
 
   // Drag Handlers
   const handlePointerDown = (e: PointerEvent) => {
-    if (activeTool.value !== 'select' || isResizing) return;
+    if (activeTool.value !== 'select') return;
     
     e.stopPropagation();
     setIsDragging(true);
@@ -72,21 +51,9 @@ export const StickyNote = ({ note, url, pageWidth, pageHeight }: StickyNoteProps
 
   const handlePointerMove = (e: PointerEvent) => {
     if (!isDragging) return;
-    
-    // Clamp dragging while moving
-    const rawDx = (e.clientX - startPoint.x) / scale;
-    const rawDy = (e.clientY - startPoint.y) / scale;
-    
-    const finalX = note.x + rawDx;
-    const finalY = note.y + rawDy;
-
-    // Boundary check for the anchor point (keeping it within the artboard)
-    const clampedX = Math.max(12, Math.min(pageWidth - 12, finalX));
-    const clampedY = Math.max(12, Math.min(pageHeight - 12, finalY));
-
     setDragOffset({
-      x: (clampedX - note.x) * scale,
-      y: (clampedY - note.y) * scale
+      x: e.clientX - startPoint.x,
+      y: e.clientY - startPoint.y
     });
   };
 
@@ -104,42 +71,6 @@ export const StickyNote = ({ note, url, pageWidth, pageHeight }: StickyNoteProps
     setDragOffset({ x: 0, y: 0 });
   };
 
-  // Resize Handlers
-  const handleResizePointerDown = (e: PointerEvent) => {
-    e.stopPropagation();
-    setIsResizing(true);
-    setResizeStartPoint({ x: e.clientX, y: e.clientY });
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-
-  const handleResizePointerMove = (e: PointerEvent) => {
-    if (!isResizing) return;
-    e.stopPropagation();
-
-    const rawDx = (e.clientX - resizeStartPoint.x) / scale;
-    const rawDy = (e.clientY - resizeStartPoint.y) / scale;
-
-    // Max allowed dimensions based on page boundary
-    const maxWidth = pageWidth - note.x + 12; // +12 offset compensation
-    const maxHeight = pageHeight - note.y + 12;
-
-    setCurrentSize({
-      width: Math.max(120, Math.min(maxWidth, (note.width || 220) + rawDx)),
-      height: Math.max(60, Math.min(maxHeight, (note.height || 140) + rawDy))
-    });
-  };
-
-  const handleResizePointerUp = (e: PointerEvent) => {
-    if (!isResizing) return;
-    e.stopPropagation();
-
-    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-    setIsResizing(false);
-
-    updateStickySize(note.id, currentSize.width, currentSize.height);
-    persistAnnotations(url);
-  };
-
   const getIconSize = () => {
      const settings = toolSettings.value[activeTool.value] || toolSettings.value['sticky'];
      return (settings?.size || 24) * scale;
@@ -147,33 +78,13 @@ export const StickyNote = ({ note, url, pageWidth, pageHeight }: StickyNoteProps
 
   const currentIconSize = getIconSize();
 
-  // Smart Fit Clamping for Expanded Note
-  const getExpandedTranslate = () => {
-    if (!isExpanded) return 'translate(-50%, -50%)';
-    
-    // Default: grow from top-left (with slight centering offset of 12px)
-    let offsetX = -12;
-    let offsetY = -12;
-
-    // Check right edge
-    if (note.x + currentSize.width - 12 > pageWidth) {
-      offsetX = -(note.x + currentSize.width - pageWidth - 12);
-    }
-    // Check bottom edge
-    if (note.y + currentSize.height - 12 > pageHeight) {
-      offsetY = -(note.y + currentSize.height - pageHeight - 12);
-    }
-
-    return `translate(${offsetX * scale}px, ${offsetY * scale}px)`;
-  }
-
   const baseStyles: any = {
     position: 'absolute',
     left: '0',
     top: '0',
-    zIndex: isExpanded || isDragging || isResizing ? 2000 : 1000,
-    transform: `translate(${note.x * scale + dragOffset.x}px, ${note.y * scale + dragOffset.y}px) ${getExpandedTranslate()}`,
-    transition: isDragging || isResizing ? 'none' : 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+    zIndex: isExpanded || isDragging ? 2000 : 1000,
+    transform: `translate(${note.x * scale + dragOffset.x}px, ${note.y * scale + dragOffset.y}px) translate(-50%, -50%)`,
+    transition: isDragging ? 'none' : 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
     pointerEvents: 'auto'
   };
 
@@ -216,19 +127,16 @@ export const StickyNote = ({ note, url, pageWidth, pageHeight }: StickyNoteProps
     <div 
       style={{
         ...baseStyles,
-        width: `${currentSize.width * scale}px`,
-        height: `${currentSize.height * scale}px`,
-        background: 'rgba(28, 28, 30, 0.95)',
-        backdropFilter: 'blur(32px)',
-        WebkitBackdropFilter: 'blur(32px)',
+        width: '200px',
+        background: 'rgba(28, 28, 30, 0.8)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         borderRadius: '16px',
         padding: '12px',
-        boxShadow: '0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.15)',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px',
-        position: 'relative',
-        overflow: 'hidden'
+        gap: '8px'
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -244,53 +152,19 @@ export const StickyNote = ({ note, url, pageWidth, pageHeight }: StickyNoteProps
         onPointerDown={(e) => e.stopPropagation()} // Prevent drag while typing
         style={{
           width: '100%',
-          flex: 1, // Fill available space
+          minHeight: '80px',
           background: 'transparent',
           border: 'none',
           color: '#fff',
-          fontSize: `${14 * scale}px`,
+          fontSize: '13px',
           lineHeight: '1.5',
           resize: 'none',
           outline: 'none',
           fontFamily: 'inherit'
         }}
       />
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', pointerEvents: 'none' }}>
-         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: note.color, opacity: 0.8 }} />
-         
-         {/* Resize Handle Container */}
-         <div 
-            onPointerDown={handleResizePointerDown}
-            onPointerMove={handleResizePointerMove}
-            onPointerUp={handleResizePointerUp}
-            style={{
-              position: 'absolute',
-              bottom: '0',
-              right: '0',
-              width: '32px', // Larger hit zone
-              height: '32px',
-              cursor: 'nwse-resize',
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'flex-end',
-              padding: '8px',
-              opacity: 0.4,
-              transition: 'opacity 0.2s',
-              zIndex: 100,
-              pointerEvents: 'auto'
-            }}
-            onMouseEnter={(e: any) => e.currentTarget.style.opacity = '1'}
-            onMouseLeave={(e: any) => e.currentTarget.style.opacity = '0.4'}
-         >
-            <div style={{ 
-              width: '10px', 
-              height: '10px', 
-              borderRight: '2px solid #fff', 
-              borderBottom: '2px solid #fff',
-              borderBottomRightRadius: '2px'
-            }} />
-         </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: note.color }} />
       </div>
     </div>
   );

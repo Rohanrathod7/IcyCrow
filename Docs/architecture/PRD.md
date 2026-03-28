@@ -61,6 +61,7 @@ The MVP is **complete** when a single developer user can install IcyCrow in deve
 3. Highlight text across multiple pages and export consolidated Markdown notes.
 4. Save an article and retrieve it later via a semantic (meaning-based) search query.
 5. **Spatial PDF Annotation:** Perform tactile, pressure-sensitive markup on PDFs and export annotated binaries (Baked-in). ✅
+6. **AI Bridge Stability:** Zero-duplication, background-resilient, and integrity-hardened AI interactions. ✅
 
 If a user can do all four, the MVP ships.
 

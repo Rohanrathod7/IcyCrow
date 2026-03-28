@@ -1,4 +1,4 @@
-[LAST UPDATED: 2026-03-23]
+[LAST UPDATED: 2026-03-28]
 
 ### Side Panel Shell & Navigation (Epic S10)
 
@@ -42,7 +42,8 @@
   - `SpacesView.tsx` -> `chrome.storage.local.get('spaces')` -> `spaces.value`. Create via `sendToSW({ type: 'SPACE_CREATE' })`.
   - `ChatView.tsx` -> Main chat container. Logic: `AI_QUERY`/`WINDOW_AI_QUERY` dispatch + `AI_RESPONSE_STREAM` listener. Supports engine selection (Local vs Cloud).
   - `ChatMessage.tsx` -> Renders Markdown content via `marked.js` + `DOMPurify`. Syntax highlighting via `highlight.js`.
-  - `ChatInput.tsx` -> Auto-expanding `textarea` with submit handling.
+  - **Proactive Registry**: Fetches `manualGeminiTabId` and connected title on `useEffect` mount.
+  - **Manual Override Mode**: Supports explicit tab focus via `MANUAL_REGISTER_BRIDGE`.
   - `ContextPicker.tsx` -> Listens to `chrome.tabs.query` to pick context for AI.
   - `SettingsView.tsx` -> Security Controls (Lock/Unlock/Nuke), Encrypted Backups (Export/Import), and Storage Usage Dashboard.
   - `ErrorBoundary.tsx` -> Global catch-all for render crashes. Provides "Friendly Crash" UI and reload logic.

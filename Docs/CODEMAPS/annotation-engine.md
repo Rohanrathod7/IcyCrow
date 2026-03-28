@@ -7,6 +7,7 @@
   * `strokes` (signal) -> `Stroke[]`
   * `stickyNotes` (signal) -> `StickyNote[]`
   * `callouts` (signal) -> `Callout[]`
+  * `addSticky(page, x, y, col, text?)` -> **S32: Supports direct AI text injection.**
   * `updateStickyPosition` / `updateCalloutBoxPosition` -> IDB Persistence
 
 ## Interaction Logic

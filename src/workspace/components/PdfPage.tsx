@@ -58,11 +58,8 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
     const rect = container.getBoundingClientRect();
     const scale = viewerScale.value;
 
-    // Sanitize coordinates: Clamp to artboard dimensions to avoid gutter spawns
-    const rawX = (e.clientX - rect.left) / scale;
-    const rawY = (e.clientY - rect.top) / scale;
-    const x = Math.max(12, Math.min(dimensions.width - 12, rawX)); // 12px buffer for 24px icon
-    const y = Math.max(12, Math.min(dimensions.height - 12, rawY));
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
 
     const currentSettings = toolSettings.value[tool] || toolSettings.value['sticky'] || { color: '#fbbf24' };
 
@@ -248,15 +245,7 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
           <InkCanvas pageNumber={pageNumber} url={url} />
           {stickyNotes.value
             .filter(n => n.pageNumber === pageNumber)
-            .map(note => (
-              <StickyNote 
-                key={note.id} 
-                note={note} 
-                url={url} 
-                pageWidth={dimensions.width}
-                pageHeight={dimensions.height}
-              />
-            ))
+            .map(note => <StickyNote key={note.id} note={note} url={url} />)
           }
           <CalloutLayer pageNumber={pageNumber} />
           {callouts.value

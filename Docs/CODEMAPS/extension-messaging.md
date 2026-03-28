@@ -1,10 +1,10 @@
-[LAST UPDATED: 2026-03-23]
+[LAST UPDATED: 2026-03-28]
 
 ### Extension Messaging & Zod Contracts
 
 * `src/lib/zod-schemas.ts` (The Contract)
   - `InboundMessageSchema`: Discriminated union of all allowed `chrome.runtime` messages.
-  - Payloads: `HIGHLIGHT_CREATE`, `HIGHLIGHTS_FETCH`, `HIGHLIGHT_DELETE`, `HIGHLIGHT_UPDATE`, `CRYPTO_UNLOCK`, `CRYPTO_LOCK`, `SCRAPE_CONTENT`, `AI_QUERY`, `AI_QUERY_STATUS`, `GEMINI_HEALTH_CHECK`, `EXPORT_WORKSPACE`, `IMPORT_WORKSPACE`, `SEMANTIC_SEARCH`, `SPACE_CREATE`, `ARTICLE_SAVE`, `WINDOW_AI_QUERY`, `DEBUG_EXPORT`, `NUKE_DATA`.
+  - Payloads: `HIGHLIGHT_CREATE`, `HIGHLIGHTS_FETCH`, `HIGHLIGHT_DELETE`, `HIGHLIGHT_UPDATE`, `CRYPTO_UNLOCK`, `CRYPTO_LOCK`, `SCRAPE_CONTENT`, `AI_QUERY`, `AI_QUERY_STATUS`, `GEMINI_HEALTH_CHECK`, `MANUAL_REGISTER_BRIDGE`, `EXPORT_WORKSPACE`, `IMPORT_WORKSPACE`, `SEMANTIC_SEARCH`, `SPACE_CREATE`, `ARTICLE_SAVE`, `WINDOW_AI_QUERY`, `DEBUG_EXPORT`, `NUKE_DATA`.
 
 * `src/lib/messaging.ts` (Side Panel SW Bridge)
   - `sendToSW<T>(message)` -> `chrome.runtime.sendMessage`. Type-safe side panel -> SW relay.
@@ -28,8 +28,8 @@
   - **Sync**: `chrome.storage.onChanged -> handleStorageChange -> unwrapHighlight (ID Diff)`.
 
 * Message Flows (S7):
-  - **AI Query (S7/S11)**: `Side Panel -> AI_QUERY -> SW (taskQueue.enqueue) -> Gemini Tab (injectPrompt) -> AI_RESPONSE_STREAM -> Side Panel (ChatView)`.
-  - **Health Check**: `Side Panel -> GEMINI_HEALTH_CHECK -> SW (sessionState.geminiTabId) -> { tabFound, selectors }`.
+  - **AI Query (S7/S32)**: `Side Panel -> AI_QUERY -> SW (taskQueue.enqueue) -> Gemini Tab (injectPrompt) -> AI_RESPONSE_STREAM -> UI`.
+  - **Manual Bridge Override**: `Settings -> MANUAL_REGISTER_BRIDGE -> SW (sessionState update) -> Local-First Persistence`.
 * Message Flows (S8):
   - **Save Article**: `Side Panel -> ARTICLE_SAVE -> SW (handleArticleMessage) -> Offscreen (EMBED_TEXT) -> SW (saveEmbedding)`.
   - **Semantic Search**: `Side Panel -> SEMANTIC_SEARCH -> SW (getAllArticles) -> Offscreen (SEMANTIC_SEARCH) -> SW (Relay)`.

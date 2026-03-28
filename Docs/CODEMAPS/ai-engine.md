@@ -1,4 +1,4 @@
-[LAST UPDATED: 2026-03-23]
+[LAST UPDATED: 2026-03-28]
 
 ### S14: Native AI Bridge & Context Window
 
@@ -29,7 +29,15 @@
 * **Gemini Bridge** (`src/content/gemini-bridge.ts`)
   - `findSelector(selectors[])` -> Returns first matching `HTMLElement | null`.
   - `injectPrompt(prompt)` -> `humanType(input)` -> `sendBtn.click()`.
-  - `scrapeResponse(taskId)` -> `MutationObserver` on `responseContainer`.
+  - `scrapeResponse(taskId)` ->  'button:has(mat-icon[svgicon="send"])'
+],
+stopButton: [
+  'button[aria-label="Stop generating"]',
+  'button[aria-label="Stop"]',
+  'button:has(mat-icon[svgicon="stop"])',
+  'button:has(div.stop-icon)'
+],
+responseContainer: [
     - Streams: `AI_RESPONSE_STREAM { taskId, chunk, done: false }` on each mutation.
     - Stability: `1.5s` of no mutations + send button re-enabled -> `done: true`.
     - Safety: `maxDurationTimer` (30s) -> forces `done: true` if Gemini hangs.
