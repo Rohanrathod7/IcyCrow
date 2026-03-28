@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, Color } from 'pdf-lib';
+import { PDFDocument, rgb, Color, StandardFonts } from 'pdf-lib';
 import { Highlight, Stroke, StickyNote, Callout } from '../store/annotation-state';
 
 export interface AnnotationState {
@@ -27,6 +27,7 @@ export async function exportAnnotatedPdf(
 ): Promise<Blob> {
   const pdfBytes = await originalPdfBlob.arrayBuffer();
   const pdfDoc = await PDFDocument.load(pdfBytes);
+  const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
 
   for (let i = 0; i < pages.length; i++) {
@@ -121,34 +122,36 @@ export async function exportAnnotatedPdf(
 
       // 4b. The Arrowhead at Anchor
       const angle = Math.atan2(bY - aY, bX - aX);
-      const headLen = 10;
+      const headLen = 12;
       const angle1 = angle - Math.PI / 6;
       const angle2 = angle + Math.PI / 6;
       const p1 = { x: aX + headLen * Math.cos(angle1), y: aY + headLen * Math.sin(angle1) };
       const p2 = { x: aX + headLen * Math.cos(angle2), y: aY + headLen * Math.sin(angle2) };
       
-      const arrowPath = `M ${aX},${aY} L ${p1.x},${p1.y} L ${p2.x},${p2.y} Z`;
-      page.drawSvgPath(arrowPath, { color, borderColor: color });
+      // Draw arrowhead as visible lines instead of path
+      page.drawLine({ start: { x: aX, y: aY }, end: { x: p1.x, y: p1.y }, thickness: 2, color });
+      page.drawLine({ start: { x: aX, y: aY }, end: { x: p2.x, y: p2.y }, thickness: 2, color });
 
-      // 4c. The Text Box
-      const boxW = 120;
+      // 4c. The Text Box (PDF draws UP, so offset Y by height)
+      const boxW = 140;
       const boxH = 35;
       
       page.drawRectangle({
         x: bX - boxW / 2,
-        y: bY - boxH / 2,
+        y: bY - boxH, // Fixed positioning: Box draws UP from Y
         width: boxW,
         height: boxH,
-        color: rgb(0.12, 0.12, 0.13), // Premium dark gray
-        opacity: 0.85
+        color: rgb(0.12, 0.12, 0.12), // Premium dark gray
+        opacity: 0.9
       });
 
-      // 4d. The Text
+      // 4d. The Text (Use embedded font + baseline correction)
       if (callout.text) {
-        page.drawText(callout.text.substring(0, 30), {
-          x: bX - boxW / 2 + 8,
-          y: bY - 4,
-          size: 10,
+        page.drawText(callout.text.substring(0, 40), {
+          x: bX - boxW / 2 + 10,
+          y: bY - 22, // Baseline correction
+          size: 11,
+          font: helveticaFont,
           color: rgb(1, 1, 1) // White text
         });
       }
