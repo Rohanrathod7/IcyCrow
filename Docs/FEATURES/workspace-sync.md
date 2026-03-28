@@ -35,6 +35,12 @@ Leveraging the **File System Access API**, IcyCrow can "lock" a document to a lo
 - **Zod Enforcement**: Prevents cross-site scripting or data corruption through malicious JSON injection.
 - **Sandboxed Handles**: Access to the local file is restricted to the specific handle granted by the user.
 
+## Persistent Linking (S28-V4)
+To eliminate the friction of re-linking files across browser restarts, IcyCrow now persists `FileSystemFileHandle` objects in IndexedDB (v6).
+- **Registry UI**: Users can manage document-to-file links via a history list in the settings modal.
+- **Auto-Restoration**: On document load, the system attempts to verify permissions and re-establish the active sync link automatically.
+- **Sync Restoration Feedback**: Uses `SyncToast` to inform the user of successful restoration or required re-authorization.
+
 ## Future Maintenance
 - When adding new annotation types (e.g., shapes, OCR blocks), they **MUST** be added to the `WorkspaceSchema` in `StateSyncService.ts`.
 - Ensure all live signals are correctly mapped in the `commitWorkspaceToStore` function.
