@@ -4,10 +4,12 @@ import { Document, pdfjs } from 'react-pdf';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { PdfPage } from './components/PdfPage';
 import { ToolbarManager } from './components/ToolbarManager';
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { ToolCustomizer } from './components/ToolCustomizer';
 import { ToolLibraryPicker } from './components/ToolLibraryPicker';
 import { ToolbarSettingsModal } from './components/ToolbarSettingsModal';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useTextSelection } from './hooks/useTextSelection';
+import { AiActionBar } from './components/AiActionBar';
 import { getPdfFromCache, savePdfToCache } from '../lib/idb-store';
 // Inject Professional Styles
 import './index.css';
@@ -81,10 +83,12 @@ function WorkspaceApp() {
 
   // Mount keyboard shortcuts (Epic S30)
   useKeyboardShortcuts();
+  
+  // Mount AI text selection listener (Epic S31)
+  useTextSelection();
 
   return (
-    <div className="workspace-container">
-      <ToolbarManager />
+    <div className="pdf-workspace-bg">
       {/* Header (Optional, could be moved to Toolbar) */}
       <header style={{ 
         position: 'absolute',
@@ -120,7 +124,7 @@ function WorkspaceApp() {
             {Array.from({ length: numPages }, (_, index) => (
               <PdfPage 
                 key={index}
-                url={fileUrl!} // Changed fileUrl to url, kept original value
+                url={fileUrl!} 
                 pageNumber={index + 1}
               />
             ))}
@@ -136,6 +140,7 @@ function WorkspaceApp() {
       <ToolCustomizer />
       <ToolLibraryPicker />
       <ToolbarSettingsModal />
+      <AiActionBar />
     </div>
   );
 }
