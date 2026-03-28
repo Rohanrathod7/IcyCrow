@@ -6,9 +6,11 @@ import { useRef, useEffect, useState } from 'preact/hooks';
 interface StickyNoteProps {
   note: StickyNoteType;
   url: string;
+  pageWidth: number;
+  pageHeight: number;
 }
 
-export const StickyNote = ({ note, url }: StickyNoteProps) => {
+export const StickyNote = ({ note, url, pageWidth, pageHeight }: StickyNoteProps) => {
   const isExpanded = activeStickyId.value === note.id;
   const scale = viewerScale.value;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -70,9 +72,21 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
 
   const handlePointerMove = (e: PointerEvent) => {
     if (!isDragging) return;
+    
+    // Clamp dragging while moving
+    const rawDx = (e.clientX - startPoint.x) / scale;
+    const rawDy = (e.clientY - startPoint.y) / scale;
+    
+    const finalX = note.x + rawDx;
+    const finalY = note.y + rawDy;
+
+    // Boundary check for the anchor point (keeping it within the artboard)
+    const clampedX = Math.max(12, Math.min(pageWidth - 12, finalX));
+    const clampedY = Math.max(12, Math.min(pageHeight - 12, finalY));
+
     setDragOffset({
-      x: e.clientX - startPoint.x,
-      y: e.clientY - startPoint.y
+      x: (clampedX - note.x) * scale,
+      y: (clampedY - note.y) * scale
     });
   };
 
@@ -102,12 +116,16 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
     if (!isResizing) return;
     e.stopPropagation();
 
-    const dx = (e.clientX - resizeStartPoint.x) / scale;
-    const dy = (e.clientY - resizeStartPoint.y) / scale;
+    const rawDx = (e.clientX - resizeStartPoint.x) / scale;
+    const rawDy = (e.clientY - resizeStartPoint.y) / scale;
+
+    // Max allowed dimensions based on page boundary
+    const maxWidth = pageWidth - note.x + 12; // +12 offset compensation
+    const maxHeight = pageHeight - note.y + 12;
 
     setCurrentSize({
-      width: Math.max(120, (note.width || 220) + dx),
-      height: Math.max(60, (note.height || 140) + dy)
+      width: Math.max(120, Math.min(maxWidth, (note.width || 220) + rawDx)),
+      height: Math.max(60, Math.min(maxHeight, (note.height || 140) + rawDy))
     });
   };
 
@@ -129,12 +147,32 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
 
   const currentIconSize = getIconSize();
 
+  // Smart Fit Clamping for Expanded Note
+  const getExpandedTranslate = () => {
+    if (!isExpanded) return 'translate(-50%, -50%)';
+    
+    // Default: grow from top-left (with slight centering offset of 12px)
+    let offsetX = -12;
+    let offsetY = -12;
+
+    // Check right edge
+    if (note.x + currentSize.width - 12 > pageWidth) {
+      offsetX = -(note.x + currentSize.width - pageWidth - 12);
+    }
+    // Check bottom edge
+    if (note.y + currentSize.height - 12 > pageHeight) {
+      offsetY = -(note.y + currentSize.height - pageHeight - 12);
+    }
+
+    return `translate(${offsetX * scale}px, ${offsetY * scale}px)`;
+  }
+
   const baseStyles: any = {
     position: 'absolute',
     left: '0',
     top: '0',
     zIndex: isExpanded || isDragging || isResizing ? 2000 : 1000,
-    transform: `translate(${note.x * scale + dragOffset.x}px, ${note.y * scale + dragOffset.y}px) ${isExpanded ? 'translate(-12px, -12px)' : 'translate(-50%, -50%)'}`,
+    transform: `translate(${note.x * scale + dragOffset.x}px, ${note.y * scale + dragOffset.y}px) ${getExpandedTranslate()}`,
     transition: isDragging || isResizing ? 'none' : 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
     pointerEvents: 'auto'
   };
@@ -180,12 +218,12 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
         ...baseStyles,
         width: `${currentSize.width * scale}px`,
         height: `${currentSize.height * scale}px`,
-        background: 'rgba(28, 28, 30, 0.9)',
-        backdropFilter: 'blur(30px)',
-        WebkitBackdropFilter: 'blur(30px)',
+        background: 'rgba(28, 28, 30, 0.95)',
+        backdropFilter: 'blur(32px)',
+        WebkitBackdropFilter: 'blur(32px)',
         borderRadius: '16px',
         padding: '12px',
-        boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.15)',
+        boxShadow: '0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.15)',
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
