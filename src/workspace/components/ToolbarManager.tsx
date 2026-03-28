@@ -216,6 +216,7 @@ export const ToolbarManager = () => {
           cursor: 'pointer',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
           transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          pointerEvents: 'auto',
         }}
       >
         {isSidebarOpen.value ? <X size={20} /> : <PanelRight size={20} />}
