@@ -14,7 +14,8 @@
   * `Highlighter` -> Window Selection -> Rect Normalization
   * `InkCanvas` -> Mouse/Touch -> Vector Normalization
   * `StickyNote` -> Click -> Positioned Icon
-  * `Callout` -> Phase 1 (Click) -> Phase 2 (Drag) -> SVG Arrow + Midpoint Snapping (S29)
+  * `Callout` -> SVG Arrow + Midpoint Snapping (S29)
+  * `WorkspaceRecommendation` -> 🧠 **Registry Check** -> "Recover Annotations" Toast
 
 ## Repositioning Engine
 * `StickyNote.tsx` / `CalloutBox.tsx`
@@ -22,8 +23,11 @@
   * `onPointerMove` -> `viewerScale` aware delta -> `transform` offset
   * `onPointerUp` -> `updateState` -> `saveAnnotations`
 
-## Export Engine
+## Export & Sync Engine
 * `src/workspace/services/PdfExportService.ts`
-  * `originalPdfBlob` (Signal) -> `PDFDocument.load` (pdf-lib)
-  * `Render Loop` -> Y-Axis Inversion -> `drawRectangle` / `drawText` / `drawSvgPath`
-  * `Output` -> `SharedArrayBuffer` safe Blob -> `downloadBlob` utility
+  * `Flattening` -> Y-Axis Inversion -> `pdf-lib` drawing loop
+* `src/workspace/services/StateSyncService.ts`
+  * `exportWorkspace` -> JSON Serialization + Metadata
+  * `validateWorkspaceFile` -> 🛡️ **Zod Schema Enforcement**
+  * `commitWorkspaceToStore` -> Signal Update -> Atomic IDB Persistence
+  * `Auto-Save` -> File System Access API -> Background Handle Sync

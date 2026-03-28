@@ -18,6 +18,7 @@
   - `settings` -> `IcyCrowSettings`
   - `spaces` -> `SpacesStore`
   - `chatHistories:${spaceId}` -> `ChatMessage[]`
+  - `icycrow_workspace_registry` -> `Record<Url, { sourceName, lastSeen }>` [v1.1]
 
 * `chrome.storage.session` (Runtime State)
   - `sessionState` -> `SessionState` (Restart counts, Crypto status).
@@ -25,7 +26,8 @@
 * `In-Memory (Preact Signals)`
   - `viewerScale`, `activeTool`, `toolSettings`
   - `originalPdfBlob` -> Holds original document binary for Export Engine
-
+  - `autoSaveFileHandle` -> `FileSystemFileHandle` (Linked local file) [Pro Sync]
+  - `isAutoSaveEnabled` -> Boolean toggle for background sync
 
 * `IndexedDB` (Persistent Articles & Embeddings)
   - `articles` -> `IDBArticle` (Key: id, Index: url)
