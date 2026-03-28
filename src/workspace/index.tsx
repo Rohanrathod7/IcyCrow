@@ -4,6 +4,7 @@ import { Document, pdfjs } from 'react-pdf';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { PdfPage } from './components/PdfPage';
 import { ToolbarManager } from './components/ToolbarManager';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { ToolCustomizer } from './components/ToolCustomizer';
 import { ToolLibraryPicker } from './components/ToolLibraryPicker';
 import { ToolbarSettingsModal } from './components/ToolbarSettingsModal';
@@ -78,8 +79,12 @@ function WorkspaceApp() {
     setNumPages(numPages);
   };
 
+  // Mount keyboard shortcuts (Epic S30)
+  useKeyboardShortcuts();
+
   return (
-    <div className="pdf-workspace-bg">
+    <div className="workspace-container">
+      <ToolbarManager />
       {/* Header (Optional, could be moved to Toolbar) */}
       <header style={{ 
         position: 'absolute',

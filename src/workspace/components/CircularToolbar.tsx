@@ -167,6 +167,20 @@ export const CircularToolbar = () => {
         const baseType = id.split('-')[0];
         const isCustomizable = ['draw', 'brush', 'eraser', 'highlight', 'sticky', 'callout'].includes(baseType);
 
+        const shortcutMap: Record<string, string> = {
+          pan: 'H',
+          select: 'V',
+          highlight: 'M',
+          draw: 'P',
+          eraser: 'E',
+          text: 'T',
+          sticky: 'S',
+          callout: 'C'
+        };
+        const shortcut = shortcutMap[baseType] || '';
+        const label = baseType.charAt(0).toUpperCase() + baseType.slice(1);
+        const titleLine = shortcut ? `${label} (${shortcut})` : label;
+
         const iconColor = toolMeta?.color || (isActive ? '#818cf8' : 'rgba(255,255,255,0.7)');
         const extraClass = (id === 'text' && isActive) ? 'highlight-green' : '';
 
@@ -175,6 +189,7 @@ export const CircularToolbar = () => {
             key={id}
             className={`dial-tool-button ${isActive ? 'active' : ''} ${extraClass}`}
             data-testid={`tool-${id}`}
+            title={titleLine}
             style={{
               transform: `translate(${x}px, ${y}px)`,
             }}

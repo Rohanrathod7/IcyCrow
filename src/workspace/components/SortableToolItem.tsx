@@ -86,7 +86,21 @@ export const SortableToolItem = ({ id }: ToolItemProps) => {
         }
       }}
       data-testid={`tool-${id}`}
-      title={id}
+      title={(() => {
+        const shortcutMap: Record<string, string> = {
+          pan: 'H',
+          select: 'V',
+          highlight: 'M',
+          draw: 'P',
+          eraser: 'E',
+          text: 'T',
+          sticky: 'S',
+          callout: 'C'
+        };
+        const shortcut = shortcutMap[baseType as string] || '';
+        const label = (baseType as string).charAt(0).toUpperCase() + (baseType as string).slice(1);
+        return shortcut ? `${label} (${shortcut})` : label;
+      })()}
     >
       <Icon size={20} color={iconColor} />
       
