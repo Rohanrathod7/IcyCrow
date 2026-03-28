@@ -291,6 +291,7 @@ export interface QueueState {
 export interface SessionState {
   geminiTabId: number | null;
   geminiTabIds: number[];
+  manualGeminiTabId?: number | null;
   geminiBridgeHealthy: boolean;
   lastSelectorCheckAt: ISOTimestamp | null;
   cryptoKeyUnlocked: boolean;

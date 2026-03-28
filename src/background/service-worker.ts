@@ -279,15 +279,18 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
     case 'AI_QUERY': {
       try {
         const { taskId, prompt } = message.payload;
-        // Optimization: Gemini Bridge already maintains session context in the tab.
-        // We only format context for Local Nano (window.ai) or if specifically required.
-        // For Gemini, we send the RAW prompt to avoid "smashed" history bubbles.
+        const result = await chrome.storage?.session?.get('sessionState');
+        const state = (result?.sessionState as SessionState) || {};
+        
+        // Priority: Manual > Automatic
+        let geminiIds = state.geminiTabIds || [];
+        if (state.manualGeminiTabId) {
+          geminiIds = [state.manualGeminiTabId, ...geminiIds.filter(id => id !== state.manualGeminiTabId)];
+        }
+        
         const contextualPrompt = prompt;
-
+        
         const { position } = taskQueue.enqueue(async () => {
-          const result = await chrome.storage?.session?.get('sessionState');
-          const state = (result?.sessionState as any) || {};
-          const geminiIds = state.geminiTabIds || [];
           
           if (geminiIds.length === 0) throw new Error('GEMINI_TAB_NOT_FOUND');
           
@@ -416,6 +419,30 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
       // Just relay to all extension contexts (Side Panel)
       chrome.runtime.sendMessage(message);
       sendResponse({ ok: true });
+      break;
+    }
+    case 'MANUAL_REGISTER_BRIDGE': {
+      try {
+        const { tabId } = message.payload;
+        const result = await chrome.storage.session.get('sessionState');
+        const state = result.sessionState || {};
+        await chrome.storage.session.set({
+          sessionState: { ...state, manualGeminiTabId: tabId }
+        });
+        
+        // Proactive injection
+        const manifest = chrome.runtime.getManifest();
+        const scriptPath = manifest.content_scripts?.[0]?.js?.[0];
+        if (scriptPath) {
+          await chrome.scripting.executeScript({
+            target: { tabId },
+            files: [scriptPath]
+          });
+        }
+        sendResponse({ ok: true });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'REGISTRATION_FAILURE', message: err.message } });
+      }
       break;
     }
   }

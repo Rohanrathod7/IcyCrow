@@ -80,6 +80,32 @@ export const SettingsView = () => {
     chrome.runtime.sendMessage({ type: 'DEBUG_EXPORT' });
   };
 
+  const [tabs, setTabs] = useState<chrome.tabs.Tab[]>([]);
+  const [session, setSession] = useState<{ manualGeminiTabId?: number | null, geminiTabIds: number[] }>({ geminiTabIds: [] });
+
+  const fetchSession = async () => {
+    const res = await chrome.storage.session.get('sessionState');
+    if (res.sessionState) setSession(res.sessionState as any);
+  };
+
+  useEffect(() => {
+    fetchSession();
+    const fetchTabs = async () => {
+      const allTabs = await chrome.tabs.query({});
+      setTabs(allTabs);
+    };
+    fetchTabs();
+  }, []);
+
+  const handleRegisterBridge = (tabId: number) => {
+    chrome.runtime.sendMessage({ 
+      type: 'MANUAL_REGISTER_BRIDGE', 
+      payload: { tabId } 
+    }, (res) => {
+      if (res?.ok) fetchSession();
+    });
+  };
+
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -165,6 +191,54 @@ export const SettingsView = () => {
         <button onClick={handleDebugExport} className="btn-ghost" style={{ width: '100%', marginTop: '16px' }}>
           🔍 Download Diagnostics
         </button>
+      </div>
+
+      <h3 className="section-title" style={{ marginTop: '16px' }}>Gemini Bridge Diagnostics</h3>
+      <div className="glass-card" style={{ padding: '16px' }}>
+        <div className="flex-row items-center" style={{ marginBottom: '12px' }}>
+          <span className="text-dim">Status:</span>
+          <span style={{ 
+            color: (session.manualGeminiTabId || session.geminiTabIds.length > 0) ? '#22c55e' : '#ef4444',
+            fontWeight: 600
+          }}>
+            {(session.manualGeminiTabId || session.geminiTabIds.length > 0) ? '📡 Connected' : '❌ Disconnected'}
+          </span>
+        </div>
+        
+        <div className="tab-list" style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '8px' }}>
+          {tabs.map(tab => {
+            const isManual = session.manualGeminiTabId === tab.id;
+            const isAuto = session.geminiTabIds.includes(tab.id as number);
+            return (
+              <div key={tab.id} className="tab-item" style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                padding: '6px 8px',
+                fontSize: '0.8rem',
+                borderBottom: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                <span className="truncate" style={{ flex: 1, marginRight: '8px' }}>{tab.title}</span>
+                <button 
+                  onClick={() => tab.id && handleRegisterBridge(tab.id)}
+                  className={`btn-ghost small ${isManual ? 'active' : ''}`}
+                  style={{ 
+                    padding: '2px 8px', 
+                    fontSize: '10px',
+                    borderColor: isManual ? 'var(--accent-primary)' : 'transparent',
+                    background: isManual ? 'rgba(var(--accent-rgb), 0.2)' : 'transparent'
+                  }}
+                >
+                  {isManual ? 'Manual Bridge' : isAuto ? 'Auto Detected' : 'Set as Bridge'}
+                </button>
+              </div>
+            );
+          })}
+          {tabs.length === 0 && <div className="text-dim center">No open tabs found</div>}
+        </div>
+        <p className="text-dim" style={{ fontSize: '0.7rem', marginTop: '8px' }}>
+          Select a Gemini tab to force connectivity if automatic detection fails.
+        </p>
       </div>
 
       <div className="danger-zone" style={{ marginTop: 'auto', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>

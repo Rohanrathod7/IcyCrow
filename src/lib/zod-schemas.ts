@@ -210,6 +210,14 @@ export const CryptoLockSchema = z.object({
   _meta: MetaSchema,
 });
 
+export const ManualRegisterBridgeSchema = z.object({
+  type: z.literal('MANUAL_REGISTER_BRIDGE'),
+  payload: z.object({
+    tabId: z.number(),
+  }),
+  _meta: MetaSchema,
+});
+
 export const WindowAiQuerySchema = z.object({
   type: z.literal('WINDOW_AI_QUERY'),
   payload: z.object({
@@ -241,6 +249,7 @@ export const InboundMessageSchema = z.discriminatedUnion('type', [
   CryptoUnlockSchema,
   CryptoLockSchema,
   WindowAiQuerySchema,
+  ManualRegisterBridgeSchema,
 ]);
 
 export type ValidatedInboundMessage = z.infer<typeof InboundMessageSchema>;

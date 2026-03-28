@@ -142,6 +142,20 @@ export const ChatView = () => {
           <option value="gemini">Gemini Bridge (Cloud)</option>
           <option value="window.ai">Gemini Nano (Local)</option>
         </select>
+        {chatEngine.value === 'gemini' && (
+          <div className="bridge-status-mini" style={{ 
+            fontSize: '10px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '4px',
+            opacity: 0.8
+          }}>
+            <span style={{ color: connectedTab ? '#22c55e' : '#ef4444' }}>●</span>
+            <span className="truncate" style={{ maxWidth: '120px' }}>
+              {connectedTab ? connectedTab.title : 'No Bridge Connected'}
+            </span>
+          </div>
+        )}
         <button 
           className="btn-ghost" 
           onClick={() => setShowPicker(!showPicker)}
