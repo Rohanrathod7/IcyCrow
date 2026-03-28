@@ -22,7 +22,8 @@ graph TD
    - Enforces the `WorkspacePayload` schema.
    - Manages the `WorkspaceRegistry` in `chrome.storage.local`.
 2. **WorkspaceImportModal.tsx**: A glassmorphic "Safety Net" that previews incoming data and warns about document/page count mismatches.
-3. **WorkspaceRecommendation.tsx**: A persistent background sentinel that suggests restoring orphaned sessions based on the document URL registry.
+3. **WorkspaceRecommendation.tsx**: A global sentinel rendered in `ToolbarManager.tsx` that suggests restoring orphaned sessions based on the document URL registry.
+4. **Workspace Registry UI**: Integrated into the settings modal, allowing users to manage historical document-to-file links.
 
 ## Pro Tier: Auto-Save
 Leveraging the **File System Access API**, IcyCrow can "lock" a document to a local file.
