@@ -3,7 +3,7 @@ import { Page, pdfjs } from 'react-pdf';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { HighlightOverlay } from './HighlightOverlay';
 import { InkCanvas } from './InkCanvas';
-import { viewerScale, activeTool, toolSettings } from '../store/viewer-state';
+import { viewerScale, activeTool, toolSettings, originalPdfBlob } from '../store/viewer-state';
 import { 
   highlights, 
   Highlight, 
@@ -13,8 +13,10 @@ import {
   addSticky,
   callouts,
   draftCallout,
-  addCallout
+  addCallout,
+  strokes
 } from '../store/annotation-state';
+import { exportAnnotatedPdf, downloadBlob } from '../services/PdfExportService';
 import { StickyNote } from './StickyNote';
 import { CalloutLayer } from './CalloutLayer';
 import { CalloutBox } from './CalloutBox';
@@ -33,7 +35,17 @@ interface PdfPageProps {
 
 export function PdfPage({ url, pageNumber }: PdfPageProps) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [isExporting, setIsExporting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Capture original PDF blob for export engine
+  useEffect(() => {
+    fetch(url)
+      .then(res => res.blob())
+      .then(blob => {
+        originalPdfBlob.value = blob;
+      });
+  }, [url]);
 
   const handlePageClick = (e: MouseEvent) => {
     // Only if sticky tool is active
@@ -107,7 +119,6 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
   };
 
   const handlePointerUp = (e: PointerEvent) => {
-    // 1. Handle Highlighter (Original Logic)
     if (activeTool.value === 'highlight') {
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
@@ -159,6 +170,27 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
     }
   };
 
+  const handleExport = async () => {
+    if (!originalPdfBlob.value || isExporting) return;
+    
+    setIsExporting(true);
+    try {
+      const annotations = {
+        highlights: highlights.value,
+        strokes: strokes.value,
+        stickyNotes: stickyNotes.value,
+        callouts: callouts.value
+      };
+      
+      const exportedBlob = await exportAnnotatedPdf(originalPdfBlob.value, annotations);
+      downloadBlob(exportedBlob, 'Annotated_IcyCrow_Document.pdf');
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div 
       className="pdf-page-container" 
@@ -185,6 +217,29 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
       />
       {dimensions.width > 0 && (
         <>
+          {/* Export FAB Service (S27) */}
+          <button 
+            className="export-fab" 
+            onClick={handleExport}
+            disabled={isExporting}
+          >
+            <svg 
+              className={`export-icon ${isExporting ? 'exporting-spinner' : ''}`} 
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            >
+              {isExporting ? (
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              ) : (
+                <>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </>
+              )}
+            </svg>
+            {isExporting ? 'Generating...' : 'Export PDF'}
+          </button>
+
           <HighlightOverlay pageNumber={pageNumber} url={url} />
           <InkCanvas pageNumber={pageNumber} url={url} />
           {stickyNotes.value

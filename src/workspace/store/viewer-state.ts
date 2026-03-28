@@ -20,3 +20,5 @@ export const toolSettings = signal<Record<string, ToolSettings>>({
   sticky: { size: 24, color: '#fbbf24' },
   callout: { size: 2, color: '#3b82f6' }
 });
+
+export const originalPdfBlob = signal<Blob | null>(null);
