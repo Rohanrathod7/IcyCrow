@@ -15,10 +15,21 @@ describe('useTextSelection', () => {
 
   it('updates state when text is selected', () => {
     const mockRect = { left: 100, top: 200, width: 50, height: 20 };
+    
+    // Create mock DOM structure for page identification
+    const mockPageDiv = document.createElement('div');
+    mockPageDiv.className = 'pdf-page-container';
+    mockPageDiv.setAttribute('data-testid', 'pdf-page-5');
+    
+    const mockTextNode = document.createTextNode('Hyperspectral imaging');
+    mockPageDiv.appendChild(mockTextNode);
+    document.body.appendChild(mockPageDiv);
+
     const mockSelection = {
       toString: () => 'Hyperspectral imaging',
       rangeCount: 1,
       getRangeAt: () => ({
+        startContainer: mockTextNode,
         getBoundingClientRect: () => (mockRect)
       })
     };
@@ -33,16 +44,20 @@ describe('useTextSelection', () => {
     
     expect(selectedPdfText.value).toBe('Hyperspectral imaging');
     // x = left + width/2 = 100 + 25 = 125
-    // y = top - 40 = 200 - 40 = 160
-    expect(aiMenuPosition.value).toEqual({ x: 125, y: 160 });
+    // y = top = 200 (Note: window.scrollY is 0 in test)
+    expect(aiMenuPosition.value).toEqual({ x: 125, y: 200, pageNumber: 5 });
+    
+    // Cleanup
+    document.body.removeChild(mockPageDiv);
   });
 
   it('clears state when selection is empty', () => {
     selectedPdfText.value = 'old text';
-    aiMenuPosition.value = { x: 50, y: 50 };
+    aiMenuPosition.value = { x: 50, y: 50, pageNumber: 1 };
     
     const mockSelection = {
       toString: () => '',
+      isCollapsed: true,
       rangeCount: 0
     };
     

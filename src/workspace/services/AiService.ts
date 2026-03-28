@@ -1,16 +1,64 @@
+import { pdfUrl } from '../store/viewer-state';
+
 /**
- * Mock AI Service for V1 Context Engine
+ * AI Service for IcyCrow Workspace
+ * Communicates with the background Gemini Bridge via Chrome Messaging
  */
-export async function askAI(prompt: 'explain' | 'summarize' | 'close', contextText: string): Promise<string> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      if (prompt === 'explain') {
-        resolve(`✨ [AI EXPLANATION]: This is a simplified explanation of: "${contextText.substring(0, 40)}${contextText.length > 40 ? '...' : ''}"`);
-      } else if (prompt === 'summarize') {
-        resolve(`📝 [AI SUMMARY]: Here is a 1-sentence summary of the selected segment: "${contextText.substring(0, 60)}..."`);
-      } else {
-        resolve("");
+export async function askAI(action: 'explain' | 'summarize', contextText: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const taskId = crypto.randomUUID();
+    const prompt = action === 'explain' 
+      ? `Explain this text from the document simply: "${contextText}"`
+      : `Summarize this text into key bullet points: "${contextText}"`;
+
+    let fullResponse = '';
+
+    // 1. Unified Message Listener
+    const messageListener = (message: any) => {
+      if (message.type === 'AI_RESPONSE_STREAM' && message.payload.taskId === taskId) {
+        if (message.payload.error) {
+          chrome.runtime.onMessage.removeListener(messageListener);
+          reject(new Error(message.payload.error));
+          return;
+        }
+
+        fullResponse += (message.payload.chunk || '');
+
+        if (message.payload.done) {
+          chrome.runtime.onMessage.removeListener(messageListener);
+          resolve(fullResponse);
+        }
       }
-    }, 1500); // Simulate 1.5s latency
+    };
+
+    chrome.runtime.onMessage.addListener(messageListener);
+
+    // 2. Dispatch Query
+    chrome.runtime.sendMessage({
+      type: 'AI_QUERY',
+      payload: {
+        taskId,
+        prompt,
+        url: pdfUrl.value,
+        spaceId: null // Optional: link to a space if needed
+      }
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        chrome.runtime.onMessage.removeListener(messageListener);
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+
+      if (response && !response.ok) {
+        chrome.runtime.onMessage.removeListener(messageListener);
+        reject(new Error(response.error?.message || response.error || 'Gemini bridge failed to initialize.'));
+      }
+    });
+
+    // Timeout safety
+    setTimeout(() => {
+      chrome.runtime.onMessage.removeListener(messageListener);
+      if (!fullResponse) reject(new Error('AI Request timed out.'));
+    }, 45000); // 45s timeout for long generations
   });
 }
