@@ -1,7 +1,7 @@
-import { StickyNote as StickyNoteType, activeStickyId, updateStickyText, deleteSticky, persistAnnotations } from '../store/annotation-state';
+import { StickyNote as StickyNoteType, activeStickyId, updateStickyText, deleteSticky, persistAnnotations, updateStickyPosition } from '../store/annotation-state';
 import { viewerScale, activeTool, toolSettings } from '../store/viewer-state';
 import { MessageSquare } from 'lucide-preact';
-import { useRef, useEffect } from 'preact/hooks';
+import { useRef, useEffect, useState } from 'preact/hooks';
 
 interface StickyNoteProps {
   note: StickyNoteType;
@@ -12,6 +12,11 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
   const isExpanded = activeStickyId.value === note.id;
   const scale = viewerScale.value;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Drag State
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     if (isExpanded && textareaRef.current) {
@@ -35,10 +40,40 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
     }
   };
 
+  // Drag Handlers
+  const handlePointerDown = (e: PointerEvent) => {
+    if (activeTool.value !== 'select') return;
+    
+    e.stopPropagation();
+    setIsDragging(true);
+    setStartPoint({ x: e.clientX, y: e.clientY });
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: PointerEvent) => {
+    if (!isDragging) return;
+    setDragOffset({
+      x: e.clientX - startPoint.x,
+      y: e.clientY - startPoint.y
+    });
+  };
+
+  const handlePointerUp = (e: PointerEvent) => {
+    if (!isDragging) return;
+    
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    setIsDragging(false);
+
+    const finalX = note.x + (dragOffset.x / scale);
+    const finalY = note.y + (dragOffset.y / scale);
+    
+    updateStickyPosition(note.id, finalX, finalY);
+    persistAnnotations(url);
+    setDragOffset({ x: 0, y: 0 });
+  };
+
   const getIconSize = () => {
-     // Check if there's global settings for this specific instance type
-     const baseType = activeTool.value as string;
-     const settings = toolSettings.value[baseType] || toolSettings.value['sticky'];
+     const settings = toolSettings.value[activeTool.value] || toolSettings.value['sticky'];
      return (settings?.size || 24) * scale;
   };
 
@@ -46,11 +81,11 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
 
   const baseStyles: any = {
     position: 'absolute',
-    left: `${note.x * scale}px`,
-    top: `${note.y * scale}px`,
-    zIndex: isExpanded ? 2000 : 1000,
-    transform: 'translate(-50%, -50%)',
-    transition: 'all 0.2s',
+    left: '0',
+    top: '0',
+    zIndex: isExpanded || isDragging ? 2000 : 1000,
+    transform: `translate(${note.x * scale + dragOffset.x}px, ${note.y * scale + dragOffset.y}px) translate(-50%, -50%)`,
+    transition: isDragging ? 'none' : 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
     pointerEvents: 'auto'
   };
 
@@ -58,7 +93,14 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
     return (
       <div 
         style={baseStyles}
-        onClick={(e) => { e.stopPropagation(); activeStickyId.value = note.id; }}
+        onClick={(e) => { 
+          if (isDragging) return;
+          e.stopPropagation(); 
+          activeStickyId.value = note.id; 
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
         onPointerEnter={handleEraserHover}
         className="sticky-note-collapsed"
       >
@@ -70,13 +112,11 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-          cursor: 'pointer',
-          transform: 'scale(1)',
+          boxShadow: isDragging ? '0 8px 20px rgba(0,0,0,0.4)' : '0 4px 10px rgba(0,0,0,0.3)',
+          cursor: activeTool.value === 'select' ? 'grab' : 'pointer',
+          transform: isDragging ? 'scale(1.1)' : 'scale(1)',
           transition: 'transform 0.1s'
         }}
-        onMouseEnter={(e: any) => e.target.style.transform = 'scale(1.2)'}
-        onMouseLeave={(e: any) => e.target.style.transform = 'scale(1)'}
         >
           <MessageSquare size={currentIconSize * 0.6} color="#000" />
         </div>
@@ -99,6 +139,9 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
         flexDirection: 'column',
         gap: '8px'
       }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
       onClick={(e) => e.stopPropagation()}
     >
       <textarea
@@ -107,6 +150,7 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
         onInput={handleTextChange}
         onBlur={handleBlur}
         placeholder="Type a note..."
+        onPointerDown={(e) => e.stopPropagation()} // Prevent drag while typing
         style={{
           width: '100%',
           minHeight: '80px',

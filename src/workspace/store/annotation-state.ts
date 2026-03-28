@@ -114,6 +114,12 @@ export function updateStickyText(id: string, text: string) {
   );
 }
 
+export function updateStickyPosition(id: string, x: number, y: number) {
+  stickyNotes.value = stickyNotes.value.map(s => 
+    s.id === id ? { ...s, x, y } : s
+  );
+}
+
 export function deleteSticky(id: string) {
   stickyNotes.value = stickyNotes.value.filter(s => s.id !== id);
 }
@@ -135,6 +141,12 @@ export function addCallout(pageNumber: number, anchor: Point, box: Point, color:
 export function updateCalloutText(id: string, text: string) {
   callouts.value = callouts.value.map(c => 
     c.id === id ? { ...c, text } : c
+  );
+}
+
+export function updateCalloutBoxPosition(id: string, x: number, y: number) {
+  callouts.value = callouts.value.map(c => 
+    c.id === id ? { ...c, box: { x, y } } : c
   );
 }
 

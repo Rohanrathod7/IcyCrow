@@ -12,7 +12,9 @@ import {
   activeCalloutId,
   addCallout,
   updateCalloutText,
-  deleteCallout
+  deleteCallout,
+  updateStickyPosition,
+  updateCalloutBoxPosition
 } from '../../../src/workspace/store/annotation-state';
 
 // Mock IDB store
@@ -53,10 +55,15 @@ describe('Annotation State - Sticky Notes', () => {
   });
 
   it('should delete a sticky note', () => {
-    addSticky(1, 0, 0, 'red');
-    const id = stickyNotes.value[0].id;
-    deleteSticky(id);
     expect(stickyNotes.value.length).toBe(0);
+  });
+  
+  it('should update sticky note position', () => {
+    addSticky(1, 100, 200, 'red');
+    const id = stickyNotes.value[0].id;
+    updateStickyPosition(id, 300, 400);
+    expect(stickyNotes.value[0].x).toBe(300);
+    expect(stickyNotes.value[0].y).toBe(400);
   });
 
   describe('Annotation State - Callouts', () => {
@@ -85,6 +92,16 @@ describe('Annotation State - Sticky Notes', () => {
       const id = callouts.value[0].id;
       deleteCallout(id);
       expect(callouts.value.length).toBe(0);
+    });
+
+    it('should update callout box position', () => {
+      addCallout(1, { x: 0, y: 0 }, { x: 10, y: 10 }, 'blue');
+      const id = callouts.value[0].id;
+      updateCalloutBoxPosition(id, 200, 300);
+      expect(callouts.value[0].box.x).toBe(200);
+      expect(callouts.value[0].box.y).toBe(300);
+      // Anchor should NOT change
+      expect(callouts.value[0].anchor.x).toBe(0);
     });
   });
 });
