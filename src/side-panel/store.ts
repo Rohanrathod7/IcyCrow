@@ -1,6 +1,7 @@
 import { signal } from '@preact/signals';
 import type { Highlight, SpacesStore, ChatMessage, UUID, ChatEngine, IcyCrowSettings } from '../lib/types';
 import { DEFAULT_SETTINGS } from '../lib/constants';
+import { sendToSW } from '../lib/messaging';
 
 export type ViewType = 'home' | 'search' | 'chat' | 'spaces' | 'settings' | 'highlights';
 
@@ -22,6 +23,7 @@ export const isLoading = signal(false);
 export const error = signal<string | null>(null);
 export const settings = signal<IcyCrowSettings>(DEFAULT_SETTINGS);
 export const isLocked = signal(true);
+export const expandedSpaceId = signal<UUID | null>(null);
 
 /**
  * Hydrates settings and session state.
@@ -102,5 +104,72 @@ if (typeof chrome !== 'undefined' && chrome.storage) {
       }
     }
   });
+}
+
+/**
+ * Updates a space name and persists to storage.
+ */
+export async function updateSpaceName(spaceId: UUID, newName: string) {
+  try {
+    await sendToSW({
+      type: 'SPACE_UPDATE',
+      payload: { spaceId, updates: { name: newName } }
+    } as any);
+    
+    // Optimistic Update
+    const current = { ...spaces.value };
+    if (current[spaceId]) {
+      current[spaceId] = { ...current[spaceId], name: newName };
+      spaces.value = current;
+    }
+  } catch (err) {
+    console.error('[IcyCrow] Failed to update space name:', err);
+  }
+}
+
+/**
+ * Removes a space and its associated data.
+ */
+export async function deleteSpace(spaceId: UUID) {
+  try {
+    await sendToSW({
+      type: 'SPACE_DELETE',
+      payload: { spaceId }
+    } as any);
+    
+    const current = { ...spaces.value };
+    delete current[spaceId];
+    spaces.value = current;
+  } catch (err) {
+    console.error('[IcyCrow] Failed to delete space:', err);
+  }
+}
+
+/**
+ * Removes a specific tab from a space.
+ */
+export async function removeTabFromSpace(spaceId: UUID, tabId: UUID) {
+  try {
+    const currentSpace = spaces.value[spaceId];
+    if (!currentSpace) return;
+
+    const updatedTabs = currentSpace.tabs.filter(t => t.id !== tabId);
+    
+    await sendToSW({
+      type: 'SPACE_UPDATE',
+      payload: { spaceId, updates: { tabs: updatedTabs } }
+    } as any);
+
+    // Update signal
+    const current = { ...spaces.value };
+    current[spaceId] = { ...currentSpace, tabs: updatedTabs };
+    spaces.value = current;
+    
+    // Manually trigger storage set to ensure immediate persistence
+    await chrome.storage.local.set({ spaces: spaces.value });
+    
+  } catch (err) {
+    console.error('[IcyCrow] Failed to remove tab from space:', err);
+  }
 }
 
