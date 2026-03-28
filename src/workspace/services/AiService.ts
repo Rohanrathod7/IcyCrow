@@ -1,3 +1,4 @@
+import { aiResponse } from '../store/ai-state';
 import { pdfUrl } from '../store/viewer-state';
 
 /**
@@ -22,7 +23,12 @@ export async function askAI(action: 'explain' | 'summarize', contextText: string
           return;
         }
 
-        fullResponse += (message.payload.chunk || '');
+        // Gemini sends full text chunks, so we REPLACE instead of APPEND 
+        // to prevent duplication (fixes Epic S32-V9)
+        fullResponse = (message.payload.chunk || '');
+        
+        // STREAM to Workspace UI in real-time
+        aiResponse.value = fullResponse;
 
         if (message.payload.done) {
           chrome.runtime.onMessage.removeListener(messageListener);
