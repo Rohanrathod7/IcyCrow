@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { exportWorkspace, importWorkspace } from '../../../src/workspace/services/StateSyncService';
+import { exportWorkspace, validateWorkspaceFile, commitWorkspaceToStore } from '../../../src/workspace/services/StateSyncService';
 import * as annotationState from '../../../src/workspace/store/annotation-state';
 
 // Mock the IDB store and signals
@@ -12,7 +12,7 @@ vi.mock('../../../src/workspace/store/annotation-state', () => ({
   persistAnnotations: vi.fn()
 }));
 
-describe('StateSyncService', () => {
+describe('StateSyncService Hardening', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     annotationState.highlights.value = [];
@@ -25,36 +25,56 @@ describe('StateSyncService', () => {
     global.URL.revokeObjectURL = vi.fn();
   });
 
-  it('exportWorkspace creates a JSON download link', async () => {
-    // Fill state
-    annotationState.highlights.value = [{ id: '1', pageNumber: 1, rects: [], color: 'yellow' }];
-    
+  it('exportWorkspace includes metadata', async () => {
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     const createSpy = vi.spyOn(document, 'createElement');
     
-    await exportWorkspace('test.pdf');
+    await exportWorkspace('https://test.com/doc.pdf', 5, 'doc.pdf');
     
     expect(createSpy).toHaveBeenCalledWith('a');
     expect(clickSpy).toHaveBeenCalled();
   });
 
-  it('importWorkspace updates signals and persists to IDB', async () => {
+  it('validateWorkspaceFile passes for valid schema', async () => {
     const mockPayload = {
       version: '1.0',
-      highlights: [{ id: 'h1', pageNumber: 1, rects: [], color: 'red' }],
+      documentUrl: 'https://test.com/doc.pdf',
+      pageCount: 5,
+      highlights: [],
       strokes: [],
       stickyNotes: [],
-      callouts: []
+      callouts: [],
+      exportedAt: new Date().toISOString()
     };
     
     const mockFile = new File([JSON.stringify(mockPayload)], 'workspace.json', { type: 'application/json' });
+    const validated = await validateWorkspaceFile(mockFile);
     
-    // Mock window.confirm
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    expect(validated.version).toBe('1.0');
+    expect(validated.documentUrl).toBe('https://test.com/doc.pdf');
+  });
+
+  it('validateWorkspaceFile fails for invalid schema', async () => {
+    const invalidPayload = { version: '1.0' }; // Missing arrays
     
-    await importWorkspace(mockFile, 'test.pdf');
+    const mockFile = new File([JSON.stringify(invalidPayload)], 'workspace.json', { type: 'application/json' });
     
-    expect(annotationState.highlights.value).toEqual(mockPayload.highlights);
-    expect(annotationState.persistAnnotations).toHaveBeenCalledWith('test.pdf');
+    await expect(validateWorkspaceFile(mockFile)).rejects.toThrow("Invalid workspace file format.");
+  });
+
+  it('commitWorkspaceToStore updates signals', async () => {
+    const data = {
+      version: '1.0',
+      highlights: [{ id: 'h1' }],
+      strokes: [],
+      stickyNotes: [],
+      callouts: [],
+      exportedAt: new Date().toISOString()
+    } as any;
+    
+    await commitWorkspaceToStore(data, 'https://test.com/doc.pdf');
+    
+    expect(annotationState.highlights.value).toEqual(data.highlights);
+    expect(annotationState.persistAnnotations).toHaveBeenCalledWith('https://test.com/doc.pdf');
   });
 });

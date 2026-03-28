@@ -1,6 +1,8 @@
 import { 
   toolbarPosition, 
   isToolbarSettingsOpen, 
+  isImportModalOpen,
+  pendingImportData,
   toolsOrder, 
   removeToolInstance, 
   resetToolbarLayout,
@@ -24,7 +26,7 @@ import {
   Download,
   Upload
 } from 'lucide-preact';
-import { exportWorkspace, importWorkspace } from '../services/StateSyncService';
+import { exportWorkspace, validateWorkspaceFile } from '../services/StateSyncService';
 
 const ICONS: Record<string, any> = {
   draw: PenTool,
@@ -157,7 +159,7 @@ export const ToolbarSettingsModal = () => {
           <h3 style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.4, letterSpacing: '1px', marginBottom: '16px' }}>Workspace Backup</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <button
-              onClick={() => exportWorkspace('icycrow_notes')}
+              onClick={() => exportWorkspace(pdfUrl.value, 1, 'icycrow_notes')}
               style={{
                 background: 'rgba(255,255,255,0.03)',
                 color: '#fff',
@@ -203,8 +205,15 @@ export const ToolbarSettingsModal = () => {
               onChange={async (e) => {
                 const file = (e.target as HTMLInputElement).files?.[0];
                 if (file) {
-                  const url = pdfUrl.value || window.location.href; 
-                  await importWorkspace(file, url);
+                  try {
+                    const data = await validateWorkspaceFile(file);
+                    pendingImportData.value = data;
+                    isImportModalOpen.value = true;
+                    // Close settings to show the import modal clearly
+                    isToolbarSettingsOpen.value = false;
+                  } catch (err) {
+                    alert("Failed to load workspace: Invalid or corrupted file.");
+                  }
                   (e.target as HTMLInputElement).value = ''; // Reset
                 }
               }}

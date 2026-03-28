@@ -48,6 +48,8 @@ export const toolMetadata = signal<Record<string, { badge?: string | number; col
 
 export const isToolPickerOpen = signal<boolean>(false);
 export const isToolbarSettingsOpen = signal<boolean>(false);
+export const isImportModalOpen = signal<boolean>(false);
+export const pendingImportData = signal<any | null>(null);
 
 const DEFAULT_TOOLS: ToolId[] = [
   'pan', 

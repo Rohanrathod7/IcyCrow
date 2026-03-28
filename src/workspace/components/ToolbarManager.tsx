@@ -6,6 +6,7 @@ import {
 } from '../store/toolbar-state';
 import { EdgeToolbar } from './EdgeToolbar';
 import { CircularToolbar } from './CircularToolbar';
+import { WorkspaceImportModal } from './WorkspaceImportModal';
 
 export const ToolbarManager = () => {
   const rafId = useRef<number | null>(null);
@@ -121,6 +122,7 @@ export const ToolbarManager = () => {
           <EdgeToolbar />
         )}
       </div>
+      <WorkspaceImportModal />
     </div>
   );
 };
