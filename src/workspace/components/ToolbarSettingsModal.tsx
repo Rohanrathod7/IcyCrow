@@ -9,7 +9,7 @@ import {
   toolMetadata,
   ToolbarPosition
 } from '../store/toolbar-state';
-import { pdfUrl } from '../store/viewer-state';
+import { pdfUrl, autoSaveFileHandle, isAutoSaveEnabled } from '../store/viewer-state';
 import { 
   Trash2, 
   RefreshCcw, 
@@ -24,9 +24,14 @@ import {
   Type,
   Eraser,
   Download,
-  Upload
+  Upload,
+  Save,
+  FileCheck,
+  X,
+  StickyNote,
+  MessageSquare
 } from 'lucide-preact';
-import { exportWorkspace, validateWorkspaceFile } from '../services/StateSyncService';
+import { exportWorkspace, validateWorkspaceFile, getSaveHandle } from '../services/StateSyncService';
 
 const ICONS: Record<string, any> = {
   draw: PenTool,
@@ -34,8 +39,10 @@ const ICONS: Record<string, any> = {
   highlight: Highlighter,
   text: Type,
   eraser: Eraser,
+  select: MousePointer2,
   pan: MousePointer2,
-  select: MousePointer2
+  sticky: StickyNote,
+  callout: MessageSquare
 };
 
 export const ToolbarSettingsModal = () => {
@@ -156,7 +163,96 @@ export const ToolbarSettingsModal = () => {
 
         {/* Workspace Backup Section */}
         <section>
-          <h3 style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.4, letterSpacing: '1px', marginBottom: '16px' }}>Workspace Backup</h3>
+          {/* Pro Sync Section (S28-V3) */}
+          <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.4, letterSpacing: '1px', marginBottom: '16px' }}>Pro Workspace Sync</h3>
+            
+            {!autoSaveFileHandle.value ? (
+              <button
+                onClick={async () => {
+                  const handle = await getSaveHandle('icycrow_workspace.json');
+                  if (handle) {
+                    autoSaveFileHandle.value = handle;
+                    isAutoSaveEnabled.value = true;
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: '#3b82f6',
+                  border: '1px dashed rgba(59, 130, 246, 0.3)',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginBottom: '12px'
+                }}
+              >
+                <Save size={16} />
+                Link Output File (Enable Auto-Save)
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ 
+                  background: 'rgba(34, 197, 94, 0.1)', 
+                  padding: '12px', 
+                  borderRadius: '12px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '12px',
+                  border: '1px solid rgba(34, 197, 94, 0.2)'
+                }}>
+                  <FileCheck size={18} color="#22c55e" />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#22c55e' }}>Sync Active</div>
+                    <div style={{ fontSize: '10px', opacity: 0.6 }}>Locked to: {autoSaveFileHandle.value.name}</div>
+                  </div>
+                  <button 
+                    onClick={() => { autoSaveFileHandle.value = null; isAutoSaveEnabled.value = false; }}
+                    style={{ background: 'transparent', border: 'none', color: '#fff', opacity: 0.3, cursor: 'pointer' }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: autoSaveFileHandle.value ? 1 : 0.5 }}>
+              <span style={{ fontSize: '13px', opacity: 0.8 }}>Auto-Save to File</span>
+              <button 
+                disabled={!autoSaveFileHandle.value}
+                onClick={() => isAutoSaveEnabled.value = !isAutoSaveEnabled.value}
+                style={{
+                  width: '40px',
+                  height: '24px',
+                  borderRadius: '12px',
+                  background: isAutoSaveEnabled.value ? '#3b82f6' : 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  position: 'relative',
+                  cursor: autoSaveFileHandle.value ? 'pointer' : 'not-allowed',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div style={{
+                  position: 'absolute',
+                  top: '4px',
+                  left: isAutoSaveEnabled.value ? '20px' : '4px',
+                  width: '16px',
+                  height: '16px',
+                  borderRadius: '50%',
+                  background: '#fff',
+                  transition: 'all 0.2s'
+                }} />
+              </button>
+            </div>
+          </div>
+
+          <h3 style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.4, letterSpacing: '1px', marginBottom: '16px' }}>Manual Backup</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <button
               onClick={() => exportWorkspace(pdfUrl.value, 1, 'icycrow_notes')}

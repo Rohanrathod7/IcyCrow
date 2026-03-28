@@ -1,15 +1,50 @@
 import { useEffect, useRef } from 'preact/hooks';
+import { effect } from '@preact/signals';
 import { 
   toolbarPosition, 
   floatingCoordinates, 
   toolbarIsDragging 
 } from '../store/toolbar-state';
+import { pdfUrl, autoSaveFileHandle, isAutoSaveEnabled } from '../store/viewer-state';
+import { highlights, strokes, stickyNotes, callouts } from '../store/annotation-state';
+import { saveToHandle } from '../services/StateSyncService';
 import { EdgeToolbar } from './EdgeToolbar';
 import { CircularToolbar } from './CircularToolbar';
 import { WorkspaceImportModal } from './WorkspaceImportModal';
 
 export const ToolbarManager = () => {
   const rafId = useRef<number | null>(null);
+  const saveTimeout = useRef<any>(null);
+
+  // Auto-Save Effect
+  useEffect(() => {
+    const dispose = effect(() => {
+      // Trigger on any annotation change
+      const data = {
+        version: '1.0',
+        documentUrl: pdfUrl.value,
+        highlights: highlights.value,
+        strokes: strokes.value,
+        stickyNotes: stickyNotes.value,
+        callouts: callouts.value,
+        exportedAt: new Date().toISOString()
+      };
+
+      if (isAutoSaveEnabled.value && autoSaveFileHandle.value) {
+        // Debounce saves
+        if (saveTimeout.current) clearTimeout(saveTimeout.current);
+        saveTimeout.current = setTimeout(async () => {
+          console.log("Auto-Saving to linked file...");
+          await saveToHandle(autoSaveFileHandle.value, data as any);
+        }, 2000);
+      }
+    });
+    return () => {
+      dispose();
+      if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    };
+  }, []);
+
   const startDragCoords = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {

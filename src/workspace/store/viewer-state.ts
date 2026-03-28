@@ -23,3 +23,5 @@ export const toolSettings = signal<Record<string, ToolSettings>>({
 
 export const originalPdfBlob = signal<Blob | null>(null);
 export const pdfUrl = signal<string>('');
+export const autoSaveFileHandle = signal<any | null>(null); // FileSystemFileHandle
+export const isAutoSaveEnabled = signal<boolean>(false);

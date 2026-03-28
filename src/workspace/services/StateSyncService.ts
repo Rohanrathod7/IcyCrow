@@ -87,4 +87,58 @@ export async function commitWorkspaceToStore(data: WorkspacePayload, url: string
 
   // 2. Persist to IDB
   await persistAnnotations(url);
+  
+  // 3. Register this document association
+  registerWorkspace(url, data.documentUrl || 'Untitled Workspace');
+}
+
+/**
+ * Register a doc -> workspace mapping in chrome.storage
+ */
+export async function registerWorkspace(url: string, sourceName: string) {
+  if (typeof chrome === 'undefined' || !chrome.storage) return;
+  
+  const res = await chrome.storage.local.get('icycrow_workspace_registry');
+  const registry: Record<string, any> = res.icycrow_workspace_registry || {};
+  
+  registry[url] = {
+    lastSeen: new Date().toISOString(),
+    sourceName
+  };
+  
+  await chrome.storage.local.set({ icycrow_workspace_registry: registry });
+}
+
+/**
+ * Write data to a FileSystemFileHandle
+ */
+export async function saveToHandle(handle: any, data: WorkspacePayload) {
+  try {
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify(data, null, 2));
+    await writable.close();
+    return true;
+  } catch (err) {
+    console.error("Auto-save to handle failed:", err);
+    return false;
+  }
+}
+
+/**
+ * Show file picker and return handle
+ */
+export async function getSaveHandle(suggestedName: string) {
+  try {
+    // @ts-ignore - File System Access API
+    return await window.showSaveFilePicker({
+      suggestedName,
+      types: [{
+        description: 'IcyCrow Workspace JSON',
+        accept: { 'application/json': ['.json'] },
+      }],
+    });
+  } catch (err) {
+    console.error("Picker cancelled or failed:", err);
+    return null;
+  }
 }
