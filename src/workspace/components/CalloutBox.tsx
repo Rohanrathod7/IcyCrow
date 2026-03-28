@@ -71,12 +71,39 @@ export function CalloutBox({ callout, url }: CalloutBoxProps) {
     setDragOffset({ x: 0, y: 0 });
   };
 
+  // Calculate dominant side based on anchor-to-box vector
+  const getDynamicTransform = () => {
+    const dx = callout.box.x - callout.anchor.x;
+    const dy = callout.box.y - callout.anchor.y;
+    const gap = 12; // px gap from tip to box edge
+
+    // Horizontal is dominant
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (dx >= 0) {
+        // Box is to the right of anchor -> Point to Left side
+        return `translate(${gap}px, -50%)`;
+      } else {
+        // Box is to the left of anchor -> Point to Right side
+        return `translate(calc(-100% - ${gap}px), -50%)`;
+      }
+    } else {
+      // Vertical is dominant
+      if (dy >= 0) {
+        // Box is below anchor -> Point to Top side
+        return `translate(-50%, ${gap}px)`;
+      } else {
+        // Box is above anchor -> Point to Bottom side
+        return `translate(-50%, calc(-100% - ${gap}px))`;
+      }
+    }
+  };
+
   // Position at the box coordinates (arrow tip)
   const positionStyle = {
     position: 'absolute' as const,
     left: '0',
     top: '0',
-    transform: `translate(${callout.box.x * scale + dragOffset.x}px, ${callout.box.y * scale + dragOffset.y}px) translate(14px, -50%)`,
+    transform: `translate(${callout.box.x * scale + dragOffset.x}px, ${callout.box.y * scale + dragOffset.y}px) ${getDynamicTransform()}`,
     zIndex: isActive || isDragging ? 2000 : 1000,
     cursor: isEraser ? 'cell' : (activeTool.value === 'select' ? 'grab' : 'default'),
     fontSize: `${14 * scale}px`,
