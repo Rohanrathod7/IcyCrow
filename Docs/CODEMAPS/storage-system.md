@@ -18,7 +18,7 @@
   - `settings` -> `IcyCrowSettings`
   - `spaces` -> `SpacesStore`
   - `chatHistories:${spaceId}` -> `ChatMessage[]`
-  - `icycrow_workspace_registry` -> `Record<Url, { sourceName, lastSeen }>` [v1.1]
+  - `icycrow_workspace_registry` -> `Record<Url, { filename, lastLinked, isActive }>` [v1.2]
 
 * `chrome.storage.session` (Runtime State)
   - `sessionState` -> `SessionState` (Restart counts, Crypto status).
@@ -34,4 +34,5 @@
   - `embeddings` -> `IDBEmbedding` (Key: articleId)
   - `annotations` -> `IDBAnnotation` (Index: url, data.pageNumber) [v3]
   - `pdf_cache` -> `IDBBlobStore` (Key: url) - Persists PDF binaries for offline mode [v4]
+  - `workspace_handles` -> `IDBWorkspaceHandle` (Key: url) - Persists FileSystemFileHandle [v6]
   - `backupManifest` -> `IDBBackupManifest` (Key: id, Index: timestamp) [v2]

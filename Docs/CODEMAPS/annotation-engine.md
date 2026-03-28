@@ -15,7 +15,7 @@
   * `InkCanvas` -> Mouse/Touch -> Vector Normalization
   * `StickyNote` -> Click -> Positioned Icon
   * `Callout` -> SVG Arrow + Midpoint Snapping (S29)
-  * `WorkspaceRecommendation` -> 🧠 **Registry Check** -> "Recover Annotations" Toast
+  * `ToolbarManager.tsx` -> 🧠 **Registry Check** -> Global "Recover Annotations" Toast
 
 ## Repositioning Engine
 * `StickyNote.tsx` / `CalloutBox.tsx`
