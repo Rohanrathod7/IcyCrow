@@ -34,11 +34,14 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
 
   useEffect(() => {
     // Sync currentSize with note state if it changes externally
+    // But DON'T overwrite during an active resize gesture
+    if (isResizing) return;
+    
     setCurrentSize({ 
       width: note.width || 220, 
       height: note.height || 140 
     });
-  }, [note.width, note.height]);
+  }, [note.width, note.height, isResizing]);
 
   const handleBlur = () => {
     activeStickyId.value = null;
@@ -131,7 +134,7 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
     left: '0',
     top: '0',
     zIndex: isExpanded || isDragging || isResizing ? 2000 : 1000,
-    transform: `translate(${note.x * scale + dragOffset.x}px, ${note.y * scale + dragOffset.y}px) translate(-50%, -50%)`,
+    transform: `translate(${note.x * scale + dragOffset.x}px, ${note.y * scale + dragOffset.y}px) ${isExpanded ? 'translate(-12px, -12px)' : 'translate(-50%, -50%)'}`,
     transition: isDragging || isResizing ? 'none' : 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
     pointerEvents: 'auto'
   };
@@ -177,12 +180,12 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
         ...baseStyles,
         width: `${currentSize.width * scale}px`,
         height: `${currentSize.height * scale}px`,
-        background: 'rgba(28, 28, 30, 0.85)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        background: 'rgba(28, 28, 30, 0.9)',
+        backdropFilter: 'blur(30px)',
+        WebkitBackdropFilter: 'blur(30px)',
         borderRadius: '16px',
         padding: '12px',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.15)',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.15)',
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
@@ -207,7 +210,7 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
           background: 'transparent',
           border: 'none',
           color: '#fff',
-          fontSize: `${13 * scale}px`,
+          fontSize: `${14 * scale}px`,
           lineHeight: '1.5',
           resize: 'none',
           outline: 'none',
@@ -215,32 +218,36 @@ export const StickyNote = ({ note, url }: StickyNoteProps) => {
         }}
       />
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', pointerEvents: 'none' }}>
          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: note.color, opacity: 0.8 }} />
          
-         {/* Resize Handle */}
+         {/* Resize Handle Container */}
          <div 
             onPointerDown={handleResizePointerDown}
             onPointerMove={handleResizePointerMove}
             onPointerUp={handleResizePointerUp}
             style={{
-              width: '16px',
-              height: '16px',
+              position: 'absolute',
+              bottom: '0',
+              right: '0',
+              width: '32px', // Larger hit zone
+              height: '32px',
               cursor: 'nwse-resize',
               display: 'flex',
               alignItems: 'flex-end',
               justifyContent: 'flex-end',
-              padding: '2px',
-              opacity: 0.5,
+              padding: '8px',
+              opacity: 0.4,
               transition: 'opacity 0.2s',
-              zIndex: 10
+              zIndex: 100,
+              pointerEvents: 'auto'
             }}
             onMouseEnter={(e: any) => e.currentTarget.style.opacity = '1'}
-            onMouseLeave={(e: any) => e.currentTarget.style.opacity = '0.5'}
+            onMouseLeave={(e: any) => e.currentTarget.style.opacity = '0.4'}
          >
             <div style={{ 
-              width: '8px', 
-              height: '8px', 
+              width: '10px', 
+              height: '10px', 
               borderRight: '2px solid #fff', 
               borderBottom: '2px solid #fff',
               borderBottomRightRadius: '2px'
