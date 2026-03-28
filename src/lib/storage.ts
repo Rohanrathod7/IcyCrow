@@ -79,13 +79,15 @@ export async function updateHighlights(
 }
 
 // Chat History (Mutex-protected)
-export async function getChatHistory(spaceId: string): Promise<ChatHistoryStore> {
+export async function getChatHistory(spaceId: string | null): Promise<ChatHistoryStore> {
+  if (!spaceId) return [];
   const key = `chatHistories:${spaceId}`;
   const result = await chrome.storage.local.get(key);
   return (result[key] as ChatHistoryStore) || [];
 }
 
-export async function appendChatMessage(spaceId: string, msg: ChatMessage): Promise<void> {
+export async function appendChatMessage(spaceId: string | null, msg: ChatMessage): Promise<void> {
+  if (!spaceId) return;
   const key = `chatHistories:${spaceId}`;
   return mutex.withLock(key, async () => {
     const history = await getChatHistory(spaceId);

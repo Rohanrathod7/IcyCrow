@@ -60,7 +60,7 @@ export const AiActionBar = () => {
       style={{
         position: 'fixed',
         left: `${pos.x}px`,
-        top: `${pos.y}px`,
+        top: `${pos.y - 12}px`,
         transform: 'translate(-50%, -100%)',
         zIndex: 1000,
         pointerEvents: 'auto'
