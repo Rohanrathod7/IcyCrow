@@ -183,6 +183,7 @@ export async function scrapeResponse(taskId: string): Promise<void> {
 
   let lastText = '';
   let noChangeCount = 0;
+  let stabilityCount = 0; // Requires N consecutive confirmations of "Finished"
 
   const streamChunk = (text: string, done = false) => {
     chrome.runtime.sendMessage({
@@ -198,6 +199,7 @@ export async function scrapeResponse(taskId: string): Promise<void> {
       streamChunk(currentText, false);
       lastText = currentText;
       noChangeCount = 0;
+      stabilityCount = 0; // Reset stability on any change
     }
   });
 
@@ -214,15 +216,28 @@ export async function scrapeResponse(taskId: string): Promise<void> {
       streamChunk(currentText, false);
       lastText = currentText;
       noChangeCount = 0;
+      stabilityCount = 0;
     } else {
       noChangeCount++;
     }
 
-    // Check for completion: Be more patient for Reasoning/Thinking (60s)
+    // 1. Completion Guard: Look for "Send" button and absence of "Stop" button
     const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
-    const isFinished = (sendBtn && !sendBtn.disabled) || noChangeCount > 60;
+    const stopBtn = findSelector((GEMINI_SELECTORS as any).stopButton);
+    
+    // Logic: Finished if Send is enabled AND Stop is gone
+    const isUIFinished = (sendBtn && !sendBtn.disabled) && !stopBtn;
+    
+    if (isUIFinished) {
+      stabilityCount++;
+    } else {
+      stabilityCount = 0;
+    }
 
-    if (isFinished && lastText.length > 0) {
+    // 2. Finalization Trigger: Stability (3s) OR Timeout (60s)
+    const shouldFinalize = (stabilityCount >= 3 && lastText.length > 0) || noChangeCount > 60;
+
+    if (shouldFinalize) {
       clearInterval(pollingInterval);
       observer.disconnect();
       if (maxDurationTimer) clearTimeout(maxDurationTimer);
@@ -235,5 +250,5 @@ export async function scrapeResponse(taskId: string): Promise<void> {
     clearInterval(pollingInterval);
     observer.disconnect();
     streamChunk(lastText, true);
-  }, 180000); // 3 minutes max
+  }, 240000); // 4 minutes max
 }
