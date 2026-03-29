@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import { sendToSW } from '../../lib/messaging';
-import { spaces, isLoading, error } from '../store';
+import { spaces, isLoading, error, currentAppStatus } from '../store';
 import { SpaceCard } from './SpaceCard';
 import { SpaceForm } from './SpaceForm';
 import type { SpacesStore, UUID } from '../../lib/types';
@@ -75,10 +75,13 @@ export const SpacesView = () => {
 
   const handleCreateSpace = async (data: { name: string; color: string; captureCurrentTabs: boolean; createTabGroup: boolean }) => {
     try {
+      currentAppStatus.value = 'saving';
       await sendToSW({
         type: 'SPACE_CREATE',
         payload: data
       } as any);
+      
+      currentAppStatus.value = 'success';
       
       // Refresh list
       const result = await chrome.storage.local.get('spaces');
@@ -95,8 +98,17 @@ export const SpacesView = () => {
       }
       
       setShowForm(false);
+      
+      // Revert to idle after 1000ms
+      setTimeout(() => {
+        if (currentAppStatus.value === 'success') {
+          currentAppStatus.value = 'idle';
+        }
+      }, 1000);
+      
     } catch (err) {
       console.error('Failed to create space:', err);
+      currentAppStatus.value = 'idle';
     }
   };
 

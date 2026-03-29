@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/preact';
 import { SpaceCard } from './SpaceCard';
-import { expandedSpaceId, updateSpaceName, deleteSpace } from '../store';
+import { expandedSpaceId, updateSpaceName } from '../store';
 import type { Space, UUID } from '../../lib/types';
 
 // Mock store
@@ -46,15 +46,22 @@ describe('SpaceCard Component', () => {
     expandedSpaceId.value = null;
   });
 
-  it('renders the header correctly with name and tab count', () => {
+  it('renders the header with stacked name and tab count', () => {
     render(<SpaceCard {...defaultProps} />);
-    expect(screen.getByText('Test Space')).toBeDefined();
-    expect(screen.getByText('1 tabs')).toBeDefined();
+    screen.getByText('Test Space');
+    screen.getByText('1 tabs');
+    
+    // Check if they are wrapped in an items-start container (flex-col)
+    const nameElement = screen.getByText('Test Space');
+    const columnContainer = nameElement.parentElement;
+    expect(columnContainer?.classList.contains('flex-col')).toBe(true);
+    expect(columnContainer?.classList.contains('items-start')).toBe(true);
+    expect(columnContainer?.classList.contains('leading-tight')).toBe(true);
   });
 
   it('toggles expansion when the header is clicked', () => {
     render(<SpaceCard {...defaultProps} />);
-    const header = screen.getByText('Test Space').parentElement?.parentElement;
+    const header = screen.getByTestId(`space-card-space-1`).querySelector('.header-row');
     if (header) fireEvent.click(header);
     expect(expandedSpaceId.value).toBe('space-1');
   });
@@ -85,5 +92,18 @@ describe('SpaceCard Component', () => {
     expect(screen.getByTestId('icon-play')).toBeDefined();
     expect(screen.getByTestId('icon-edit')).toBeDefined();
     expect(screen.getByTestId('icon-trash')).toBeDefined();
+  });
+
+  it('renders the accordion body when expanded', () => {
+    expandedSpaceId.value = 'space-1' as UUID;
+    render(<SpaceCard {...defaultProps} />);
+    // Tab 1 should be visible in the body
+    expect(screen.getByText('Tab 1')).toBeDefined();
+  });
+
+  it('does not render the accordion body when collapsed', () => {
+    expandedSpaceId.value = 'other-space' as UUID;
+    render(<SpaceCard {...defaultProps} />);
+    expect(screen.queryByText('Tab 1')).toBeNull();
   });
 });

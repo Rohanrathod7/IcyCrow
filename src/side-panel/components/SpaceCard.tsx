@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks';
 import { Space, UUID } from '../../lib/types';
-import { expandedSpaceId, updateSpaceName, deleteSpace } from '../store';
+import { expandedSpaceId, updateSpaceName, removeTabFromSpace } from '../store';
 import { ChevronDown, ChevronUp, Play, Edit2, Trash2 } from 'lucide-preact';
+import { TabRow } from './TabRow';
 
 interface SpaceCardProps {
   space: Space;
@@ -51,6 +52,10 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
     onRestore(space.id);
   };
 
+  const handleRemoveTab = async (tabId: UUID) => {
+    await removeTabFromSpace(space.id, tabId);
+  };
+
   return (
     <div 
       className={`bento-item ${isExpanded ? 'expanded' : ''}`}
@@ -68,7 +73,7 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
               {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </div>
             
-            <div className="space-info flex-1">
+            <div className="flex-col items-start flex-1 overflow-hidden">
               {isEditing ? (
                 <input 
                   autoFocus
@@ -78,31 +83,32 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
                   onBlur={handleSaveName}
                   onKeyDown={handleKeyDown}
                   onClick={(e) => e.stopPropagation()}
+                  style={{ width: '100%' }}
                 />
               ) : (
-                <h4 className="text-truncate" style={{ margin: 0, fontSize: '1rem' }}>{space.name}</h4>
+                <span className="font-semibold text-white text-truncate" style={{ fontSize: '0.95rem' }}>{space.name}</span>
               )}
-              <span className="text-dim small">{tabCount} tabs</span>
+              <span className="text-xs text-dim">{tabCount} tabs</span>
             </div>
           </div>
           
-          <div className="flex-row gap-8 action-group">
+          <div className="flex-row gap-4 action-group">
             <button 
-              className="btn-icon-premium"
+              className="btn-ghost-premium"
               onClick={handleRestoreClick}
               title="Restore Space"
             >
               <Play size={16} fill="currentColor" />
             </button>
             <button 
-              className="btn-icon-premium"
+              className="btn-ghost-premium"
               onClick={handleRename}
               title="Rename Space"
             >
               <Edit2 size={16} />
             </button>
             <button 
-              className="btn-icon-premium danger"
+              className="btn-ghost-premium danger"
               onClick={handleDeleteClick}
               title="Delete Space"
             >
@@ -111,7 +117,13 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
           </div>
         </div>
 
-        {/* Phase 3: Accordion Body will go here */}
+        {isExpanded && space.tabs && space.tabs.length > 0 && (
+          <div className="accordion-body flex-col gap-8" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+            {space.tabs.map(tab => (
+              <TabRow key={tab.id} tab={tab} onRemove={handleRemoveTab} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

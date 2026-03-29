@@ -7,6 +7,7 @@ import { SpacesView } from './components/SpacesView';
 import { SettingsView } from './components/SettingsView';
 import { ChatView } from './components/ChatView';
 import { HighlightsPanel } from './components/HighlightsPanel';
+import { MascotHeader } from './components/MascotHeader';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useEffect } from 'preact/hooks';
 import './panel.css';
@@ -65,6 +66,7 @@ export const App = () => {
           </div>
         )}
 
+        <MascotHeader />
         <NavBar />
         <main style={{ flex: 1, overflowY: 'auto' }}>
           {renderView()}

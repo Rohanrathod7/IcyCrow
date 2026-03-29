@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS } from '../lib/constants';
 import { sendToSW } from '../lib/messaging';
 
 export type ViewType = 'home' | 'search' | 'chat' | 'spaces' | 'settings' | 'highlights';
+export type AppStatus = 'idle' | 'saving' | 'thinking' | 'success';
 
 export interface SearchResult {
   text: string;
@@ -24,6 +25,7 @@ export const error = signal<string | null>(null);
 export const settings = signal<IcyCrowSettings>(DEFAULT_SETTINGS);
 export const isLocked = signal(true);
 export const expandedSpaceId = signal<UUID | null>(null);
+export const currentAppStatus = signal<AppStatus>('idle');
 
 /**
  * Hydrates settings and session state.
