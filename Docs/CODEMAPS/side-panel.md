@@ -1,4 +1,4 @@
-[LAST UPDATED: 2026-03-30]
+[LAST UPDATED: 2026-03-31]
 
 ### Side Panel Shell & Navigation (Epic S10)
 
@@ -46,8 +46,8 @@
   - `HighlightsPanel.tsx` -> Unified highlights view. Groups by URL. Renders `HighlightCard`. Logic: `syncAllHighlights()` on mount.
   - `HighlightCard.tsx` -> Snippet unit. Handles `HIGHLIGHT_UPDATE` (blur) and `HIGHLIGHT_DELETE` (click).
   - `SpacesView.tsx` -> `chrome.storage.local.get('spaces')` -> `spaces.value`. Create via `sendToSW({ type: 'SPACE_CREATE' })`.
-  - `ChatView.tsx` -> Main chat container. Logic: `AI_QUERY`/`WINDOW_AI_QUERY` dispatch + `AI_RESPONSE_STREAM` listener.
   - Neural Link: Automatically toggles `currentAppStatus.value = 'thinking'` during AI streams. Reverts to 'idle' on completion/unmount.
+  - Cross-Context Integration: `handleIncomingPrompt()` + `pendingPrompt` buffer consumption for PDF workspace explain/summarize actions.
   - `ChatMessage.tsx` -> Renders Markdown content via `marked.js` + `DOMPurify`. Syntax highlighting via `highlight.js`.
   - **Proactive Registry**: Fetches `manualGeminiTabId` and connected title on `useEffect` mount.
   - **Manual Override Mode**: Supports explicit tab focus via `MANUAL_REGISTER_BRIDGE`.

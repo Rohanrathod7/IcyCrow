@@ -1,6 +1,5 @@
 import { useState } from 'preact/hooks';
 import { selectedPdfText, aiMenuPosition, isAiLoading, aiResponse } from '../store/ai-state';
-import { askAI } from '../services/AiService';
 import { Sparkles, FileText, X, Loader2, Copy, Plus, Check } from 'lucide-preact';
 import { addSticky, persistAnnotations } from '../store/annotation-state';
 import { pdfUrl } from '../store/viewer-state';
@@ -16,11 +15,27 @@ export const AiActionBar = () => {
   const handleAction = async (type: 'explain' | 'summarize') => {
     isAiLoading.value = true;
     aiResponse.value = null; // Clear previous
+    
+    // Add a tiny delay so the user sees the "Sparkle -> Loader" transition
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     try {
-      const result = await askAI(type, selectedPdfText.value);
-      aiResponse.value = result;
+      // [PROMPT ROUTING]: Send the request to the background script
+      chrome.runtime.sendMessage({
+        type: 'EXPLAIN_TEXT_REQUEST',
+        payload: {
+          text: selectedPdfText.value,
+          action: type,
+          pdfTitle: document.title || 'PDF Document'
+        }
+      });
+
+      // UI Polish: Close the menu immediately after sending to show progress is handing off
+      aiMenuPosition.value = null;
+      selectedPdfText.value = '';
     } catch (err: any) {
-      aiResponse.value = `❌ Error: ${err.message || 'Gemini bridge unreachable.'}`;
+      aiResponse.value = `❌ Error sending to Side Panel: ${err.message}`;
+      console.error('[IcyCrow] Bridge error:', err);
     } finally {
       isAiLoading.value = false;
     }

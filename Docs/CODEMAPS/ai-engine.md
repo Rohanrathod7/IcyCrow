@@ -1,4 +1,4 @@
-[LAST UPDATED: 2026-03-28]
+[LAST UPDATED: 2026-03-31]
 
 ### S14: Native AI Bridge & Context Window
 
@@ -74,4 +74,7 @@ responseContainer: [
 
 * **Inference Pipeline** (`src/lib/embedding-worker.ts`)
   - `embed(text, session)` -> Returns `Float32Array(384)`.
-  - `topK(queryVector, storedVectors, k)` -> Cosine similarity ranking.
+### Epic P1: PDF-to-Chat Bridge (Cross-Context)
+* **Emitter**: `AiActionBar (PDF Workspace)` -> Sends `EXPLAIN_TEXT_REQUEST`.
+* **Orchestrator**: `service-worker.ts` -> Buffers in `chrome.storage.session.pendingPrompt` -> `chrome.sidePanel.open()`.
+* **Consumer**: `ChatView.tsx (Side Panel)` -> Consumes buffer on mount/message -> `handleSendMessage` -> AI Stream.

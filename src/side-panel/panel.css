@@ -695,6 +695,166 @@ button:active {
   color: white;
 }
 
+/* Pixel Art Mascot & Grass Background */
+.grass-header {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  background-image: url('../assets/images/9e09df5d04533545597c4e5b81d50e89.jpg');
+  background-repeat: repeat;
+  background-size: 320px auto; /* Tiled background */
+  border-bottom: 4px solid #000;
+  image-rendering: pixelated;
+  overflow: hidden;
+}
+
+.nav-icon-row-bridge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none; /* Allow clicks through the row itself */
+}
+
+.nav-icon-row-bridge button {
+  pointer-events: auto; /* Re-enable clicks for individual buttons */
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.dino-view {
+  position: relative; /* For thinking bubble positioning */
+  width: 160px;
+  height: 135px;
+  background-image: url('../assets/images/dino_dance-ezgif.webp');
+  background-size: 1440px 135px; /* Total scaled image (9 frames * 160px) */
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  margin-top: 10px;
+}
+
+.dino-dance {
+  animation: dino-dance 1s steps(8) infinite;
+}
+
+.dino-view.thinking {
+  background-image: url('../assets/images/stressed_dino-ezgif.com-gif-to-sprite-converter.webp');
+  background-size: 1760px 135px; /* 11 frames * 160px */
+  animation: dino-stressed 1s steps(10) infinite;
+  image-rendering: pixelated; /* ANTI-BLUR FIX */
+}
+
+.thinking-bubble {
+  position: absolute;
+  top: 10px; /* Bring it down closer to the Dino's head */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: auto;
+  image-rendering: pixelated; /* ANTI-BLUR FIX */
+  pointer-events: none;
+  z-index: 20; /* Ensure it stays on top */
+  animation: bubble-wobble 2s ease-in-out infinite;
+}
+
+@keyframes bubble-wobble {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+@keyframes dino-dance {
+  0% {
+    background-position-x: 0px;
+  }
+  100% {
+    background-position-x: -1280px; /* (Total scaled width - single frame width) */
+  }
+}
+
+@keyframes dino-stressed {
+  0% {
+    background-position-x: 0px;
+  }
+  100% {
+    background-position-x: -1600px; /* (Total scaled width - single frame width) */
+  }
+}
+
+.pixel-mascot-container {
+  display: none; /* Hide old mascot */
+}
+
+/* Override previous mascot header styles */
+.mascot-header {
+  display: none;
+}
+.mascot-icon-container {
+  display: none;
+}
+.mascot-text {
+  display: none;
+}
+
+/* Navigation Icons on Grass */
+.nav-icon-row {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-icon-group {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-grass-nav {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.btn-grass-nav:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
 /* Mascot Header Styles & Animations */
 @keyframes bounce {
   0%, 100% {

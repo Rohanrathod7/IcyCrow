@@ -91,7 +91,7 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
 
           <div className="flex-row gap-12" style={{ marginTop: '8px' }}>
             <button type="submit" className="btn-primary flex-1">Create Space</button>
-            <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
+            <button type="button" className="btn-secondary btn-secondary-dark" onClick={onCancel}>Cancel</button>
           </div>
         </form>
       </div>

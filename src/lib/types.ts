@@ -497,6 +497,13 @@ export type CryptoUnlockRes = ApiResponse<{
 export type CryptoLockMsg = BaseMessage<'CRYPTO_LOCK', undefined>;
 export type CryptoLockRes = ApiResponse<{ locked: boolean }>;
 
+export type ExplainTextRequestMsg = BaseMessage<'EXPLAIN_TEXT_REQUEST', {
+  text: string;
+  action: 'explain' | 'summarize';
+  spaceId?: UUID | null;
+  pdfTitle?: string;
+}>;
+
 export type InboundMessage =
   | HighlightCreateMsg
   | HighlightDeleteMsg
@@ -515,8 +522,8 @@ export type InboundMessage =
   | ExportWorkspaceMsg
   | ImportWorkspaceMsg
   | GeminiHealthCheckMsg
-  | CryptoUnlockMsg
   | CryptoLockMsg
-  | WindowAiQueryMsg;
+  | WindowAiQueryMsg
+  | ExplainTextRequestMsg;
 
 export type MessageType = InboundMessage['type'];

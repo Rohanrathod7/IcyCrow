@@ -73,7 +73,7 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
               {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </div>
             
-            <div className="flex-col items-start flex-1 overflow-hidden">
+            <div className="flex-col items-start leading-tight flex-1 overflow-hidden">
               {isEditing ? (
                 <input 
                   autoFocus

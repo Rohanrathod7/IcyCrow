@@ -228,6 +228,17 @@ export const WindowAiQuerySchema = z.object({
   _meta: MetaSchema,
 });
 
+export const ExplainTextRequestSchema = z.object({
+  type: z.literal('EXPLAIN_TEXT_REQUEST'),
+  payload: z.object({
+    text: z.string(),
+    action: z.enum(['explain', 'summarize']),
+    spaceId: UUIDSchema.nullable().optional(),
+    pdfTitle: z.string().optional(),
+  }),
+  _meta: MetaSchema,
+});
+
 export const InboundMessageSchema = z.discriminatedUnion('type', [
   HighlightCreateSchema,
   HighlightDeleteSchema,
@@ -250,6 +261,7 @@ export const InboundMessageSchema = z.discriminatedUnion('type', [
   CryptoLockSchema,
   WindowAiQuerySchema,
   ManualRegisterBridgeSchema,
+  ExplainTextRequestSchema,
 ]);
 
 export type ValidatedInboundMessage = z.infer<typeof InboundMessageSchema>;

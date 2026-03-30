@@ -9,7 +9,7 @@ describe('TabRow Component', () => {
     id: 't-1' as UUID,
     url: 'https://example.com',
     title: 'Example Tab',
-    favicon: 'https://example.com/icon.png',
+    favicon: 'https://example.com/icon.png' as string | null,
     scrollPosition: 0,
     chromeTabId: 1
   };

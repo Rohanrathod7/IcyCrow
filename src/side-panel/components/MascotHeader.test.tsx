@@ -9,35 +9,21 @@ describe('MascotHeader Component', () => {
     currentAppStatus.value = 'idle';
   });
 
-  it('renders idle state correctly', () => {
-    render(<MascotHeader />);
-    const icon = screen.getByTestId('mascot-icon');
-    expect(icon).toBeTruthy();
-    expect(icon.className).not.toContain('animate-bounce');
-    expect(icon.className).not.toContain('animate-pulse');
-    expect(icon.className).toContain('text-gray-400'); // Neutral color
+  it('renders layout and navigation icons', () => {
+    const { container } = render(<MascotHeader />);
+    
+    expect(container.querySelector('.grass-header')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /spaces/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /notifications/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /settings/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /close/i })).toBeTruthy();
   });
-
-  it('renders saving state with bounce animation', () => {
+  
+  it('renders DinoMascot with correct status', () => {
     currentAppStatus.value = 'saving';
-    render(<MascotHeader />);
-    const icon = screen.getByTestId('mascot-icon');
-    expect(icon.className).toContain('animate-bounce');
-    expect(icon.className).toContain('text-blue-500');
-  });
-
-  it('renders thinking state with pulse animation', () => {
-    currentAppStatus.value = 'thinking';
-    render(<MascotHeader />);
-    const icon = screen.getByTestId('mascot-icon');
-    expect(icon.className).toContain('animate-pulse');
-    expect(icon.className).toContain('text-purple-500');
-  });
-
-  it('renders success state', () => {
-    currentAppStatus.value = 'success';
-    render(<MascotHeader />);
-    const icon = screen.getByTestId('mascot-icon');
-    expect(icon.className).toContain('text-emerald-500');
+    const { container } = render(<MascotHeader />);
+    const dino = container.querySelector('.dino-view');
+    expect(dino).toBeTruthy();
+    expect(dino?.getAttribute('aria-label')).toContain('saving');
   });
 });

@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/preact';
 import { expect, it, describe, vi, beforeEach, afterEach } from 'vitest';
 import { SettingsView } from './SettingsView';
-import { settings } from '../store';
+import { settings, isLocked } from '../store';
 import { DEFAULT_SETTINGS } from '../../lib/constants';
 
 // @vitest-environment jsdom
@@ -13,20 +13,26 @@ describe('SettingsView', () => {
         local: {
           set: vi.fn().mockResolvedValue(undefined),
           get: vi.fn().mockResolvedValue({ settings: DEFAULT_SETTINGS }),
+          getBytesInUse: vi.fn().mockResolvedValue(0),
         },
         session: {
-          get: vi.fn().mockResolvedValue({ cryptoKeyUnlocked: false }),
-          onChanged: { addListener: vi.fn() }
-        }
+          get: vi.fn().mockResolvedValue({ sessionState: { geminiTabIds: [] } }),
+          onChanged: { addListener: vi.fn(), removeListener: vi.fn() }
+        },
+        onChanged: { addListener: vi.fn(), removeListener: vi.fn() }
       },
       runtime: { 
         lastError: null,
         sendMessage: vi.fn().mockResolvedValue({ ok: true })
       },
+      tabs: {
+        query: vi.fn().mockResolvedValue([])
+      }
     });
     
     // Reset signals
     settings.value = DEFAULT_SETTINGS;
+    isLocked.value = true;
   });
 
   afterEach(() => {
@@ -66,12 +72,13 @@ describe('SettingsView', () => {
   describe('Security Controls', () => {
     it('renders locked status correctly', () => {
       render(<SettingsView />);
-      expect(screen.getByText(/Workspace Locked/i)).toBeTruthy();
+      expect(screen.getByText(/Locked/i)).toBeTruthy();
     });
 
     it('dispatches CRYPTO_LOCK when lock button clicked', async () => {
+      isLocked.value = false;
       render(<SettingsView />);
-      const lockBtn = screen.getByRole('button', { name: /Lock/i });
+      const lockBtn = screen.getByRole('button', { name: /^Lock$/i });
       fireEvent.click(lockBtn);
       
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: 'CRYPTO_LOCK' });
@@ -111,8 +118,8 @@ describe('SettingsView', () => {
   describe('Backup & Restore', () => {
     it('renders backup/restore controls', () => {
       render(<SettingsView />);
-      expect(screen.getByText(/Export Workspace/i)).toBeTruthy();
-      expect(screen.getByText(/Import Workspace/i)).toBeTruthy();
+      expect(screen.getByText(/Generate Encrypted Backup/i)).toBeTruthy();
+      expect(screen.getByText(/Restore from Backup/i)).toBeTruthy();
     });
 
     it('prompts for password and dispatches EXPORT_WORKSPACE', async () => {
@@ -137,11 +144,13 @@ describe('SettingsView', () => {
       render(<SettingsView />);
       const importBtn = screen.getByRole('button', { name: /Restore from Backup/i });
       
-      await fireEvent.click(importBtn);
+      fireEvent.click(importBtn);
       
-      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ 
-        type: 'IMPORT_WORKSPACE', 
-        payload: { file: mockFile } 
+      await vi.waitFor(() => {
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ 
+          type: 'IMPORT_WORKSPACE', 
+          payload: { file: mockFile } 
+        });
       });
     });
   });
@@ -165,7 +174,7 @@ describe('SettingsView', () => {
 
     it('dispatches DEBUG_EXPORT when debug button clicked', () => {
       render(<SettingsView />);
-      const debugBtn = screen.getByRole('button', { name: /Download Debug Diagnostics/i });
+      const debugBtn = screen.getByRole('button', { name: /Download Diagnostics/i });
       
       fireEvent.click(debugBtn);
       

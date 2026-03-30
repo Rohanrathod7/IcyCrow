@@ -96,13 +96,14 @@ chrome.runtime?.onMessage?.addListener((request, sender, sendResponse) => {
     return false;
   }
 
-  handleMessage(result.data, sendResponse);
+  handleMessage(result.data, sendResponse, sender);
   return true; 
 });
 
 export async function handleMessage(
   message: ValidatedInboundMessage,
-  sendResponse: (response: any) => void
+  sendResponse: (response: any) => void,
+  sender?: chrome.runtime.MessageSender
 ) {
   try {
     switch (message.type) {
@@ -130,7 +131,8 @@ export async function handleMessage(
       case 'SEMANTIC_SEARCH':
       case 'WINDOW_AI_QUERY':
       case 'AI_RESPONSE_STREAM':
-        return await handleAiMessage(message, sendResponse);
+      case 'EXPLAIN_TEXT_REQUEST':
+        return await handleAiMessage(message, sendResponse, sender);
 
       case 'SPACE_CREATE':
       case 'SPACE_RESTORE':
@@ -274,7 +276,11 @@ async function handleCryptoMessage(message: ValidatedInboundMessage, sendRespons
   }
 }
 
-async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+async function handleAiMessage(
+  message: ValidatedInboundMessage, 
+  sendResponse: (r: any) => void,
+  sender?: chrome.runtime.MessageSender
+) {
   switch (message.type) {
     case 'AI_QUERY': {
       try {
@@ -436,6 +442,31 @@ async function handleAiMessage(message: ValidatedInboundMessage, sendResponse: (
         sendResponse({ ok: true });
       } catch (err: any) {
         sendResponse({ ok: false, error: { code: 'REGISTRATION_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'EXPLAIN_TEXT_REQUEST': {
+      try {
+        const { text, action, spaceId, pdfTitle } = message.payload;
+        
+        // [BUFFERING]: Store for the side panel to consume on mount
+        await chrome.storage.session.set({ pendingPrompt: { text, action, spaceId, pdfTitle } });
+        
+        // [ERROR HANDLING]: Protected side panel open
+        if (sender?.tab?.windowId) {
+          try {
+            await (chrome as any).sidePanel.open({ windowId: sender.tab.windowId });
+          } catch (e) {
+            console.error('[IcyCrow] Failed to auto-open side panel:', e);
+          }
+        }
+        
+        // Broadcast to existing side panels
+        chrome.runtime.sendMessage(message);
+        
+        sendResponse({ ok: true });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'BRIDGE_ERROR', message: err.message } });
       }
       break;
     }

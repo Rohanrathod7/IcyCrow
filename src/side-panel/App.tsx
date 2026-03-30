@@ -1,6 +1,5 @@
 import { activeView, isLoading, error, syncAllHighlights, activeSpaceId, loadChatHistory, chatMessages } from './store';
 import type { UUID } from '../lib/types';
-import { NavBar } from './components/NavBar';
 import { HomeView } from './components/HomeView';
 import { SearchView } from './components/SearchView';
 import { SpacesView } from './components/SpacesView';
@@ -67,8 +66,7 @@ export const App = () => {
         )}
 
         <MascotHeader />
-        <NavBar />
-        <main style={{ flex: 1, overflowY: 'auto' }}>
+        <main style={{ flex: 1, overflowY: 'auto', backgroundColor: '#121212' }}>
           {renderView()}
         </main>
       </div>
