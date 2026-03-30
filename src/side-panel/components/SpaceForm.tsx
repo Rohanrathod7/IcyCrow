@@ -90,14 +90,19 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
       Tabs:
       ${tabTitles}`;
 
-      chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'AI_QUERY',
         payload: { taskId, prompt }
       });
 
+      if (response && response.ok === false) {
+        throw new Error(response.error?.message || 'AI Engine connection failed');
+      }
+
     } catch (err: any) {
-      setError('Failed to contact AI Engine');
+      setError(`AI Error: ${err.message || 'Failed to contact AI Engine'}`);
       setIsGeneratingName(false);
+      currentTaskId.current = null;
     }
   };
 

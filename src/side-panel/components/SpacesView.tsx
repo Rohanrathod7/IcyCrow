@@ -73,12 +73,12 @@ export const SpacesView = () => {
     }
   };
 
-  const handleCreateSpace = async (data: { name: string; color: string; captureCurrentTabs: boolean; createTabGroup: boolean }) => {
+  const handleCreateSpace = async (name: string, color: string, { captureCurrentTabs, createTabGroup }: { captureCurrentTabs: boolean; createTabGroup: boolean }) => {
     try {
       currentAppStatus.value = 'saving';
       await sendToSW({
         type: 'SPACE_CREATE',
-        payload: data
+        payload: { name, color, captureCurrentTabs, createTabGroup }
       } as any);
       
       currentAppStatus.value = 'success';

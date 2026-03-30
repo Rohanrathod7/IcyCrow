@@ -115,6 +115,23 @@ describe('SpaceForm Component', () => {
     await waitFor(() => expect(input.value).toBe('Developer Workspace'));
   });
 
+  it('displays error and clears loading if Gemini tab is missing', async () => {
+    mockTabsQuery.mockResolvedValue([{ title: 'GitHub' }]);
+    mockRuntimeSendMessage.mockResolvedValue({ ok: false, error: { code: 'GEMINI_TAB_NOT_FOUND', message: 'Tab not found' } });
+
+    render(<SpaceForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+    const sparkles = screen.getByTestId('icon-sparkles').parentElement;
+    
+    await fireEvent.click(sparkles!);
+
+    // Should wait for error text
+    await waitFor(() => expect(screen.getByText(/AI Error: Tab not found/i)).toBeTruthy());
+    
+    // Should show sparkles again (not loader)
+    expect(screen.queryByTestId('icon-loader')).toBeNull();
+    expect(screen.getByTestId('icon-sparkles')).toBeTruthy();
+  });
+
   it('calls onCancel when cancel button is clicked', () => {
     render(<SpaceForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
     const cancelButton = screen.getByText('Cancel');
