@@ -99,8 +99,9 @@ let lastSeenContainer: HTMLElement | null = null;
  * Injects prompt into Gemini UI and clicks send button.
  */
 export async function injectPrompt(prompt: string): Promise<void> {
-  // Capture state BEFORE injection
-  const existing = document.querySelectorAll(GEMINI_SELECTORS.responseContainer[0]);
+  // Capture state BEFORE injection using ALL candidate selectors
+  const responseSelector = GEMINI_SELECTORS.responseContainer.join(', ');
+  const existing = document.querySelectorAll(responseSelector);
   lastSeenContainer = existing.length > 0 ? (existing[existing.length - 1] as HTMLElement) : null;
   
   const input = findSelector(GEMINI_SELECTORS.inputField);
@@ -164,17 +165,22 @@ export async function scrapeResponse(taskId: string): Promise<void> {
   let container: HTMLElement | null = null;
   let attempts = 0;
   
+  const responseSelector = GEMINI_SELECTORS.responseContainer.join(', ');
+  
   while (!container && attempts < 40) { // 20s max wait
-    const candidates = document.querySelectorAll(GEMINI_SELECTORS.responseContainer[0]);
+    const candidates = document.querySelectorAll(responseSelector);
     const currentLast = candidates[candidates.length - 1] as HTMLElement;
     
     if (currentLast) {
       // It's a new container if reference changed
       const isNewReference = currentLast !== lastSeenContainer;
       // It's a new turn if it was previously marked historical but now being reused (rare, but safer)
-      const isReused = currentLast === lastSeenContainer && currentLast.dataset.icyTask !== taskId && getDeepText(currentLast).length < 20;
+      const isReused = currentLast === lastSeenContainer && currentLast.dataset.icyTask !== taskId;
+      // It's potentially our turn if it exists but has NO icy-task yet (handle rapid starts)
+      const isUnclaimed = !currentLast.dataset.icyTask;
 
-      if (isNewReference || isReused) {
+      if (isNewReference || isReused || isUnclaimed) {
+        console.log('[IcyCrow] Gemini turn detected. Candidates:', candidates.length);
         container = currentLast;
         container.dataset.icyTask = taskId;
       }

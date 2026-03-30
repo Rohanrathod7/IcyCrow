@@ -22,6 +22,8 @@ export const GEMINI_SELECTORS = {
   responseContainer: [
     'model-response',
     '.response-container',
-    'message-content'
+    'message-content',
+    'div.model-response-text',
+    '.model-response-container'
   ]
 };
