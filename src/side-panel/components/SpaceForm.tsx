@@ -1,12 +1,19 @@
-import { useState } from 'preact/hooks';
-import { X } from 'lucide-preact';
+import { useState, useEffect, useRef } from 'preact/hooks';
+import { X, Sparkles, Loader2 } from 'lucide-preact';
 
 interface SpaceFormProps {
-  onSubmit: (data: { name: string; color: string; captureCurrentTabs: boolean; createTabGroup: boolean }) => void;
+  onSubmit: (name: string, color: string, options: { captureCurrentTabs: boolean; createTabGroup: boolean }) => void;
   onCancel: () => void;
 }
 
-const PRESET_COLORS = ['#4a90e2', '#50e3c2', '#f5a623', '#d0021b', '#9013fe', '#417505'];
+const PRESET_COLORS = [
+  '#3a76f0', // Blue
+  '#2dd4bf', // Teal
+  '#fbbf24', // Amber
+  '#dc2626', // Red
+  '#9333ea', // Purple
+  '#4d7c0f', // Lime
+];
 
 export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
   const [name, setName] = useState('');
@@ -14,14 +21,93 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
   const [captureCurrentTabs, setCaptureCurrentTabs] = useState(true);
   const [createTabGroup, setCreateTabGroup] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isGeneratingName, setIsGeneratingName] = useState(false);
+  
+  const currentTaskId = useRef<string | null>(null);
+  const nameBuffer = useRef<string>('');
+
+  useEffect(() => {
+    const handleMessage = (message: any) => {
+      if (message.type === 'AI_RESPONSE_STREAM' && message.payload.taskId === currentTaskId.current) {
+        if (message.payload.error) {
+          setError(`AI Error: ${message.payload.error}`);
+          setIsGeneratingName(false);
+          return;
+        }
+
+        if (message.payload.done) {
+          // [RUTHLESS SANITIZATION]: Clean the buffered name
+          let finalName = nameBuffer.current
+            .replace(/["'“”‘’]/g, '') // Strip quotes
+            .replace(/\*\*/g, '')     // Remove markdown bold
+            .replace(/^Workspace Name: /i, '') // Remove prefixes
+            .replace(/[#.!?]$/, '')   // Remove trailing punctuation
+            .trim();
+
+          if (finalName) setName(finalName);
+          setIsGeneratingName(false);
+          currentTaskId.current = null;
+        } else {
+          nameBuffer.current += message.payload.chunk;
+        }
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handleMessage);
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
+  }, []);
+
+  const handleAutoName = async (e: MouseEvent) => {
+    e.preventDefault();
+    if (isGeneratingName) return;
+
+    try {
+      setIsGeneratingName(true);
+      setError(null);
+      nameBuffer.current = '';
+      const taskId = crypto.randomUUID();
+      currentTaskId.current = taskId;
+
+      // 1. Context Grabber
+      const tabs = await chrome.tabs.query({ currentWindow: true });
+      const tabTitles = tabs
+        .map(t => t.title)
+        .filter(Boolean)
+        .slice(0, 15) // Limit to 15 tabs for context efficiency
+        .join('\n');
+
+      if (!tabTitles) {
+        setName('New Workspace');
+        setIsGeneratingName(false);
+        return;
+      }
+
+      // 2. Neural Link (Gemini API)
+      const prompt = `You are an AI assistant helping a developer organize their browser tabs. Review the following tab titles and suggest a concise, 2-3 word name for a workspace containing them. 
+      
+      You must return ONLY the 2-3 word name. Do not include any conversational text, prefixes, or punctuation.
+      
+      Tabs:
+      ${tabTitles}`;
+
+      chrome.runtime.sendMessage({
+        type: 'AI_QUERY',
+        payload: { taskId, prompt }
+      });
+
+    } catch (err: any) {
+      setError('Failed to contact AI Engine');
+      setIsGeneratingName(false);
+    }
+  };
 
   const handleSubmit = (e: Event) => {
     e.preventDefault();
     if (!name.trim()) {
-      setError('Name is required');
+      setError('Please enter a name for the Space');
       return;
     }
-    onSubmit({ name, color, captureCurrentTabs, createTabGroup });
+    onSubmit(name.trim(), color, { captureCurrentTabs, createTabGroup });
   };
 
   return (
@@ -42,18 +128,46 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
         <form onSubmit={handleSubmit} className="flex-col gap-20">
           <div className="form-group">
             <label className="label-saas">Space Name</label>
-            <input 
-              type="text" 
-              name="name"
-              className="input-saas"
-              value={name}
-              onInput={e => {
-                setName((e.target as HTMLInputElement).value);
-                if (error) setError(null);
-              }}
-              placeholder="e.g. Research Project"
-              autoFocus
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input 
+                type="text" 
+                name="name"
+                className="input-saas"
+                style={{ paddingRight: '40px' }}
+                value={name}
+                onInput={e => {
+                  setName((e.target as HTMLInputElement).value);
+                  if (error) setError(null);
+                }}
+                placeholder="e.g. Research Project"
+                autoFocus
+              />
+              <button 
+                type="button"
+                className={`btn-auto-name ${isGeneratingName ? 'generating' : ''}`}
+                onClick={handleAutoName}
+                title="Auto-name with Gemini"
+                disabled={isGeneratingName}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: isGeneratingName ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.4)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4px',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {isGeneratingName ? (
+                  <Loader2 size={18} className="animate-spin" data-testid="icon-loader" />
+                ) : (
+                  <Sparkles size={18} data-testid="icon-sparkles" />
+                )}
+              </button>
+            </div>
             {error && <span className="error-text small" style={{ color: 'var(--danger)', display: 'block', marginTop: '6px', fontSize: '0.75rem', fontWeight: 500 }}>{error}</span>}
           </div>
 
