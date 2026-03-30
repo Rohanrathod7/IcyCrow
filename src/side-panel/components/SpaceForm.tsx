@@ -48,7 +48,7 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
           setIsGeneratingName(false);
           currentTaskId.current = null;
         } else {
-          nameBuffer.current += message.payload.chunk;
+          nameBuffer.current = message.payload.chunk;
         }
       }
     };
@@ -92,7 +92,7 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
 
       const response = await chrome.runtime.sendMessage({
         type: 'AI_QUERY',
-        payload: { taskId, prompt }
+        payload: { taskId, prompt, spaceId: null }
       });
 
       if (response && response.ok === false) {

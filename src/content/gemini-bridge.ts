@@ -113,8 +113,17 @@ export async function injectPrompt(prompt: string): Promise<void> {
   window.focus();
   input.focus();
   
-  // Mimic human typing
-  await humanType(input, prompt);
+  // Clean start
+  input.innerHTML = '';
+  
+  // [FAST-PASTE]: Use insertText for large payloads to ensure context integrity
+  try {
+    document.execCommand('insertText', false, prompt);
+  } catch (err) {
+    // Fallback if execCommand is restricted
+    console.warn('[IcyCrow] Fast-paste failed, falling back to humanType', err);
+    await humanType(input, prompt);
+  }
 
   // 2. Definitive Wait for State Sync (Critical for React/Angular)
   // In background, setTimeout is throttled to 1Hz, so we check every 20ms or fallback.
