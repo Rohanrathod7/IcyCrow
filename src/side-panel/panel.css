@@ -659,6 +659,12 @@ button:active {
 .gap-12 {
   gap: 12px;
 }
+.gap-2 {
+  gap: 8px;
+}
+.gap-3 {
+  gap: 12px;
+}
 
 .btn-secondary-dark {
   background: transparent;
@@ -835,8 +841,8 @@ button:active {
 }
 
 .btn-grass-nav {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
+  border: none;
   color: white;
   width: 32px;
   height: 32px;
@@ -845,13 +851,13 @@ button:active {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease-in-out, transform 0.15s ease-in-out;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
 
 .btn-grass-nav:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
   transform: translateY(-1px);
 }
 

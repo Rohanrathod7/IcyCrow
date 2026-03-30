@@ -11,12 +11,16 @@ describe('MascotHeader Component', () => {
 
   it('renders layout and navigation icons', () => {
     const { container } = render(<MascotHeader />);
-    
-    expect(container.querySelector('.grass-header')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /spaces/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /notifications/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /settings/i })).toBeTruthy();
     expect(screen.getByRole('button', { name: /close/i })).toBeTruthy();
+    
+    // Verify specific SaaS layout: Nav group should exist with gap-2
+    const navGroup = container.querySelector('.nav-icon-group');
+    expect(navGroup).toBeTruthy();
+    expect(navGroup?.classList.contains('gap-2')).toBe(true);
+    
+    // Verify ghost button feel
+    const spacesBtn = screen.getByRole('button', { name: /spaces/i });
+    expect(spacesBtn.classList.contains('btn-grass-nav')).toBe(true);
   });
   
   it('renders DinoMascot with correct status', () => {

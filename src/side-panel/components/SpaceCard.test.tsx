@@ -15,9 +15,9 @@ vi.mock('../store', () => ({
 
 // Mock icons
 vi.mock('lucide-preact', () => ({
-  ChevronDown: () => <div data-testid="chevron-down" />,
-  ChevronUp: () => <div data-testid="chevron-up" />,
-  Play: () => <div data-testid="icon-play" />,
+  ChevronDown: ({ className }: { className?: string }) => <div data-testid="chevron-down" className={className} />,
+  ChevronUp: ({ className }: { className?: string }) => <div data-testid="chevron-up" className={className} />,
+  ArrowUpRight: () => <div data-testid="icon-restore" />,
   Edit2: () => <div data-testid="icon-edit" />,
   Trash2: () => <div data-testid="icon-trash" />,
   X: () => <div data-testid="icon-x" />,
@@ -57,6 +57,9 @@ describe('SpaceCard Component', () => {
     expect(columnContainer?.classList.contains('flex-col')).toBe(true);
     expect(columnContainer?.classList.contains('items-start')).toBe(true);
     expect(columnContainer?.classList.contains('leading-tight')).toBe(true);
+
+    const tabCount = screen.getByText('1 tabs');
+    expect(tabCount.classList.contains('text-gray-400')).toBe(true);
   });
 
   it('toggles expansion when the header is clicked', () => {
@@ -87,9 +90,9 @@ describe('SpaceCard Component', () => {
     expect(updateSpaceName).toHaveBeenCalledWith('space-1', 'New Space Name');
   });
 
-  it('renders the action icons: Restore, Edit, Delete', () => {
+  it('renders the action icons: Restore (ArrowUpRight), Edit, Delete', () => {
     render(<SpaceCard {...defaultProps} />);
-    expect(screen.getByTestId('icon-play')).toBeDefined();
+    expect(screen.getByTestId('icon-restore')).toBeDefined();
     expect(screen.getByTestId('icon-edit')).toBeDefined();
     expect(screen.getByTestId('icon-trash')).toBeDefined();
   });

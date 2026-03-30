@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { Space, UUID } from '../../lib/types';
 import { expandedSpaceId, updateSpaceName, removeTabFromSpace } from '../store';
-import { ChevronDown, ChevronUp, Play, Edit2, Trash2 } from 'lucide-preact';
+import { ChevronDown, ChevronUp, ArrowUpRight, Edit2, Trash2 } from 'lucide-preact';
 import { TabRow } from './TabRow';
 
 interface SpaceCardProps {
@@ -68,9 +68,9 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
           onClick={handleToggleExpand}
           style={{ cursor: 'pointer' }}
         >
-          <div className="flex-row items-center gap-12 flex-1">
+          <div className="flex-row items-center gap-3 flex-1">
             <div className="chevron-icon">
-              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              {isExpanded ? <ChevronUp size={18} className="text-gray-400 mt-0.5" /> : <ChevronDown size={18} className="text-gray-400 mt-0.5" />}
             </div>
             
             <div className="flex-col items-start leading-tight flex-1 overflow-hidden">
@@ -86,9 +86,9 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
                   style={{ width: '100%' }}
                 />
               ) : (
-                <span className="font-semibold text-white text-truncate" style={{ fontSize: '0.95rem' }}>{space.name}</span>
+                <span className="font-semibold text-white text-truncate" style={{ fontSize: '1rem' }}>{space.name}</span>
               )}
-              <span className="text-xs text-dim">{tabCount} tabs</span>
+              <span className="text-xs text-gray-400 font-medium">{tabCount} tabs</span>
             </div>
           </div>
           
@@ -96,9 +96,9 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
             <button 
               className="btn-ghost-premium"
               onClick={handleRestoreClick}
-              title="Restore Space"
+              title="Restore Space to Tabs"
             >
-              <Play size={16} fill="currentColor" />
+              <ArrowUpRight size={18} />
             </button>
             <button 
               className="btn-ghost-premium"

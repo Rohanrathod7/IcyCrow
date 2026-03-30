@@ -9,7 +9,7 @@ export const MascotHeader = () => {
     <div className="grass-header">
       {/* Navigation Icons (Absolute Overlay) */}
       <div className="nav-icon-row-bridge">
-        <div className="nav-icon-group" style={{ display: 'flex', gap: '8px' }}>
+        <div className="nav-icon-group gap-2">
           <button 
             className="btn-grass-nav" 
             onClick={() => activeView.value = 'spaces'}
