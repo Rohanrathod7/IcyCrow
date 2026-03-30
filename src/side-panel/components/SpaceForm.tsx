@@ -26,9 +26,9 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <div className="flex-row items-center justify-between" style={{ marginBottom: '24px' }}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>New Space</h2>
+      <div className="modal-content modal-glass" onClick={e => e.stopPropagation()}>
+        <div className="flex-row items-center justify-between" style={{ marginBottom: '28px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.02em' }}>New Space</h2>
           <button 
             className="btn-ghost-small" 
             onClick={onCancel}
@@ -39,12 +39,13 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-col gap-16">
+        <form onSubmit={handleSubmit} className="flex-col gap-20">
           <div className="form-group">
-            <label>Name</label>
+            <label className="label-saas">Space Name</label>
             <input 
               type="text" 
               name="name"
+              className="input-saas"
               value={name}
               onInput={e => {
                 setName((e.target as HTMLInputElement).value);
@@ -53,25 +54,26 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
               placeholder="e.g. Research Project"
               autoFocus
             />
-            {error && <span className="error-text small" style={{ color: 'var(--danger-color)', display: 'block', marginTop: '4px' }}>{error}</span>}
+            {error && <span className="error-text small" style={{ color: 'var(--danger)', display: 'block', marginTop: '6px', fontSize: '0.75rem', fontWeight: 500 }}>{error}</span>}
           </div>
 
           <div className="form-group">
-            <label>Color Badge</label>
-            <div className="color-picker flex-row gap-8">
+            <label className="label-saas">Color Theme</label>
+            <div className="color-picker flex-row items-center gap-12" style={{ marginTop: '4px' }}>
               {PRESET_COLORS.map(c => (
                 <div 
                   key={c}
                   className={`color-swatch ${color === c ? 'active' : ''}`}
                   style={{ 
                     backgroundColor: c,
-                    width: '32px',
-                    height: '32px',
+                    width: '34px',
+                    height: '34px',
                     borderRadius: '50%',
                     cursor: 'pointer',
                     border: 'none',
-                    boxShadow: color === c ? '0 0 0 2px #121212, 0 0 0 4px white' : 'none',
-                    transition: 'transform 0.2s, box-shadow 0.2s'
+                    boxShadow: color === c ? `0 0 0 2px rgba(18, 18, 18, 0.8), 0 0 0 4px ${c}` : 'none',
+                    transform: color === c ? 'scale(1.1)' : 'scale(1)',
+                    transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
                   }}
                   onClick={() => setColor(c)}
                 />
@@ -79,14 +81,14 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
             </div>
           </div>
 
-          <div className="form-group flex-col gap-8">
+          <div className="flex-col gap-8" style={{ marginTop: '8px' }}>
             <label className="checkbox-label">
               <input 
                 type="checkbox" 
                 checked={captureCurrentTabs}
                 onChange={e => setCaptureCurrentTabs((e.target as HTMLInputElement).checked)}
               />
-              <span>Capture currently open tabs</span>
+              <span style={{ fontWeight: 500 }}>Capture currently open tabs</span>
             </label>
             
             <label className="checkbox-label">
@@ -95,13 +97,13 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
                 checked={createTabGroup}
                 onChange={e => setCreateTabGroup((e.target as HTMLInputElement).checked)}
               />
-              <span>Create native Tab Group on restore</span>
+              <span style={{ fontWeight: 500 }}>Create native Tab Group on restore</span>
             </label>
           </div>
 
-          <div className="flex-row items-center gap-8" style={{ marginTop: '24px', justifyContent: 'flex-end' }}>
-            <button type="button" className="btn-ghost-premium" onClick={onCancel}>Cancel</button>
-            <button type="submit" className="btn-primary" style={{ minWidth: '120px' }}>Create Space</button>
+          <div className="flex-row items-center gap-12" style={{ marginTop: '12px', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-ghost-premium" onClick={onCancel} style={{ fontSize: '0.9rem', fontWeight: 600 }}>Cancel</button>
+            <button type="submit" className="btn-primary" style={{ minWidth: '130px', padding: '12px 24px' }}>Create Space</button>
           </div>
         </form>
       </div>

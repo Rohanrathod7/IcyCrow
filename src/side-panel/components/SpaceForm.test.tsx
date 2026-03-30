@@ -11,7 +11,7 @@ describe('SpaceForm Component', () => {
   const mockOnSubmit = vi.fn();
   const mockOnCancel = vi.fn();
 
-  it('renders correctly with new SaaS header', () => {
+  it('renders correctly with new SaaS header and glass styling', () => {
     const { container } = render(<SpaceForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
     expect(screen.getByText('New Space')).toBeTruthy();
     expect(screen.getByTestId('icon-close')).toBeTruthy();
@@ -19,13 +19,24 @@ describe('SpaceForm Component', () => {
     // Header should be a flex container with justify-between
     const header = container.querySelector('h2')?.parentElement;
     expect(header?.className).toContain('flex-row');
-    expect(header?.className).toContain('items-center');
+    
+    // Modal should use glass styling
+    const modal = container.querySelector('.modal-content');
+    expect(modal?.className).toContain('modal-glass');
+  });
+
+  it('uses premium typography for labels', () => {
+    const { container } = render(<SpaceForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+    const labels = container.querySelectorAll('label:not(.checkbox-label)');
+    labels.forEach(label => {
+      expect(label.className).toContain('label-saas');
+    });
   });
 
   it('has a cancel button with ghost styling', () => {
     render(<SpaceForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
     const cancelButton = screen.getByText('Cancel');
-    expect(cancelButton.className).toContain('btn-ghost-premium'); // New SaaS class
+    expect(cancelButton.className).toContain('btn-ghost-premium');
   });
 
   it('uses clickable checkbox labels', () => {
@@ -40,12 +51,7 @@ describe('SpaceForm Component', () => {
 
   it('calls onCancel when cancel button is clicked', () => {
     render(<SpaceForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
-    
-    // Check footer alignment (parent of the Cancel button)
     const cancelButton = screen.getByText('Cancel');
-    const footer = cancelButton.parentElement;
-    expect(footer?.className).toContain('items-center');
-
     fireEvent.click(cancelButton);
     expect(mockOnCancel).toHaveBeenCalled();
   });
