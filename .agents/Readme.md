@@ -8,8 +8,8 @@ Instead of treating the AI as a generic chatbot, we treat it as a disciplined en
 - **Feature Logs:** Located in `Docs/FEATURES/`. Every major Epic (Epic S20+) must include a feature log documenting technical architecture, UX flows, and maintenance requirements.
 - **Session Archive:** Historical implementation plans are archived in `.agents/archive/plans/`.
 
-### 🌟 Latest Feature: Spatial Document Engine
-Transform PDFs into a spatial operating system with tactile ink, coordinate normalization, and binary annotation flattening.
+### 🌟 Latest Feature: Emotional Design & Dino Companion
+Transform the utility-first side panel into a living dashboard with a state-driven Dino mascot, sprite-sheet animations, and 100% pixel-perfect retro aesthetics. Including custom "Neural Link" wiring to AI chat states.
 
 ---
 
