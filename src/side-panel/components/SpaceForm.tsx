@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { X } from 'lucide-preact';
 
 interface SpaceFormProps {
   onSubmit: (data: { name: string; color: string; captureCurrentTabs: boolean; createTabGroup: boolean }) => void;
@@ -26,9 +27,16 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <div className="flex-row items-center" style={{ marginBottom: '16px' }}>
-          <h2 style={{ margin: 0 }}>New Space</h2>
-          <button className="btn-icon" onClick={onCancel}>×</button>
+        <div className="flex-row items-center justify-between" style={{ marginBottom: '24px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600 }}>New Space</h2>
+          <button 
+            className="btn-ghost-small" 
+            onClick={onCancel}
+            title="Close"
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="flex-col gap-16">
@@ -57,11 +65,13 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
                   className={`color-swatch ${color === c ? 'active' : ''}`}
                   style={{ 
                     backgroundColor: c,
-                    width: '24px',
-                    height: '24px',
+                    width: '32px',
+                    height: '32px',
                     borderRadius: '50%',
                     cursor: 'pointer',
-                    border: color === c ? '2px solid white' : 'none'
+                    border: 'none',
+                    boxShadow: color === c ? '0 0 0 2px #121212, 0 0 0 4px white' : 'none',
+                    transition: 'transform 0.2s, box-shadow 0.2s'
                   }}
                   onClick={() => setColor(c)}
                 />
@@ -89,9 +99,9 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
             </label>
           </div>
 
-          <div className="flex-row gap-12" style={{ marginTop: '8px' }}>
-            <button type="submit" className="btn-primary flex-1">Create Space</button>
-            <button type="button" className="btn-secondary btn-secondary-dark" onClick={onCancel}>Cancel</button>
+          <div className="flex-row gap-8" style={{ marginTop: '24px', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-ghost-premium" onClick={onCancel} style={{ padding: '0 16px' }}>Cancel</button>
+            <button type="submit" className="btn-primary" style={{ minWidth: '120px' }}>Create Space</button>
           </div>
         </form>
       </div>
