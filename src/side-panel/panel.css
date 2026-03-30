@@ -582,6 +582,7 @@ button:active {
   height: 18px;
   accent-color: var(--accent-primary);
   cursor: pointer;
+  margin: 0;
 }
 
 .btn-icon-premium {
@@ -650,8 +651,7 @@ button:active {
   background: transparent;
   border: none;
   color: var(--text-dim);
-  width: 32px;
-  height: 32px;
+  padding: 10px 16px;
   border-radius: 8px;
   display: flex;
   align-items: center;

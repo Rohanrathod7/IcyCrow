@@ -40,7 +40,13 @@ describe('SpaceForm Component', () => {
 
   it('calls onCancel when cancel button is clicked', () => {
     render(<SpaceForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
-    fireEvent.click(screen.getByText('Cancel'));
+    
+    // Check footer alignment (parent of the Cancel button)
+    const cancelButton = screen.getByText('Cancel');
+    const footer = cancelButton.parentElement;
+    expect(footer?.className).toContain('items-center');
+
+    fireEvent.click(cancelButton);
     expect(mockOnCancel).toHaveBeenCalled();
   });
 });
