@@ -1,35 +1,22 @@
 /**
- * A Promise-chain based mutex to prevent concurrent async operations
- * from clobbering each other. Locks are maintained per string key.
+ * A native Web Locks API based mutex to prevent concurrent async operations
+ * from clobbering each other across contexts (Side Panel & Service Worker).
  */
 export class StorageMutex {
-  private locks: Map<string, Promise<any>> = new Map();
-
   /**
    * Enqueues `task` to run only after all currently pending tasks for `key` complete.
+   * This uses navigator.locks.request to provide cross-context synchronization.
    */
   async withLock<T>(key: string, task: () => Promise<T>): Promise<T> {
-    const previousTask = this.locks.get(key) || Promise.resolve();
-
-    // Create the new chain
-    const nextTask = (async () => {
-      try {
-        await previousTask;
-      } catch {
-        // We catch to ensure previous failures don't block the queue
-      }
+    // If locks is not available (e.g. very old non-Chrome envs or specific security contexts), 
+    // fallback to immediate execution to prevent stalling, though this should not happen in MV3.
+    if (!navigator.locks) {
+      console.warn(`[IcyCrow] Web Locks API not available for key: ${key}. Falling back to unsafe execution.`);
       return task();
-    })();
+    }
 
-    this.locks.set(key, nextTask);
-
-    // Clean up to prevent memory leaks if queue becomes empty
-    nextTask.finally(() => {
-      if (this.locks.get(key) === nextTask) {
-        this.locks.delete(key);
-      }
+    return navigator.locks.request(key, async () => {
+      return task();
     });
-
-    return nextTask;
   }
 }

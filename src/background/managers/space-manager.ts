@@ -1,5 +1,5 @@
 import type { Space, SpaceTab, UUID, ISOTimestamp } from '@lib/types';
-import { getSpaces, setSpaces } from '@lib/storage';
+import { getSpaces } from '@lib/storage';
 
 export class SpaceManager {
   /**
@@ -37,8 +37,7 @@ export class SpaceManager {
   /**
    * Creates a new space, optionally capturing current window tabs
    */
-  async createSpace(name: string, color: string, captureCurrentTabs: boolean): Promise<Space> {
-    const spaces = await getSpaces();
+  async createSpace(name: string, color: string, captureCurrentTabs: boolean, createTabGroup = false): Promise<Space> {
     const spaceId = crypto.randomUUID() as UUID;
     const now = new Date().toISOString() as ISOTimestamp;
 
@@ -48,7 +47,8 @@ export class SpaceManager {
       color,
       createdAt: now,
       updatedAt: now,
-      tabs: []
+      tabs: [],
+      createNativeGroup: createTabGroup
     };
 
     if (captureCurrentTabs) {
@@ -58,9 +58,33 @@ export class SpaceManager {
       }
     }
 
-    spaces[spaceId] = newSpace;
-    await setSpaces(spaces);
+    import('@lib/storage').then(m => {
+      m.updateSpaces(spaces => {
+        spaces[spaceId] = newSpace;
+        return spaces;
+      });
+    });
+
     return newSpace;
+  }
+
+  /**
+   * Internal mapper for Space hex colors to Chrome Tab Group colors
+   */
+  private mapToTabGroupColor(hex: string): chrome.tabGroups.Color {
+    if (!hex) return 'grey' as chrome.tabGroups.Color;
+    const colorMap: Record<string, string> = {
+      '#3a76f0': 'blue',
+      '#2dd4bf': 'cyan',
+      '#fbbf24': 'yellow',
+      '#dc2626': 'red',
+      '#9333ea': 'purple',
+      '#4d7c0f': 'green',
+      '#f472b6': 'pink',
+      '#fb923c': 'orange',
+      '#94a3b8': 'grey'
+    };
+    return (colorMap[hex.toLowerCase()] || 'grey') as chrome.tabGroups.Color;
   }
 
   async restoreSpace(spaceId: UUID, createTabGroup = false): Promise<number> {
@@ -69,45 +93,62 @@ export class SpaceManager {
     if (!space) return 0;
 
     const tabIds: number[] = [];
+    
+    // [LOOP]: Sequential await to ensure IDs are captured reliably as per user request
     for (const sTab of space.tabs) {
-      const tab = await chrome.tabs.create({
-        url: sTab.url,
-        active: false,
-        discarded: true // Performance optimization
-      } as any);
-      if (tab?.id) tabIds.push(tab.id);
+      try {
+        const tab = await chrome.tabs.create({
+          url: sTab.url,
+          active: false
+        });
+        if (tab?.id) tabIds.push(tab.id);
+      } catch (err) {
+        console.warn(`[IcyCrow] Failed to open tab ${sTab.url}:`, err);
+      }
     }
 
     if (createTabGroup && tabIds.length > 0) {
-      await chrome.tabs.group({
-        tabIds: tabIds as [number, ...number[]]
-      });
-      // Further customization (color, title) could be added here
+      try {
+        const groupId = await chrome.tabs.group({
+          tabIds: tabIds as [number, ...number[]]
+        });
+
+        await chrome.tabGroups.update(groupId, {
+          title: space.name,
+          color: this.mapToTabGroupColor(space.color)
+        });
+      } catch (err) {
+        // [ERROR HANDLING]: Silent fail for grouping to prevent master crash
+        console.error('[IcyCrow] Native Tab Grouping failed:', err);
+      }
     }
 
     return tabIds.length;
   }
 
   async deleteSpace(spaceId: UUID): Promise<boolean> {
-    const spaces = await getSpaces();
-    if (!spaces[spaceId]) return false;
-    
-    delete spaces[spaceId];
-    await setSpaces(spaces);
+    const { updateSpaces } = await import('@lib/storage');
+    await updateSpaces(spaces => {
+      if (spaces[spaceId]) {
+        delete spaces[spaceId];
+      }
+      return spaces;
+    });
     return true;
   }
 
   async updateSpace(spaceId: UUID, updates: Partial<Pick<Space, 'name' | 'color'>>): Promise<boolean> {
-    const spaces = await getSpaces();
-    if (!spaces[spaceId]) return false;
-
-    spaces[spaceId] = {
-      ...spaces[spaceId],
-      ...updates,
-      updatedAt: new Date().toISOString() as ISOTimestamp
-    };
-
-    await setSpaces(spaces);
+    const { updateSpaces } = await import('@lib/storage');
+    await updateSpaces(spaces => {
+      if (spaces[spaceId]) {
+        spaces[spaceId] = {
+          ...spaces[spaceId],
+          ...updates,
+          updatedAt: new Date().toISOString() as ISOTimestamp
+        };
+      }
+      return spaces;
+    });
     return true;
   }
 }

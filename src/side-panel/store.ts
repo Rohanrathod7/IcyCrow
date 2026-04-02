@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import { arrayMove } from '@dnd-kit/sortable';
 import type { Highlight, SpacesStore, ChatMessage, UUID, ChatEngine, IcyCrowSettings } from '../lib/types';
 import { DEFAULT_SETTINGS } from '../lib/constants';
 import { sendToSW } from '../lib/messaging';
@@ -27,22 +28,55 @@ export const isLocked = signal(true);
 export const expandedSpaceId = signal<UUID | null>(null);
 export const currentAppStatus = signal<AppStatus>('idle');
 
-/**
- * Hydrates settings and session state.
- */
 export async function hydrateStore() {
   try {
     const [local, session] = await Promise.all([
       chrome.storage.local.get('settings') as Promise<Record<string, any>>,
       chrome.storage.session.get('cryptoKeyUnlocked') as Promise<Record<string, any>>
     ]);
+    
     if (local && local.settings) settings.value = local.settings as IcyCrowSettings;
+    
+    // Self-healing: Repair any corrupted space data on load
+    const spacesResult = await chrome.storage.local.get('spaces');
+    if (spacesResult.spaces) {
+      const repaired = repairSpaces(spacesResult.spaces as SpacesStore);
+      spaces.value = repaired;
+      // If we fixed mapping errors, persist them back to storage
+      if (JSON.stringify(repaired) !== JSON.stringify(spacesResult.spaces)) {
+        console.warn('[IcyCrow] Repaired corrupted spaces state (duplicates removed).');
+        await chrome.storage.local.set({ spaces: repaired });
+      }
+    }
+
     if (session.cryptoKeyUnlocked !== undefined) {
       isLocked.value = !session.cryptoKeyUnlocked;
     }
   } catch (err) {
     console.error('[IcyCrow] Hydration failed:', err);
   }
+}
+
+/**
+ * Self-healing routine to deduplicate tab IDs within spaces.
+ */
+export function repairSpaces(store: SpacesStore): SpacesStore {
+  const newStore: SpacesStore = {};
+  Object.keys(store).forEach(id => {
+    const space = store[id as UUID];
+    if (!space) return;
+    
+    // Deduplicate tabs by ID
+    const seen = new Set<string>();
+    const uniqueTabs = (space.tabs || []).filter(tab => {
+      if (seen.has(tab.id)) return false;
+      seen.add(tab.id);
+      return true;
+    });
+
+    newStore[id as UUID] = { ...space, tabs: uniqueTabs };
+  });
+  return newStore;
 }
 
 // Global listener for session changes
@@ -172,6 +206,82 @@ export async function removeTabFromSpace(spaceId: UUID, tabId: UUID) {
     
   } catch (err) {
     console.error('[IcyCrow] Failed to remove tab from space:', err);
+  }
+}
+
+/**
+ * Reorders tabs within a space.
+ */
+export async function reorderTabsInSpace(spaceId: UUID, activeId: string, overId: string, shouldPersist = false) {
+  const { updateSpaces } = await import('../lib/storage');
+
+  const syncUpdate = (current: SpacesStore) => {
+    const currentSpace = current[spaceId];
+    if (!currentSpace) return current;
+
+    const oldIndex = currentSpace.tabs.findIndex(t => t.id === activeId);
+    const newIndex = currentSpace.tabs.findIndex(t => t.id === overId);
+
+    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+      const updatedTabs = arrayMove(currentSpace.tabs, oldIndex, newIndex);
+      const nextStore = { ...current };
+      nextStore[spaceId] = { ...currentSpace, tabs: updatedTabs };
+      return nextStore;
+    }
+    return current;
+  };
+
+  // Apply to Signal
+  spaces.value = syncUpdate({ ...spaces.value });
+
+  if (shouldPersist) {
+    await updateSpaces(syncUpdate);
+  }
+}
+
+/**
+ * Moves a tab from one space to another.
+ */
+export async function moveTabBetweenSpaces(tabId: string, fromSpaceId: UUID, toSpaceId: UUID, newIndex: number, shouldPersist = false) {
+  const { updateSpaces } = await import('../lib/storage');
+
+  // Optimistic UI Update (Memory only)
+  const syncUpdate = (current: SpacesStore) => {
+    const fromSpace = current[fromSpaceId];
+    const toSpace = current[toSpaceId];
+    if (!fromSpace || !toSpace) return current;
+
+    const tabIndex = fromSpace.tabs.findIndex(t => t.id === tabId);
+    const tab = fromSpace.tabs[tabIndex];
+    if (!tab && fromSpaceId !== toSpaceId) {
+      // If not in source, maybe it's already in destination? (DND jitter)
+      return current;
+    }
+
+    // Atomic Move
+    const nextStore = { ...current };
+    
+    // 1. Remove from source
+    const newFromTabs = fromSpace.tabs.filter(t => t.id !== tabId);
+    nextStore[fromSpaceId] = { ...fromSpace, tabs: newFromTabs };
+
+    // 2. Add to destination (with deduplication)
+    const newToTabs = (nextStore[toSpaceId]?.tabs || []).filter(t => t.id !== tabId);
+    newToTabs.splice(newIndex, 0, tab || fromSpace.tabs[tabIndex]); // Recovery attempt if tab was lost in jitter
+    
+    // Safety check: ensure tab is valid
+    if (newToTabs[newIndex]) {
+      nextStore[toSpaceId] = { ...toSpace, tabs: newToTabs };
+    }
+
+    return nextStore;
+  };
+
+  // Apply to Signal immediately for smooth UI
+  spaces.value = syncUpdate({ ...spaces.value });
+
+  if (shouldPersist) {
+    await updateSpaces(syncUpdate);
   }
 }
 

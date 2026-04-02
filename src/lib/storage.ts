@@ -99,7 +99,7 @@ export async function appendChatMessage(spaceId: string | null, msg: ChatMessage
   });
 }
 
-// Spaces
+// Spaces (Mutex-protected)
 export async function getSpaces(): Promise<SpacesStore> {
   try {
     const result = await chrome.storage?.local?.get('spaces');
@@ -109,6 +109,20 @@ export async function getSpaces(): Promise<SpacesStore> {
     console.error('[IcyCrow] getSpaces error:', err);
     return {};
   }
+}
+
+/**
+ * Atomic update for spaces to prevent clobbering across contexts.
+ */
+export async function updateSpaces(
+  updater: (spaces: SpacesStore) => SpacesStore
+): Promise<void> {
+  const key = 'spaces';
+  return mutex.withLock(key, async () => {
+    const current = await getSpaces();
+    const updated = updater(current);
+    await setSpaces(updated);
+  });
 }
 
 export async function setSpaces(spaces: SpacesStore): Promise<void> {
