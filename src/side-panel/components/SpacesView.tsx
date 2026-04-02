@@ -1,12 +1,35 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
+import { 
+  DndContext, 
+  DragOverlay, 
+  PointerSensor, 
+  useSensor, 
+  useSensors, 
+  closestCorners,
+  DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
+  defaultDropAnimationSideEffects
+} from '@dnd-kit/core';
 import { sendToSW } from '../../lib/messaging';
-import { spaces, isLoading, error, currentAppStatus } from '../store';
+import { TabItem } from './TabItem';
+import { spaces, isLoading, currentAppStatus, reorderTabsInSpace, moveTabBetweenSpaces } from '../store';
 import { SpaceCard } from './SpaceCard';
 import { SpaceForm } from './SpaceForm';
-import type { SpacesStore, UUID } from '../../lib/types';
+import type { SpacesStore, UUID, SpaceTab } from '../../lib/types';
 
 export const SpacesView = () => {
   const [showForm, setShowForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<SpaceTab | null>(null);
+  const lastOverId = useRef<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
 
   useEffect(() => {
     const fetchSpaces = async () => {
@@ -15,7 +38,6 @@ export const SpacesView = () => {
         spaces.value = (result.spaces || {}) as SpacesStore;
       } catch (err) {
         console.error('Failed to fetch spaces:', err);
-        error.value = 'Failed to load spaces.';
       } finally {
         isLoading.value = false;
       }
@@ -40,11 +62,91 @@ export const SpacesView = () => {
     };
   }, []);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const activeId = active.id as string;
+    
+    // Find the tab being dragged
+    for (const space of Object.values(spaces.value)) {
+      const tab = space.tabs.find(t => t.id === activeId);
+      if (tab) {
+        setActiveTab(tab);
+        break;
+      }
+    }
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // 1. Get Containers
+    // Standard @dnd-kit pattern: use data.current if available
+    const activeSpace = active.data.current?.containerId || findContainer(activeId);
+    const overSpace = over.data.current?.type === 'space' ? overId : (over.data.current?.containerId || findContainer(overId));
+
+    if (!activeSpace || !overSpace) return;
+
+    // 2. Stability Check
+    // If we just moved into this container, don't flap back and forth too aggressively
+    if (activeSpace !== overSpace && lastOverId.current !== overSpace) {
+      const overIndex = over.data.current?.type === 'space' 
+        ? Object.values(spaces.value).find(s => s.id === overSpace)?.tabs.length || 0
+        : Object.values(spaces.value).find(s => s.id === overSpace)?.tabs.findIndex(t => t.id === overId) ?? 0;
+
+      moveTabBetweenSpaces(activeId, activeSpace as UUID, overSpace as UUID, overIndex, false);
+      lastOverId.current = overSpace;
+    } else if (activeId !== overId) {
+      // Reorder within same space
+      reorderTabsInSpace(overSpace as UUID, activeId, overId, false);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over) {
+      const activeId = active.id as string;
+      const overId = over.id as string;
+      const activeSpace = active.data.current?.containerId || findContainer(activeId);
+      const overSpace = over.data.current?.type === 'space' ? overId : (over.data.current?.containerId || findContainer(overId));
+
+      if (activeSpace && overSpace) {
+        if (activeSpace === overSpace) {
+          await reorderTabsInSpace(overSpace as UUID, activeId, overId, true);
+        } else {
+          const overIndex = over.data.current?.type === 'space' 
+            ? Object.values(spaces.value).find(s => s.id === overSpace)?.tabs.length || 0
+            : Object.values(spaces.value).find(s => s.id === overSpace)?.tabs.findIndex(t => t.id === overId) ?? 0;
+          await moveTabBetweenSpaces(activeId, activeSpace as UUID, overSpace as UUID, overIndex, true);
+        }
+      }
+    }
+    setActiveTab(null);
+    lastOverId.current = null;
+  };
+
+  const findContainer = (id: string) => {
+    if (id in spaces.value) return id;
+    for (const space of Object.values(spaces.value)) {
+      if (space.tabs.some(t => t.id === id)) return space.id;
+    }
+    return undefined;
+  };
+
   const handleRestore = async (spaceId: string) => {
+    const space = spaces.value[spaceId as UUID];
+    if (!space) return;
+
     try {
       await sendToSW({
         type: 'SPACE_RESTORE',
-        payload: { spaceId }
+        payload: { 
+          spaceId,
+          createNativeGroup: space.createNativeGroup 
+        }
       } as any);
       
       // Also make it the active space in UI
@@ -128,25 +230,54 @@ export const SpacesView = () => {
         />
       )}
 
-      <div className="bento-grid" style={{ gridTemplateColumns: '1fr' }}>
-        {spaceList.map(s => (
-          <SpaceCard 
-            key={s.id} 
-            space={s} 
-            onRestore={handleRestore}
-            onDelete={handleDelete}
-          />
-        ))}
+      <DndContext 
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="bento-grid" style={{ gridTemplateColumns: '1fr' }}>
+          {spaceList.map(s => (
+            <SpaceCard 
+              key={s.id} 
+              space={s} 
+              onRestore={handleRestore}
+              onDelete={handleDelete}
+            />
+          ))}
 
-        {spaceList.length === 0 && !isLoading.value && (
-          <div className="empty-state">
-            <p className="text-dim">No spaces created yet.</p>
-            <button className="btn-secondary" onClick={() => setShowForm(true)}>
-              Create your first space
-            </button>
-          </div>
-        )}
-      </div>
+          {spaceList.length === 0 && !isLoading.value && (
+            <div className="empty-state">
+              <p className="text-dim">No spaces created yet.</p>
+              <button className="btn-secondary" onClick={() => setShowForm(true)}>
+                Create your first space
+              </button>
+            </div>
+          )}
+        </div>
+
+        <DragOverlay dropAnimation={{
+          sideEffects: defaultDropAnimationSideEffects({
+            styles: {
+              active: {
+                opacity: '0.5',
+              },
+            },
+          }),
+        }}>
+          {activeTab ? (
+            <div className="drag-overlay-container glass" style={{ width: '100%', pointerEvents: 'none' }}>
+              <TabItem 
+                tab={activeTab} 
+                containerId={findContainer(activeTab.id) as UUID || '' as UUID}
+                onRemove={() => {}} 
+                isOverlay 
+              />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 };
