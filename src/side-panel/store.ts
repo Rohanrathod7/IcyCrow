@@ -27,6 +27,7 @@ export const settings = signal<IcyCrowSettings>(DEFAULT_SETTINGS);
 export const isLocked = signal(true);
 export const expandedSpaceId = signal<UUID | null>(null);
 export const currentAppStatus = signal<AppStatus>('idle');
+export const commandPaletteOpen = signal(false);
 
 /**
  * Hydrates settings and session state.

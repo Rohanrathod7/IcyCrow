@@ -1,4 +1,4 @@
-[LAST UPDATED: 2026-03-23]
+[LAST UPDATED: 2026-04-03]
 
 ### Space Management & Tab Serialization (Epic S12)
 
@@ -19,7 +19,8 @@
 
 * `src/side-panel/components/SpaceForm.tsx` (Creation Flow)
   - Inputs: Name (validated), Color picker, Capture toggle, Tab Group toggle.
-  - Action: `Create` -> `sendToSW({ type: 'SPACE_CREATE' })`.
+  - Logic: **The Janitor** (Map-based deduplication by URL) processes captured tabs before submission.
+  - Action: `Create` -> `sendToSW({ type: 'SPACE_CREATE', payload: { ..., tabs: uniqueTabs } })`.
 
 * Data Flow:
   - `UI: SpaceForm -> sendToSW('SPACE_CREATE') -> SW: SpaceManager.createSpace -> chrome.storage.local`.

@@ -1,0 +1,76 @@
+/* IcyCrow Heritage Animations */
+
+.dino-sleeping {
+  width: 160px;
+  height: 135px;
+  background-image: url('../images/dino_sleeping.webp');
+  background-size: 1600px 135px;
+  image-rendering: pixelated; /* Retro pixel-art fidelity */
+  animation: dino-sleep 3s steps(10) infinite;
+  margin: 0 auto;
+  position: relative;
+  background-color: rgba(26, 26, 26, 0.4); /* Loading fallback */
+  border-radius: 12px;
+}
+
+@keyframes dino-sleep {
+  0% { background-position: 0px 0px; }
+  100% { background-position: -1600px 0px; }
+}
+
+.empty-state-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: 20px;
+}
+
+.empty-state-title {
+  color: var(--text-dim, rgba(255, 255, 255, 0.6));
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 24px;
+}
+
+.empty-state-subtitle {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.9rem;
+  margin-top: 8px;
+  margin-bottom: 24px;
+  max-width: 240px;
+}
+
+/* Success "Janitor" Animations */
+.janitor-success {
+  animation: janitorFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(45, 212, 191, 0.1);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  color: #2dd4bf;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@keyframes janitorFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.sparkle-icon {
+  animation: sparkleRotate 2s linear infinite;
+}
+
+@keyframes sparkleRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

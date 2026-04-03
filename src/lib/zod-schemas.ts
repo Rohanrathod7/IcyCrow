@@ -109,6 +109,15 @@ export const AiResponseStreamSchema = z.object({
   _meta: MetaSchema,
 });
 
+const SpaceTabSchema = z.object({
+  id: UUIDSchema,
+  url: z.string().url(),
+  title: z.string(),
+  favicon: z.string().nullable(),
+  scrollPosition: z.number(),
+  chromeTabId: z.number().nullable(),
+});
+
 export const SpaceCreateSchema = z.object({
   type: z.literal('SPACE_CREATE'),
   payload: z.object({
@@ -116,6 +125,7 @@ export const SpaceCreateSchema = z.object({
     color: z.string(),
     captureCurrentTabs: z.boolean(),
     createTabGroup: z.boolean(),
+    tabs: z.array(SpaceTabSchema).optional(),
   }),
   _meta: MetaSchema,
 });

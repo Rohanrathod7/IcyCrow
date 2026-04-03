@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { X, Sparkles, Loader2 } from 'lucide-preact';
 
 interface SpaceFormProps {
-  onSubmit: (name: string, color: string, options: { captureCurrentTabs: boolean; createTabGroup: boolean }) => void;
+  onSubmit: (name: string, color: string, options: { captureCurrentTabs: boolean; createTabGroup: boolean }, tabs?: any[]) => void;
   onCancel: () => void;
 }
 
@@ -22,6 +22,8 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
   const [createTabGroup, setCreateTabGroup] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isGeneratingName, setIsGeneratingName] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [duplicatesRemoved, setDuplicatesRemoved] = useState<number | null>(null);
   
   const currentTaskId = useRef<string | null>(null);
   const nameBuffer = useRef<string>('');
@@ -104,13 +106,45 @@ IMPORTANT: Return ONLY the 2-3 word name. Do not include any conversational text
     }
   };
 
-  const handleSubmit = (e: Event) => {
+  const handleSubmit = async (e: Event) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     if (!name.trim()) {
       setError('Please enter a name for the Space');
       return;
     }
-    onSubmit(name.trim(), color, { captureCurrentTabs, createTabGroup });
+
+    setIsSubmitting(true);
+    let capturedTabs: any[] | undefined = undefined;
+
+    if (captureCurrentTabs) {
+      const rawTabs = await chrome.tabs.query({ currentWindow: true });
+      
+      // The Janitor Logic: Deduplicate by URL
+      const uniqueTabsMap = new Map();
+      rawTabs.forEach(tab => {
+        if (!tab.url) return;
+        // Normalize URL to handle trailing slashes
+        const normalizedUrl = tab.url.replace(/\/$/, '').toLowerCase();
+        if (!uniqueTabsMap.has(normalizedUrl)) {
+          uniqueTabsMap.set(normalizedUrl, tab);
+        }
+      });
+
+      const uniqueTabs = Array.from(uniqueTabsMap.values());
+      const diff = rawTabs.length - uniqueTabs.length;
+      
+      if (diff > 0) {
+        setDuplicatesRemoved(diff);
+        // Delay to allow user to see the "Janitor" feedback
+        await new Promise(resolve => setTimeout(resolve, 1400));
+      }
+      
+      capturedTabs = uniqueTabs;
+    }
+
+    onSubmit(name.trim(), color, { captureCurrentTabs, createTabGroup }, capturedTabs);
   };
 
   return (
@@ -219,8 +253,21 @@ IMPORTANT: Return ONLY the 2-3 word name. Do not include any conversational text
           </div>
 
           <div className="flex-row items-center gap-12" style={{ marginTop: '12px', justifyContent: 'flex-end' }}>
-            <button type="button" className="btn-ghost-premium" onClick={onCancel} style={{ fontSize: '0.9rem', fontWeight: 600 }}>Cancel</button>
-            <button type="submit" className="btn-primary" style={{ minWidth: '130px', padding: '12px 24px' }}>Create Space</button>
+            {duplicatesRemoved !== null && (
+              <div className="janitor-success">
+                <Sparkles size={14} className="sparkle-icon" />
+                <span>The Janitor cleaned up {duplicatesRemoved} duplicate{duplicatesRemoved === 1 ? '' : 's'}!</span>
+              </div>
+            )}
+            <button type="button" className="btn-ghost-premium" onClick={onCancel} style={{ fontSize: '0.9rem', fontWeight: 600 }} disabled={isSubmitting}>Cancel</button>
+            <button type="submit" className="btn-primary" style={{ minWidth: '130px', padding: '12px 24px' }} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <div className="flex-row items-center gap-8">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Creating...</span>
+                </div>
+              ) : 'Create Space'}
+            </button>
           </div>
         </form>
       </div>

@@ -1,4 +1,4 @@
-[LAST UPDATED: 2026-03-31]
+[LAST UPDATED: 2026-04-03]
 
 ### Side Panel Shell & Navigation (Epic S10)
 
@@ -33,7 +33,7 @@
   - Variables: `--bg-panel`, `--bg-card`, `--text-main`, `--text-dim`, `--accent-primary`, `--accent-secondary`, `--border-color`, `--shadow-glass`, `--glass-bg`.
   - Utility Classes: `.view-container`, `.bento-grid`, `.bento-item`, `.glass-card`, `.btn-primary`, `.input-glass`.
   - Overlays: `.loading-overlay`, `.error-banner`.
-  - Mascot Assets: `.dino-view` (9-frame dance), `.dino-view.thinking` (11-frame stressed), `.thinking-bubble` (wobble anim).
+  - Mascot Assets: `.dino-view` (9-frame dance), `.dino-view.thinking` (11-frame stressed), `.dino-sleeping` (10-frame sprite), `.thinking-bubble` (wobble anim), `.janitor-success` (fade-in).
   - Anti-Blur: `image-rendering: pixelated` enforced on all pixel-art assets.
   - Custom Scrollbars: Sleek Webkit-based dark scrollbars for the side panel shell.
 
@@ -45,7 +45,9 @@
   - `SearchView.tsx` -> `form.submit` -> `sendToSW({ type: 'SEMANTIC_SEARCH' })` -> `searchResults.value = [...]`.
   - `HighlightsPanel.tsx` -> Unified highlights view. Groups by URL. Renders `HighlightCard`. Logic: `syncAllHighlights()` on mount.
   - `HighlightCard.tsx` -> Snippet unit. Handles `HIGHLIGHT_UPDATE` (blur) and `HIGHLIGHT_DELETE` (click).
-  - `SpacesView.tsx` -> `chrome.storage.local.get('spaces')` -> `spaces.value`. Create via `sendToSW({ type: 'SPACE_CREATE' })`.
+  - `SpacesView.tsx` -> `chrome.storage.local.get('spaces')` -> `spaces.value`. Create via `sendToSW({ type: 'SPACE_CREATE' })`. Renders `<EmptyState />` when empty.
+  - `EmptyState.tsx` -> Renders sleeping dino mascot for empty workspaces.
+  - `CommandPalette.tsx` -> Fixed overlay for global search/actions. Triggered via `Cmd+K`.
   - Neural Link: Automatically toggles `currentAppStatus.value = 'thinking'` during AI streams. Reverts to 'idle' on completion/unmount.
   - Cross-Context Integration: `handleIncomingPrompt()` + `pendingPrompt` buffer consumption for PDF workspace explain/summarize actions.
   - `ChatMessage.tsx` -> Renders Markdown content via `marked.js` + `DOMPurify`. Syntax highlighting via `highlight.js`.

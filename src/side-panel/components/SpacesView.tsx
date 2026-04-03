@@ -16,6 +16,7 @@ import {
 } from '@dnd-kit/core';
 import { sendToSW } from '../../lib/messaging';
 import { TabItem } from './TabItem';
+import { EmptyState } from './EmptyState';
 import { spaces, isLoading, currentAppStatus, calculateReorder, calculateMove } from '../store';
 import { SpaceCard } from './SpaceCard';
 import { SpaceForm } from './SpaceForm';
@@ -212,12 +213,12 @@ export const SpacesView = () => {
     }
   };
 
-  const handleCreateSpace = async (name: string, color: string, { captureCurrentTabs, createTabGroup }: { captureCurrentTabs: boolean; createTabGroup: boolean }) => {
+  const handleCreateSpace = async (name: string, color: string, { captureCurrentTabs, createTabGroup }: { captureCurrentTabs: boolean; createTabGroup: boolean }, tabs?: any[]) => {
     try {
       currentAppStatus.value = 'saving';
       await sendToSW({
         type: 'SPACE_CREATE',
-        payload: { name, color, captureCurrentTabs, createTabGroup }
+        payload: { name, color, captureCurrentTabs, createTabGroup, tabs }
       } as any);
       
       currentAppStatus.value = 'success';
@@ -309,12 +310,7 @@ export const SpacesView = () => {
           ))}
 
           {Object.keys(spaces.value).length === 0 && !isLoading.value && (
-            <div className="empty-state">
-              <p className="text-dim">No spaces created yet.</p>
-              <button className="btn-secondary" onClick={() => setShowForm(true)}>
-                Create your first space
-              </button>
-            </div>
+            <EmptyState onAction={() => setShowForm(true)} />
           )}
         </div>
 

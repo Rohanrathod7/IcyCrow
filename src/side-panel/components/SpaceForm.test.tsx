@@ -139,4 +139,45 @@ describe('SpaceForm Component', () => {
     fireEvent.click(cancelButton);
     expect(mockOnCancel).toHaveBeenCalled();
   });
+
+  it('deduplicates tabs and shows janitor feedback on submit', async () => {
+    // 1. Setup duplicate tabs
+    const duplicateTabs = [
+      { id: 1, title: 'Google', url: 'https://google.com' },
+      { id: 2, title: 'Google Duplicate', url: 'https://google.com' },
+      { id: 3, title: 'GitHub', url: 'https://github.com' }
+    ];
+    mockTabsQuery.mockResolvedValue(duplicateTabs);
+    
+    render(<SpaceForm onSubmit={mockOnSubmit} onCancel={mockOnCancel} />);
+    
+    // 2. Fill form and check capture
+    const input = screen.getByPlaceholderText(/e.g. Research/i);
+    fireEvent.input(input, { target: { value: 'Dedupe Test' } });
+    
+    const captureCheckbox = screen.getByLabelText(/Capture currently/i) as HTMLInputElement;
+    if (!captureCheckbox.checked) fireEvent.click(captureCheckbox);
+
+    // 3. Submit
+    const createButton = screen.getByRole('button', { name: /Create Space/i });
+    fireEvent.click(createButton);
+
+    // 4. Verify Janitor feedback
+    await waitFor(() => expect(screen.getByText(/The Janitor cleaned up 1 duplicate/i)).toBeTruthy(), { timeout: 2000 });
+    
+    // 5. Verify unique tabs passed to onSubmit
+    await waitFor(() => expect(mockOnSubmit).toHaveBeenCalledWith(
+      'Dedupe Test',
+      expect.any(String),
+      expect.objectContaining({ captureCurrentTabs: true }),
+      expect.arrayContaining([
+        expect.objectContaining({ url: 'https://google.com' }),
+        expect.objectContaining({ url: 'https://github.com' })
+      ])
+    ), { timeout: 3000 });
+    
+    // Should only have 2 unique tabs (Map deduplication)
+    const submittedTabs = mockOnSubmit.mock.calls[0][1];
+    expect(submittedTabs.length).toBe(2);
+  });
 });

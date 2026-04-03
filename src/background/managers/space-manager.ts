@@ -37,7 +37,7 @@ export class SpaceManager {
   /**
    * Creates a new space, optionally capturing current window tabs
    */
-  async createSpace(name: string, color: string, captureCurrentTabs: boolean, createTabGroup = false): Promise<Space> {
+  async createSpace(name: string, color: string, captureCurrentTabs: boolean, createTabGroup = false, tabs?: SpaceTab[]): Promise<Space> {
     const spaces = await getSpaces();
     const spaceId = crypto.randomUUID() as UUID;
     const now = new Date().toISOString() as ISOTimestamp;
@@ -52,9 +52,11 @@ export class SpaceManager {
       createNativeGroup: createTabGroup
     };
 
-    if (captureCurrentTabs) {
-      const tabs = await chrome.tabs.query({ currentWindow: true });
-      for (const tab of tabs) {
+    if (tabs && tabs.length > 0) {
+      newSpace.tabs = tabs;
+    } else if (captureCurrentTabs) {
+      const chromeTabs = await chrome.tabs.query({ currentWindow: true });
+      for (const tab of chromeTabs) {
         newSpace.tabs.push(await this.serializeTab(tab));
       }
     }

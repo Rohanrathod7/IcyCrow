@@ -62,6 +62,7 @@ The MVP is **complete** when a single developer user can install IcyCrow in deve
 4. Save an article and retrieve it later via a semantic (meaning-based) search query.
 5. **Spatial PDF Annotation:** Perform tactile, pressure-sensitive markup on PDFs and export annotated binaries (Baked-in). ✅
 6. **AI Bridge Stability:** Zero-duplication, background-resilient, and integrity-hardened AI interactions. ✅
+7. **UX Stabilization:** Global Command Palette (Cmd+K), Emotional Empty States, and Smart Tab Deduplication ("The Janitor"). ✅
 
 If a user can do all four, the MVP ships.
 
@@ -225,7 +226,7 @@ The MVP is organised into **five epics**. Each epic contains granular, actionabl
 | 4.1 | **Chat UI (Side Panel)** — Persistent side-panel chat interface. | ✅ IMPLEMENTED |
 | 4.2 | **Multi-Tab Context Injection** — User selects 1-N tabs; their content is concatenated and sent as context to the Gemini prompt. | ✅ IMPLEMENTED |
 | 4.3 | **Chat History per Space** — Each Space maintains its own chat history. | ✅ COMPLETED |
-| 4.4 | **CLW (Command Line Workspace)** — `Ctrl+K` command palette for quick AI tasks, tab search, and Space switching. | Fuzzy search across tabs, Spaces, and chat history; supports `/commands` (e.g., `/summarise`, `/compare`). |
+| 4.4 | **CLW (Command Line Workspace)** — `Ctrl+K` command palette for quick AI tasks, tab search, and Space switching. | ✅ COMPLETED (2026-04-03) |
 
 ---
 

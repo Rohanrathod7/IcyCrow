@@ -1,4 +1,4 @@
-import { activeView, isLoading, error, syncAllHighlights, activeSpaceId, loadChatHistory, chatMessages } from './store';
+import { activeView, isLoading, error, syncAllHighlights, activeSpaceId, loadChatHistory, chatMessages, commandPaletteOpen, spaces } from './store';
 import type { UUID } from '../lib/types';
 import { HomeView } from './components/HomeView';
 import { SearchView } from './components/SearchView';
@@ -7,9 +7,11 @@ import { SettingsView } from './components/SettingsView';
 import { ChatView } from './components/ChatView';
 import { HighlightsPanel } from './components/HighlightsPanel';
 import { MascotHeader } from './components/MascotHeader';
+import { CommandPalette } from './components/CommandPalette';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useEffect } from 'preact/hooks';
 import './panel.css';
+import '../assets/styles/animations.css';
 
 export const App = () => {
   useEffect(() => {
@@ -34,6 +36,17 @@ export const App = () => {
       chatMessages.value = [];
     }
   }, [activeSpaceId.value]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        commandPaletteOpen.value = !commandPaletteOpen.value;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const renderView = () => {
     switch (activeView.value) {
@@ -69,6 +82,12 @@ export const App = () => {
         <main style={{ flex: 1, overflowY: 'auto', backgroundColor: '#121212' }}>
           {renderView()}
         </main>
+        
+        <CommandPalette 
+          isOpen={commandPaletteOpen.value} 
+          onClose={() => commandPaletteOpen.value = false} 
+          spaces={spaces.value} 
+        />
       </div>
     </ErrorBoundary>
   );
