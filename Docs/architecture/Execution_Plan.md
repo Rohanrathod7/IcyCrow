@@ -793,5 +793,7 @@ DO:
 > **Summary:** Implemented `EXPLAIN_TEXT_REQUEST` protocol with `chrome.storage.session` buffering. Connected PDF Workspace `AiActionBar` to Side Panel `ChatView` with auto-opening orchestration and [PROMPT ROUTING] logic.
 | **S35** | **Chat Messaging & Space Guard Hardening** | ✅ COMPLETED | [Current] | 2026-04-03 |
 > **Summary:** Resolved silent failures in chat messaging by implementing empty states and active space guards. Refactored `TabRow` to `TabItem` for improved stability.
+| **S36** | **UX Stabilization & Command Palette** | ✅ COMPLETED | b483ded | 2026-04-03 |
+> **Summary:** Implemented global Command Palette (Cmd+K), emotional empty states with animated mascot, and "The Janitor" smart tab deduplication engine.
 
 
