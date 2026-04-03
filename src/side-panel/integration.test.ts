@@ -74,6 +74,7 @@ describe('IcyCrow Full-Stack Integration', () => {
         tabs: [],
         createdAt: new Date().toISOString() as ISOTimestamp,
         updatedAt: new Date().toISOString() as ISOTimestamp,
+        createNativeGroup: false,
       }
     };
 

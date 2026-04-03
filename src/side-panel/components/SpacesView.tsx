@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { 
   DndContext, 
   DragOverlay, 
@@ -6,14 +6,17 @@ import {
   useSensor, 
   useSensors, 
   closestCorners,
+  rectIntersection,
   DragEndEvent,
   DragOverEvent,
   DragStartEvent,
-  defaultDropAnimationSideEffects
+  defaultDropAnimationSideEffects,
+  CollisionDetection,
+  getFirstCollision
 } from '@dnd-kit/core';
 import { sendToSW } from '../../lib/messaging';
 import { TabItem } from './TabItem';
-import { spaces, isLoading, currentAppStatus, reorderTabsInSpace, moveTabBetweenSpaces } from '../store';
+import { spaces, isLoading, currentAppStatus, calculateReorder, calculateMove } from '../store';
 import { SpaceCard } from './SpaceCard';
 import { SpaceForm } from './SpaceForm';
 import type { SpacesStore, UUID, SpaceTab } from '../../lib/types';
@@ -21,12 +24,13 @@ import type { SpacesStore, UUID, SpaceTab } from '../../lib/types';
 export const SpacesView = () => {
   const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState<SpaceTab | null>(null);
+  const [draftSpaces, setDraftSpaces] = useState<SpacesStore | null>(null);
   const lastOverId = useRef<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5,
+        distance: 8,
       },
     })
   );
@@ -66,7 +70,10 @@ export const SpacesView = () => {
     const { active } = event;
     const activeId = active.id as string;
     
-    // Find the tab being dragged
+    // 1. Initialize draft from the source signal
+    setDraftSpaces({ ...spaces.value });
+
+    // 2. Find the tab being dragged in the signal (initial capture)
     for (const space of Object.values(spaces.value)) {
       const tab = space.tabs.find(t => t.id === activeId);
       if (tab) {
@@ -76,64 +83,94 @@ export const SpacesView = () => {
     }
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
+  const handleDragOver = useCallback((event: DragOverEvent) => {
     const { active, over } = event;
-    if (!over) return;
+    if (!over || !draftSpaces) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // 1. Get Containers
-    // Standard @dnd-kit pattern: use data.current if available
-    const activeSpace = active.data.current?.containerId || findContainer(activeId);
-    const overSpace = over.data.current?.type === 'space' ? overId : (over.data.current?.containerId || findContainer(overId));
+    const activeSpace = findDraftContainer(activeId, draftSpaces);
+    const overSpace = draftSpaces[overId as UUID] ? overId : findDraftContainer(overId, draftSpaces);
 
     if (!activeSpace || !overSpace) return;
 
-    // 2. Stability Check
-    // If we just moved into this container, don't flap back and forth too aggressively
     if (activeSpace !== overSpace && lastOverId.current !== overSpace) {
-      const overIndex = over.data.current?.type === 'space' 
-        ? Object.values(spaces.value).find(s => s.id === overSpace)?.tabs.length || 0
-        : Object.values(spaces.value).find(s => s.id === overSpace)?.tabs.findIndex(t => t.id === overId) ?? 0;
+      const targetSpace = draftSpaces[overSpace as UUID];
+      if (!targetSpace) return;
 
-      moveTabBetweenSpaces(activeId, activeSpace as UUID, overSpace as UUID, overIndex, false);
-      lastOverId.current = overSpace;
-    } else if (activeId !== overId) {
-      // Reorder within same space
-      reorderTabsInSpace(overSpace as UUID, activeId, overId, false);
-    }
-  };
+      const overIndex = draftSpaces[overId as UUID] 
+        ? targetSpace.tabs.length 
+        : targetSpace.tabs.findIndex(t => t.id === overId);
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over) {
-      const activeId = active.id as string;
-      const overId = over.id as string;
-      const activeSpace = active.data.current?.containerId || findContainer(activeId);
-      const overSpace = over.data.current?.type === 'space' ? overId : (over.data.current?.containerId || findContainer(overId));
+      const safeIndex = overIndex === -1 ? targetSpace.tabs.length : overIndex;
 
-      if (activeSpace && overSpace) {
-        if (activeSpace === overSpace) {
-          await reorderTabsInSpace(overSpace as UUID, activeId, overId, true);
-        } else {
-          const overIndex = over.data.current?.type === 'space' 
-            ? Object.values(spaces.value).find(s => s.id === overSpace)?.tabs.length || 0
-            : Object.values(spaces.value).find(s => s.id === overSpace)?.tabs.findIndex(t => t.id === overId) ?? 0;
-          await moveTabBetweenSpaces(activeId, activeSpace as UUID, overSpace as UUID, overIndex, true);
-        }
+      const next = calculateMove(draftSpaces, activeId, activeSpace as UUID, overSpace as UUID, safeIndex);
+      if (next) {
+        setDraftSpaces(next);
+        lastOverId.current = overSpace;
+      }
+    } else if (activeId !== overId && activeSpace === overSpace) {
+      if (!draftSpaces[overId as UUID]) {
+        const next = calculateReorder(draftSpaces, overSpace as UUID, activeId, overId);
+        if (next) setDraftSpaces(next);
       }
     }
-    setActiveTab(null);
-    lastOverId.current = null;
-  };
+  }, [draftSpaces]);
 
-  const findContainer = (id: string) => {
-    if (id in spaces.value) return id;
-    for (const space of Object.values(spaces.value)) {
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (draftSpaces) {
+      // 1. Finalize the move structure in the draft if needed
+      let finalState = { ...draftSpaces };
+      
+      if (over) {
+        const activeId = active.id as string;
+        const overId = over.id as string;
+        const activeSpace = findDraftContainer(activeId, finalState);
+        const overSpace = finalState[overId as UUID] ? overId : findDraftContainer(overId, finalState);
+
+        if (activeSpace && overSpace) {
+          const targetSpace = finalState[overSpace as UUID];
+          const overIndex = finalState[overId as UUID] 
+            ? targetSpace.tabs.length 
+            : targetSpace.tabs.findIndex(t => t.id === overId);
+          const safeIndex = overIndex === -1 ? targetSpace.tabs.length : overIndex;
+
+          if (activeSpace === overSpace) {
+            const next = calculateReorder(finalState, overSpace as UUID, activeId, overId);
+            if (next) finalState = next;
+          } else {
+            const next = calculateMove(finalState, activeId, activeSpace as UUID, overSpace as UUID, safeIndex);
+            if (next) finalState = next;
+          }
+        }
+      }
+
+      // 2. Commit the entire drag session in ONE SHOT to the global store & storage
+      spaces.value = finalState;
+      await chrome.storage.local.set({ spaces: finalState });
+    }
+
+    // 3. Cleanup
+    setActiveTab(null);
+    setDraftSpaces(null);
+    lastOverId.current = null;
+  }, [draftSpaces]);
+
+  const findDraftContainer = (id: string, store: SpacesStore) => {
+    if (id in store) return id;
+    for (const space of Object.values(store)) {
       if (space.tabs.some(t => t.id === id)) return space.id;
     }
     return undefined;
+  };
+
+  // Internal helper for components (prioritizes draft during drag)
+  const findContainer = (id: string) => {
+    const current = draftSpaces || spaces.value;
+    return findDraftContainer(id, current);
   };
 
   const handleRestore = async (spaceId: string) => {
@@ -214,7 +251,6 @@ export const SpacesView = () => {
     }
   };
 
-  const spaceList = Object.values(spaces.value);
 
   return (
     <div className="view-container">
@@ -232,13 +268,38 @@ export const SpacesView = () => {
 
       <DndContext 
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={((args) => {
+          // 1. First find the container using Rect Intersection
+          const containerCollisions = rectIntersection({
+            ...args,
+            droppableContainers: args.droppableContainers.filter(ctr => draftSpaces && !!draftSpaces[ctr.id as UUID])
+          });
+          
+          let overId = getFirstCollision(containerCollisions, 'id');
+
+          // 2. If no direct container hit, use standard item collision
+          if (!overId) {
+             const intersections = closestCorners(args);
+             return intersections;
+          }
+
+          // 3. If we hit a container, find items IN that container
+          const intersections = closestCorners({
+            ...args,
+            droppableContainers: args.droppableContainers.filter(ctr => 
+              ctr.id === overId || 
+              (ctr.data.current?.containerId === overId)
+            )
+          });
+          
+          return intersections.length > 0 ? intersections : containerCollisions;
+        }) as CollisionDetection}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="bento-grid" style={{ gridTemplateColumns: '1fr' }}>
-          {spaceList.map(s => (
+          {(draftSpaces || spaces.value) && Object.values(draftSpaces || spaces.value).map(s => (
             <SpaceCard 
               key={s.id} 
               space={s} 
@@ -247,7 +308,7 @@ export const SpacesView = () => {
             />
           ))}
 
-          {spaceList.length === 0 && !isLoading.value && (
+          {Object.keys(spaces.value).length === 0 && !isLoading.value && (
             <div className="empty-state">
               <p className="text-dim">No spaces created yet.</p>
               <button className="btn-secondary" onClick={() => setShowForm(true)}>

@@ -1,8 +1,11 @@
 import { useState } from 'preact/hooks';
+import { memo } from 'preact/compat';
 import { Space, UUID } from '../../lib/types';
 import { expandedSpaceId, updateSpaceName, removeTabFromSpace } from '../store';
 import { ChevronDown, ChevronUp, ArrowUpRight, Edit2, Trash2 } from 'lucide-preact';
-import { TabRow } from './TabRow';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
+import { TabItem } from './TabItem';
 
 interface SpaceCardProps {
   space: Space;
@@ -10,12 +13,20 @@ interface SpaceCardProps {
   onDelete: (id: string) => void;
 }
 
-export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
+export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(space.name);
   
   const isExpanded = expandedSpaceId.value === space.id;
   const tabCount = space.tabs?.length || 0;
+
+  const { setNodeRef } = useDroppable({
+    id: space.id,
+    data: {
+      type: 'space',
+      spaceId: space.id
+    }
+  });
 
   const handleToggleExpand = (e: MouseEvent) => {
     e.stopPropagation();
@@ -58,6 +69,7 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
 
   return (
     <div 
+      ref={setNodeRef}
       className={`bento-item ${isExpanded ? 'expanded' : ''}`}
       data-testid={`space-card-${space.id}`}
       style={{ borderLeft: `6px solid ${space.color || 'var(--accent-primary)'}` }}
@@ -86,9 +98,11 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
                   style={{ width: '100%' }}
                 />
               ) : (
-                <span className="font-semibold text-white text-truncate" style={{ fontSize: '1rem' }}>{space.name}</span>
+                <div className="flex-row items-center gap-2">
+                  <span className="font-semibold text-white text-truncate" style={{ fontSize: '1rem' }}>{space.name}</span>
+                  <span className="space-tab-badge">{tabCount} tabs</span>
+                </div>
               )}
-              <span className="text-xs text-gray-400 font-medium">{tabCount} tabs</span>
             </div>
           </div>
           
@@ -117,14 +131,21 @@ export const SpaceCard = ({ space, onRestore, onDelete }: SpaceCardProps) => {
           </div>
         </div>
 
-        {isExpanded && space.tabs && space.tabs.length > 0 && (
-          <div className="accordion-body flex-col gap-8" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-            {space.tabs.map(tab => (
-              <TabRow key={tab.id} tab={tab} onRemove={handleRemoveTab} />
-            ))}
+        {isExpanded && space.tabs && (
+          <div className="accordion-body flex-col gap-8" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', minHeight: space.tabs.length === 0 ? '40px' : 'auto' }}>
+            <SortableContext items={space.tabs.map(t => t.id)} strategy={verticalListSortingStrategy}>
+              {space.tabs.map(tab => (
+                <TabItem key={tab.id} tab={tab} containerId={space.id} onRemove={handleRemoveTab} />
+              ))}
+              {space.tabs.length === 0 && (
+                <div className="empty-drop-zone text-dim small center" style={{ padding: '8px', border: '1px dashed var(--border-color)', borderRadius: '6px' }}>
+                  Drop tabs here
+                </div>
+              )}
+            </SortableContext>
           </div>
         )}
       </div>
     </div>
   );
-};
+});

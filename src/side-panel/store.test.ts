@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { spaces, updateSpaceName, removeTabFromSpace, expandedSpaceId } from './store';
+import { 
+  spaces, 
+  updateSpaceName, 
+  removeTabFromSpace, 
+  expandedSpaceId, 
+  reorderTabsInSpace,
+  moveTabBetweenSpaces
+} from './store';
 import type { Space, UUID } from '../lib/types';
 
 // Mock chrome API
@@ -36,6 +43,7 @@ describe('side-panel/store', () => {
       { id: 't1' as UUID, url: 'https://test.com', title: 'Test', favicon: null, scrollPosition: 0, chromeTabId: null },
       { id: 't2' as UUID, url: 'https://test2.com', title: 'Test 2', favicon: null, scrollPosition: 0, chromeTabId: null },
     ],
+    createNativeGroup: false,
   };
 
   beforeEach(() => {
@@ -77,9 +85,48 @@ describe('side-panel/store', () => {
     });
   });
 
-  describe('expandedSpaceId', () => {
-    it('should exist as a signal and defaults to null', () => {
-      expect(expandedSpaceId.value).toBeNull();
+  describe('reorderTabsInSpace', () => {
+    it('should reorder tabs within a space and NOT persist when shouldPersist is false', async () => {
+      await reorderTabsInSpace(spaceId, 't1', 't2', false);
+      
+      const tabs = spaces.value[spaceId]?.tabs;
+      expect(tabs?.[0].id).toBe('t2');
+      expect(tabs?.[1].id).toBe('t1');
+      expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
+    });
+
+    it('should persist when shouldPersist is true', async () => {
+      await reorderTabsInSpace(spaceId, 't2', 't1', true);
+      expect(mockChrome.storage.local.set).toHaveBeenCalled();
+    });
+  });
+
+  describe('moveTabBetweenSpaces', () => {
+    const spaceBId = '456' as UUID;
+    const spaceB: Space = {
+      id: spaceBId,
+      name: 'Space B',
+      color: 'red',
+      createdAt: '2026-03-29T00:00:00Z' as any,
+      updatedAt: '2026-03-29T00:00:00Z' as any,
+      tabs: [],
+      createNativeGroup: false,
+    };
+
+    beforeEach(() => {
+      spaces.value = { 
+        [spaceId]: { ...initialSpace, tabs: [{ id: 't1' as UUID, url: 'a', title: 'a' } as any] },
+        [spaceBId]: spaceB
+      };
+    });
+
+    it('should move a tab between spaces and NOT persist when shouldPersist is false', async () => {
+      await moveTabBetweenSpaces('t1', spaceId, spaceBId, 0, false);
+      
+      expect(spaces.value[spaceId]?.tabs).toHaveLength(0);
+      expect(spaces.value[spaceBId]?.tabs).toHaveLength(1);
+      expect(spaces.value[spaceBId]?.tabs[0].id).toBe('t1');
+      expect(mockChrome.storage.local.set).not.toHaveBeenCalled();
     });
   });
 });

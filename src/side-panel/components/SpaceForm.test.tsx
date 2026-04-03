@@ -90,7 +90,7 @@ describe('SpaceForm Component', () => {
     expect(mockRuntimeSendMessage).toHaveBeenCalledWith(expect.objectContaining({
       type: 'AI_QUERY',
       payload: expect.objectContaining({
-        prompt: expect.stringContaining('GitHub\nStackOverflow'),
+        prompt: expect.stringContaining('Review these browser tab titles'),
         spaceId: null
       })
     }));
@@ -99,22 +99,16 @@ describe('SpaceForm Component', () => {
     const onMessageCallback = (global as any).chrome.runtime.onMessage.addListener.mock.calls[0][0];
     const taskId = mockRuntimeSendMessage.mock.calls[0][0].payload.taskId;
     
-    // 1. Send first chunk
-    onMessageCallback({
-      type: 'AI_RESPONSE_STREAM',
-      payload: { taskId, chunk: 'Developer', done: false }
-    });
-    
-    // 2. Send second chunk (Full text)
+    // 1. Send chunk
     onMessageCallback({
       type: 'AI_RESPONSE_STREAM',
       payload: { taskId, chunk: 'Developer Workspace', done: false }
     });
     
-    // 3. Send done
+    // 2. Send done
     onMessageCallback({
       type: 'AI_RESPONSE_STREAM',
-      payload: { taskId, chunk: 'Developer Workspace', done: true }
+      payload: { taskId, chunk: '', done: true }
     });
 
     // Wait for input update

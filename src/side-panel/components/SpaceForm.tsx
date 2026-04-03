@@ -48,7 +48,7 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
           setIsGeneratingName(false);
           currentTaskId.current = null;
         } else {
-          nameBuffer.current = message.payload.chunk;
+          nameBuffer.current += message.payload.chunk;
         }
       }
     };
@@ -83,12 +83,10 @@ export const SpaceForm = ({ onSubmit, onCancel }: SpaceFormProps) => {
       }
 
       // 2. Neural Link (Gemini API)
-      const prompt = `You are an AI assistant helping a developer organize their browser tabs. Review the following tab titles and suggest a concise, 2-3 word name for a workspace containing them. 
-      
-      You must return ONLY the 2-3 word name. Do not include any conversational text, prefixes, or punctuation.
-      
-      Tabs:
-      ${tabTitles}`;
+      const prompt = `Review these browser tab titles and suggest a concise 2-3 word workspace name:
+${tabTitles}
+
+IMPORTANT: Return ONLY the 2-3 word name. Do not include any conversational text, prefixes, or punctuation.`;
 
       const response = await chrome.runtime.sendMessage({
         type: 'AI_QUERY',

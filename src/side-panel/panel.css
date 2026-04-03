@@ -649,19 +649,43 @@ button:active {
   border-radius: 8px;
   transition: background 0.2s ease;
   position: relative;
+  overflow: hidden; /* Clamp title under overlay */
 }
 
 .tab-row:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.hidden-action {
+.tab-remove-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 50px; /* Wider fade zone */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  background: linear-gradient(to right, transparent, rgba(30, 30, 32, 0.95) 60%);
   opacity: 0;
+  pointer-events: none;
   transition: opacity 0.2s ease;
+  z-index: 10;
 }
 
-.tab-row:hover .hidden-action {
+.tab-row:hover .tab-remove-overlay {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.space-tab-badge {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .accordion-body {

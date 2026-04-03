@@ -28,55 +28,22 @@ export const isLocked = signal(true);
 export const expandedSpaceId = signal<UUID | null>(null);
 export const currentAppStatus = signal<AppStatus>('idle');
 
+/**
+ * Hydrates settings and session state.
+ */
 export async function hydrateStore() {
   try {
     const [local, session] = await Promise.all([
       chrome.storage.local.get('settings') as Promise<Record<string, any>>,
       chrome.storage.session.get('cryptoKeyUnlocked') as Promise<Record<string, any>>
     ]);
-    
     if (local && local.settings) settings.value = local.settings as IcyCrowSettings;
-    
-    // Self-healing: Repair any corrupted space data on load
-    const spacesResult = await chrome.storage.local.get('spaces');
-    if (spacesResult.spaces) {
-      const repaired = repairSpaces(spacesResult.spaces as SpacesStore);
-      spaces.value = repaired;
-      // If we fixed mapping errors, persist them back to storage
-      if (JSON.stringify(repaired) !== JSON.stringify(spacesResult.spaces)) {
-        console.warn('[IcyCrow] Repaired corrupted spaces state (duplicates removed).');
-        await chrome.storage.local.set({ spaces: repaired });
-      }
-    }
-
     if (session.cryptoKeyUnlocked !== undefined) {
       isLocked.value = !session.cryptoKeyUnlocked;
     }
   } catch (err) {
     console.error('[IcyCrow] Hydration failed:', err);
   }
-}
-
-/**
- * Self-healing routine to deduplicate tab IDs within spaces.
- */
-export function repairSpaces(store: SpacesStore): SpacesStore {
-  const newStore: SpacesStore = {};
-  Object.keys(store).forEach(id => {
-    const space = store[id as UUID];
-    if (!space) return;
-    
-    // Deduplicate tabs by ID
-    const seen = new Set<string>();
-    const uniqueTabs = (space.tabs || []).filter(tab => {
-      if (seen.has(tab.id)) return false;
-      seen.add(tab.id);
-      return true;
-    });
-
-    newStore[id as UUID] = { ...space, tabs: uniqueTabs };
-  });
-  return newStore;
 }
 
 // Global listener for session changes
@@ -213,29 +180,25 @@ export async function removeTabFromSpace(spaceId: UUID, tabId: UUID) {
  * Reorders tabs within a space.
  */
 export async function reorderTabsInSpace(spaceId: UUID, activeId: string, overId: string, shouldPersist = false) {
-  const { updateSpaces } = await import('../lib/storage');
+  const currentSpace = spaces.value[spaceId];
+  if (!currentSpace) return;
 
-  const syncUpdate = (current: SpacesStore) => {
-    const currentSpace = current[spaceId];
-    if (!currentSpace) return current;
+  const oldIndex = currentSpace.tabs.findIndex(t => t.id === activeId);
+  const newIndex = currentSpace.tabs.findIndex(t => t.id === overId);
 
-    const oldIndex = currentSpace.tabs.findIndex(t => t.id === activeId);
-    const newIndex = currentSpace.tabs.findIndex(t => t.id === overId);
+  // Idempotency: skip if already correct
+  if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
+    return;
+  }
 
-    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-      const updatedTabs = arrayMove(currentSpace.tabs, oldIndex, newIndex);
-      const nextStore = { ...current };
-      nextStore[spaceId] = { ...currentSpace, tabs: updatedTabs };
-      return nextStore;
-    }
-    return current;
-  };
+  const updatedTabs = arrayMove(currentSpace.tabs, oldIndex, newIndex);
 
-  // Apply to Signal
-  spaces.value = syncUpdate({ ...spaces.value });
+  const current = { ...spaces.value };
+  current[spaceId] = { ...currentSpace, tabs: updatedTabs };
+  spaces.value = current;
 
   if (shouldPersist) {
-    await updateSpaces(syncUpdate);
+    await chrome.storage.local.set({ spaces: spaces.value });
   }
 }
 
@@ -243,45 +206,80 @@ export async function reorderTabsInSpace(spaceId: UUID, activeId: string, overId
  * Moves a tab from one space to another.
  */
 export async function moveTabBetweenSpaces(tabId: string, fromSpaceId: UUID, toSpaceId: UUID, newIndex: number, shouldPersist = false) {
-  const { updateSpaces } = await import('../lib/storage');
+  const fromSpace = spaces.value[fromSpaceId];
+  const toSpace = spaces.value[toSpaceId];
+  if (!fromSpace || !toSpace) return;
 
-  // Optimistic UI Update (Memory only)
-  const syncUpdate = (current: SpacesStore) => {
-    const fromSpace = current[fromSpaceId];
-    const toSpace = current[toSpaceId];
-    if (!fromSpace || !toSpace) return current;
+  const tabIndex = fromSpace.tabs.findIndex(t => t.id === tabId);
+  // Idempotency: don't move if it's already there at the right index
+  if (tabIndex === -1) {
+    if (toSpace.tabs[newIndex]?.id === tabId || fromSpaceId === toSpaceId) return;
+  }
 
-    const tabIndex = fromSpace.tabs.findIndex(t => t.id === tabId);
-    const tab = fromSpace.tabs[tabIndex];
-    if (!tab && fromSpaceId !== toSpaceId) {
-      // If not in source, maybe it's already in destination? (DND jitter)
-      return current;
-    }
+  const tab = fromSpace.tabs[tabIndex];
+  if (!tab) return;
+  
+  const newFromTabs = fromSpace.tabs.filter(t => t.id !== tabId);
+  const newToTabs = [...toSpace.tabs];
+  newToTabs.splice(newIndex, 0, tab);
 
-    // Atomic Move
-    const nextStore = { ...current };
-    
-    // 1. Remove from source
-    const newFromTabs = fromSpace.tabs.filter(t => t.id !== tabId);
-    nextStore[fromSpaceId] = { ...fromSpace, tabs: newFromTabs };
-
-    // 2. Add to destination (with deduplication)
-    const newToTabs = (nextStore[toSpaceId]?.tabs || []).filter(t => t.id !== tabId);
-    newToTabs.splice(newIndex, 0, tab || fromSpace.tabs[tabIndex]); // Recovery attempt if tab was lost in jitter
-    
-    // Safety check: ensure tab is valid
-    if (newToTabs[newIndex]) {
-      nextStore[toSpaceId] = { ...toSpace, tabs: newToTabs };
-    }
-
-    return nextStore;
-  };
-
-  // Apply to Signal immediately for smooth UI
-  spaces.value = syncUpdate({ ...spaces.value });
+  const current = { ...spaces.value };
+  current[fromSpaceId] = { ...fromSpace, tabs: newFromTabs };
+  current[toSpaceId] = { ...toSpace, tabs: newToTabs };
+  spaces.value = current;
 
   if (shouldPersist) {
-    await updateSpaces(syncUpdate);
+    await chrome.storage.local.set({ spaces: spaces.value });
   }
 }
 
+
+/**
+ * PURE FUNCTION: Calculates new spaces state after reordering.
+ */
+export function calculateReorder(currentSpaces: SpacesStore, spaceId: UUID, activeId: string, overId: string): SpacesStore | null {
+  const currentSpace = currentSpaces[spaceId];
+  if (!currentSpace) return null;
+
+  const oldIndex = currentSpace.tabs.findIndex(t => t.id === activeId);
+  const newIndex = currentSpace.tabs.findIndex(t => t.id === overId);
+
+  if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return null;
+
+  const updatedTabs = arrayMove(currentSpace.tabs, oldIndex, newIndex);
+  return {
+    ...currentSpaces,
+    [spaceId]: { ...currentSpace, tabs: updatedTabs }
+  };
+}
+
+/**
+ * PURE FUNCTION: Calculates new spaces state after cross-container movement.
+ */
+export function calculateMove(currentSpaces: SpacesStore, tabId: string, fromId: UUID, toId: UUID, newIndex: number): SpacesStore | null {
+  const fromSpace = currentSpaces[fromId];
+  const toSpace = currentSpaces[toId];
+  if (!fromSpace || !toSpace) return null;
+
+  const tabIndex = fromSpace.tabs.findIndex(t => t.id === tabId);
+  // Idempotency: don't move if it's already there at the right index
+  if (fromId === toId) {
+    if (tabIndex === newIndex) return null;
+  } else {
+    // If it's already in the destination space at the target index
+    if (toSpace.tabs[newIndex]?.id === tabId) return null;
+  }
+
+  const tab = fromSpace.tabs[tabIndex];
+  if (!tab) return null;
+
+  const newFromTabs = fromSpace.tabs.filter(t => t.id !== tabId);
+  const newToTabs = [...toSpace.tabs];
+  newToTabs.splice(Math.max(0, newIndex), 0, tab);
+
+  return {
+    ...currentSpaces,
+    [fromId]: { ...fromSpace, tabs: newFromTabs },
+    [toId]: { ...toSpace, tabs: newToTabs }
+  };
+}
