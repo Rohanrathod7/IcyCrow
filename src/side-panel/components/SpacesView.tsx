@@ -90,10 +90,9 @@ export const SpacesView = () => {
 
     if (!activeSpace || !overSpace) return;
 
-    // 2. Stability check: Don't update if we are already over this space
-    if (lastOverId.current === overSpace && activeSpace === overSpace) return;
-
-    if (activeSpace !== overSpace) {
+    // 2. Stability Check
+    // If we just moved into this container, don't flap back and forth too aggressively
+    if (activeSpace !== overSpace && lastOverId.current !== overSpace) {
       const overIndex = over.data.current?.type === 'space' 
         ? Object.values(spaces.value).find(s => s.id === overSpace)?.tabs.length || 0
         : Object.values(spaces.value).find(s => s.id === overSpace)?.tabs.findIndex(t => t.id === overId) ?? 0;
@@ -103,9 +102,9 @@ export const SpacesView = () => {
     } else if (activeId !== overId) {
       // Reorder within same space
       reorderTabsInSpace(overSpace as UUID, activeId, overId, false);
-      lastOverId.current = overSpace;
     }
   };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (over) {
@@ -130,13 +129,9 @@ export const SpacesView = () => {
   };
 
   const findContainer = (id: string) => {
-    // 1. Check if ID is a space itself
     if (id in spaces.value) return id;
-    
-    // 2. Use the most recent signal state for mapping
-    const spaceEntries = Object.values(spaces.value);
-    for (const space of spaceEntries) {
-      if (space.tabs?.some(t => t.id === id)) return space.id;
+    for (const space of Object.values(spaces.value)) {
+      if (space.tabs.some(t => t.id === id)) return space.id;
     }
     return undefined;
   };
