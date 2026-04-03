@@ -1,5 +1,5 @@
 import { GEMINI_SELECTORS } from '../lib/gemini-selectors';
-import { humanType } from './anti-detection';
+// humanType is no longer used in the hardened injection protocol
 
 /**
  * Tries each selector in order, returns first matching element.
@@ -99,9 +99,8 @@ let lastSeenContainer: HTMLElement | null = null;
  * Injects prompt into Gemini UI and clicks send button.
  */
 export async function injectPrompt(prompt: string): Promise<void> {
-  // Capture state BEFORE injection using ALL candidate selectors
-  const responseSelector = GEMINI_SELECTORS.responseContainer.join(', ');
-  const existing = document.querySelectorAll(responseSelector);
+  // Capture state BEFORE injection
+  const existing = document.querySelectorAll(GEMINI_SELECTORS.responseContainer[0]);
   lastSeenContainer = existing.length > 0 ? (existing[existing.length - 1] as HTMLElement) : null;
   
   const input = findSelector(GEMINI_SELECTORS.inputField);
@@ -114,29 +113,35 @@ export async function injectPrompt(prompt: string): Promise<void> {
   window.focus();
   input.focus();
   
-  // Clean start
-  input.innerHTML = '';
-  
-  // [FAST-PASTE]: Use insertText for large payloads to ensure context integrity
+  // 2. Framework-Aware Injection
+  // We use execCommand('insertText') because it's natively handled by contenteditable 
+  // and modern frameworks (React/Angular) better than character-by-character JS events.
   try {
-    document.execCommand('insertText', false, prompt);
+    document.execCommand('selectAll', false, undefined);
+    
+    // [HARDENING]: Some Gemini versions handle \n as "Send", so we ensure it's treated as data
+    // using a more reliable insertText implementation for contenteditable.
+    if (!document.execCommand('insertText', false, prompt)) {
+       throw new Error('execCommand returned false');
+    }
   } catch (err) {
-    // Fallback if execCommand is restricted
-    console.warn('[IcyCrow] Fast-paste failed, falling back to humanType', err);
-    await humanType(input, prompt);
+    console.warn('[IcyCrow] execCommand failed, falling back to manual assignment:', err);
+    // [ROBUST FALLBACK]: Assignment + Manual Events
+    if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
+      input.value = prompt;
+    } else {
+      input.innerText = prompt;
+    }
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  // 2. Definitive Wait for State Sync (Critical for React/Angular)
-  // In background, setTimeout is throttled to 1Hz, so we check every 20ms or fallback.
+  // 3. Definitive Wait for State Sync (Critical for Gemini's dynamic send button)
   const isBackground = document.visibilityState === 'hidden';
-  const maxSyncWait = isBackground ? 5 : 20; // Fewer attempts in background to avoid hanging
-  
-  for (let i = 0; i < maxSyncWait; i++) {
-    if (!sendBtn.hasAttribute('disabled')) break;
-    await new Promise(r => setTimeout(r, isBackground ? 0 : 50)); 
-  }
+  const syncWait = isBackground ? 100 : 200; 
+  await new Promise(r => setTimeout(r, syncWait));
 
-  // 3. Dual-Submission Protocol (Synthetic Enter + Click)
+  // 4. Dual-Submission Protocol (Synthetic Enter + Click)
   // Attempt 1: Enter Keypress
   const enterDown = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true });
   input.dispatchEvent(enterDown);
@@ -165,22 +170,17 @@ export async function scrapeResponse(taskId: string): Promise<void> {
   let container: HTMLElement | null = null;
   let attempts = 0;
   
-  const responseSelector = GEMINI_SELECTORS.responseContainer.join(', ');
-  
   while (!container && attempts < 40) { // 20s max wait
-    const candidates = document.querySelectorAll(responseSelector);
+    const candidates = document.querySelectorAll(GEMINI_SELECTORS.responseContainer[0]);
     const currentLast = candidates[candidates.length - 1] as HTMLElement;
     
     if (currentLast) {
       // It's a new container if reference changed
       const isNewReference = currentLast !== lastSeenContainer;
       // It's a new turn if it was previously marked historical but now being reused (rare, but safer)
-      const isReused = currentLast === lastSeenContainer && currentLast.dataset.icyTask !== taskId;
-      // It's potentially our turn if it exists but has NO icy-task yet (handle rapid starts)
-      const isUnclaimed = !currentLast.dataset.icyTask;
+      const isReused = currentLast === lastSeenContainer && currentLast.dataset.icyTask !== taskId && getDeepText(currentLast).length < 20;
 
-      if (isNewReference || isReused || isUnclaimed) {
-        console.log('[IcyCrow] Gemini turn detected. Candidates:', candidates.length);
+      if (isNewReference || isReused) {
         container = currentLast;
         container.dataset.icyTask = taskId;
       }

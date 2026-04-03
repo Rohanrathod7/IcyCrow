@@ -1,5 +1,5 @@
 import type { Space, SpaceTab, UUID, ISOTimestamp } from '@lib/types';
-import { getSpaces } from '@lib/storage';
+import { getSpaces, setSpaces } from '@lib/storage';
 
 export class SpaceManager {
   /**
@@ -38,6 +38,7 @@ export class SpaceManager {
    * Creates a new space, optionally capturing current window tabs
    */
   async createSpace(name: string, color: string, captureCurrentTabs: boolean, createTabGroup = false): Promise<Space> {
+    const spaces = await getSpaces();
     const spaceId = crypto.randomUUID() as UUID;
     const now = new Date().toISOString() as ISOTimestamp;
 
@@ -58,13 +59,8 @@ export class SpaceManager {
       }
     }
 
-    import('@lib/storage').then(m => {
-      m.updateSpaces(spaces => {
-        spaces[spaceId] = newSpace;
-        return spaces;
-      });
-    });
-
+    spaces[spaceId] = newSpace;
+    await setSpaces(spaces);
     return newSpace;
   }
 
@@ -127,28 +123,25 @@ export class SpaceManager {
   }
 
   async deleteSpace(spaceId: UUID): Promise<boolean> {
-    const { updateSpaces } = await import('@lib/storage');
-    await updateSpaces(spaces => {
-      if (spaces[spaceId]) {
-        delete spaces[spaceId];
-      }
-      return spaces;
-    });
+    const spaces = await getSpaces();
+    if (!spaces[spaceId]) return false;
+    
+    delete spaces[spaceId];
+    await setSpaces(spaces);
     return true;
   }
 
   async updateSpace(spaceId: UUID, updates: Partial<Pick<Space, 'name' | 'color'>>): Promise<boolean> {
-    const { updateSpaces } = await import('@lib/storage');
-    await updateSpaces(spaces => {
-      if (spaces[spaceId]) {
-        spaces[spaceId] = {
-          ...spaces[spaceId],
-          ...updates,
-          updatedAt: new Date().toISOString() as ISOTimestamp
-        };
-      }
-      return spaces;
-    });
+    const spaces = await getSpaces();
+    if (!spaces[spaceId]) return false;
+
+    spaces[spaceId] = {
+      ...spaces[spaceId],
+      ...updates,
+      updatedAt: new Date().toISOString() as ISOTimestamp
+    };
+
+    await setSpaces(spaces);
     return true;
   }
 }

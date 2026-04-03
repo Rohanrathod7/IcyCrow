@@ -12,7 +12,7 @@ import { saveArticle, saveEmbedding, getAllEmbeddings, saveBackupManifest } from
 import { validateExportPassword } from '@lib/export-worker';
 import { aiManager } from './managers/ai-manager';
 import { setupPdfInterceptor } from './managers/pdf-interceptor';
-import type { IDBArticle, UUID, ISOTimestamp } from '@lib/types';
+import type { IDBArticle, UUID, ISOTimestamp, SpaceRestoreMsg } from '@lib/types';
 
 console.log('IcyCrow MV3 Service Worker installed.');
 
@@ -285,27 +285,52 @@ async function handleAiMessage(
     case 'AI_QUERY': {
       try {
         const { taskId, prompt } = message.payload;
+        
+        // 1. Nano-First Strategy: Use local built-in AI if available
+        const isNanoReady = await aiManager.checkCapabilities();
+        if (isNanoReady) {
+          console.log('[IcyCrow] Using high-performance Nano path for query:', taskId);
+          
+          // Execute in background without focusing any tabs
+          aiManager.queryBuiltIn(prompt, (chunk) => {
+            chrome.runtime.sendMessage({
+              type: 'AI_RESPONSE_STREAM',
+              payload: { taskId, chunk, done: false }
+            });
+          }).then(() => {
+            chrome.runtime.sendMessage({
+              type: 'AI_RESPONSE_STREAM',
+              payload: { taskId, chunk: '', done: true }
+            });
+          }).catch((err) => {
+            chrome.runtime.sendMessage({
+              type: 'AI_RESPONSE_STREAM',
+              payload: { taskId, chunk: '', done: true, error: err.message }
+            });
+          });
+          
+          sendResponse({ ok: true, data: { taskId, engine: 'nano' } });
+          return;
+        }
+
+        // 2. Fallback: Gemini Tab Bridge (Requires Focusing)
         const result = await chrome.storage?.session?.get('sessionState');
         const state = (result?.sessionState as SessionState) || {};
         
-        // Priority: Manual > Automatic
         let geminiIds = state.geminiTabIds || [];
         if (state.manualGeminiTabId) {
           geminiIds = [state.manualGeminiTabId, ...geminiIds.filter(id => id !== state.manualGeminiTabId)];
         }
         
-        const contextualPrompt = prompt;
-        
         const { position } = taskQueue.enqueue(async () => {
+          if (geminiIds.length === 0) throw new Error('GEMINI_TAB_NOT_FOUND: Built-in AI is unavailable and no Gemini tabs are open.');
           
-          if (geminiIds.length === 0) throw new Error('GEMINI_TAB_NOT_FOUND');
-          
-          let lastErr: any = null;
+
           for (const tabId of geminiIds) {
             try {
               const tab = await chrome.tabs.get(tabId);
               
-              // 1. Synchronous Wakeup Protocol
+              // Synchronous Wakeup Protocol (Focus only for Bridge)
               const [currentView] = await chrome.tabs.query({ active: true, currentWindow: true });
               await chrome.tabs.update(tabId, { active: true });
               
@@ -314,31 +339,29 @@ async function handleAiMessage(
                 payload: { taskId, chunk: '', done: false, tabInfo: { title: tab.title, url: tab.url, id: tabId } }
               });
               
-              // 2. Message with 15s timeout
               const bridgeResponse = await Promise.race([
-                chrome.tabs.sendMessage(tabId, { type: 'AI_QUERY', payload: { prompt: contextualPrompt, taskId } }),
+                chrome.tabs.sendMessage(tabId, { type: 'AI_QUERY', payload: { prompt, taskId } }),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('BRIDGE_TIMEOUT')), 15000))
               ]);
               
-              // 3. Blink back
+              // Restore focus immediately
               if (currentView?.id && currentView.id !== tabId) {
                 await chrome.tabs.update(currentView.id, { active: true });
               }
               
               return bridgeResponse;
             } catch (err: any) {
-              console.warn(`[IcyCrow] Failed to message Gemini tab ${tabId}:`, err.message);
-              lastErr = err;
+              console.warn(`[IcyCrow] Fallback Bridge failed for tab ${tabId}:`, err.message);
+
               continue;
             }
           }
-          
-          if (lastErr) console.warn('[IcyCrow] All Gemini bridges failed:', lastErr);
-          throw new Error('BRIDGE_OFFLINE: Please refresh your Gemini tab once to restore connection.');
+          throw new Error('BRIDGE_OFFLINE: Built-in AI is unavailable. Please refresh your Gemini tab.');
         });
-        sendResponse({ ok: true, data: { taskId, position } });
+        
+        sendResponse({ ok: true, data: { taskId, position, engine: 'bridge' } });
       } catch (err: any) {
-        sendResponse({ ok: false, error: { code: 'QUEUE_ERROR', message: err.message } });
+        sendResponse({ ok: false, error: { code: 'ROUTING_ERROR', message: err.message } });
       }
       break;
     }
@@ -476,12 +499,14 @@ async function handleAiMessage(
 async function handleSpaceMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
   switch (message.type) {
     case 'SPACE_CREATE': {
-      const space = await spaceManager.createSpace(message.payload.name, message.payload.color, message.payload.captureCurrentTabs);
+      const { name, color, captureCurrentTabs, createTabGroup } = message.payload;
+      const space = await spaceManager.createSpace(name, color, captureCurrentTabs, createTabGroup);
       sendResponse({ ok: true, data: { space } });
       break;
     }
     case 'SPACE_RESTORE': {
-      const tabsOpened = await spaceManager.restoreSpace(message.payload.spaceId, true);
+      const msg = message as SpaceRestoreMsg;
+      const tabsOpened = await spaceManager.restoreSpace(msg.payload.spaceId, !!msg.payload.createNativeGroup);
       sendResponse({ ok: true, data: { tabsOpened } });
       break;
     }

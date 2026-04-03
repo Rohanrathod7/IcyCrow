@@ -227,7 +227,20 @@ export const ChatView = () => {
       )}
 
       <div className="chat-messages-list">
-        {chatMessages.value.length === 0 ? (
+        {!activeSpaceId.value ? (
+          <div className="empty-state glass-card" style={{ margin: '20px', padding: '20px', textAlign: 'center' }}>
+            <p className="text-dim">No space selected.</p>
+            <p style={{ fontSize: '0.85em', margin: '8px 0 16px 0' }}>Chat history and context are tied to specific spaces.</p>
+            <button 
+              className="btn-primary small" 
+              onClick={() => {
+                import('../store').then(m => m.activeView.value = 'spaces');
+              }}
+            >
+              Go to Spaces
+            </button>
+          </div>
+        ) : chatMessages.value.length === 0 ? (
           <div className="text-dim" style={{ textAlign: 'center', marginTop: '20px' }}>
             No messages yet. Ask Gemini about your open tabs!
           </div>
@@ -247,7 +260,7 @@ export const ChatView = () => {
           </div>
         )}
       </div>
-      <ChatInput onSubmit={handleSendMessage} disabled={isLoading.value} />
+      <ChatInput onSubmit={handleSendMessage} disabled={isLoading.value || !activeSpaceId.value} />
     </div>
   );
 };

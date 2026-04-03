@@ -115,6 +115,7 @@ export const SpaceCreateSchema = z.object({
     name: z.string(),
     color: z.string(),
     captureCurrentTabs: z.boolean(),
+    createTabGroup: z.boolean(),
   }),
   _meta: MetaSchema,
 });
@@ -123,6 +124,7 @@ export const SpaceRestoreSchema = z.object({
   type: z.literal('SPACE_RESTORE'),
   payload: z.object({
     spaceId: UUIDSchema,
+    createNativeGroup: z.boolean().optional(),
   }),
   _meta: MetaSchema,
 });

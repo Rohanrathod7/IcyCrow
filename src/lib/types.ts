@@ -218,6 +218,7 @@ export interface Space {
   createdAt: ISOTimestamp;
   updatedAt: ISOTimestamp;
   tabs: SpaceTab[];
+  createNativeGroup: boolean;
 }
 
 export type SpacesStore = Record<UUID, Space>;
@@ -397,11 +398,13 @@ export type SpaceCreateMsg = BaseMessage<'SPACE_CREATE', {
   name: string;
   color: string;
   captureCurrentTabs: boolean;
+  createTabGroup: boolean;
 }>;
 export type SpaceCreateRes = ApiResponse<{ space: Space }>;
 
 export type SpaceRestoreMsg = BaseMessage<'SPACE_RESTORE', {
   spaceId: UUID;
+  createNativeGroup?: boolean;
 }>;
 export type SpaceRestoreRes = ApiResponse<{ tabsOpened: number }>;
 

@@ -50,7 +50,7 @@ export const ChatInput = ({ onSubmit, disabled }: Props) => {
           value={value}
           onInput={(e) => setValue((e.target as HTMLTextAreaElement).value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask anything about these tabs..."
+          placeholder={disabled ? "Select a Space to start chatting..." : "Ask anything about these tabs..."}
           disabled={disabled}
           rows={1}
           className="chat-textarea"

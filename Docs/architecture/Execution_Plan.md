@@ -791,5 +791,7 @@ DO:
 | **S33** | **Emotional Design & Mascot Header** | ✅ COMPLETED | [Current] | 2026-03-30 |
 | **S34** | **PDF-to-Chat Bridge (Cross-Context)** | ✅ COMPLETED | [Current] | 2026-03-31 |
 > **Summary:** Implemented `EXPLAIN_TEXT_REQUEST` protocol with `chrome.storage.session` buffering. Connected PDF Workspace `AiActionBar` to Side Panel `ChatView` with auto-opening orchestration and [PROMPT ROUTING] logic.
+| **S35** | **Chat Messaging & Space Guard Hardening** | ✅ COMPLETED | [Current] | 2026-04-03 |
+> **Summary:** Resolved silent failures in chat messaging by implementing empty states and active space guards. Refactored `TabRow` to `TabItem` for improved stability.
 
 

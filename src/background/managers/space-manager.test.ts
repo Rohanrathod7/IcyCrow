@@ -20,6 +20,9 @@ describe('SpaceManager', () => {
         create: vi.fn(),
         group: vi.fn(),
       },
+      tabGroups: {
+        update: vi.fn(),
+      },
       windows: {
         getCurrent: vi.fn(),
       },
@@ -105,6 +108,7 @@ describe('SpaceManager', () => {
       
       expect(space.name).toBe('Project A');
       expect(space.color).toBe('#ff0000');
+      expect(space.createNativeGroup).toBe(false);
       expect(setSpaces).toHaveBeenCalledWith(expect.objectContaining({
         [space.id]: expect.objectContaining({ name: 'Project A' })
       }));
@@ -129,6 +133,9 @@ describe('SpaceManager', () => {
     it('should open tabs for a valid space', async () => {
       const mockSpace = {
         id: 's1' as UUID,
+        name: 'Test Space',
+        color: '#3a76f0',
+        createNativeGroup: false,
         tabs: [{ url: 'https://site1.com' }, { url: 'https://site2.com' }]
       } as any;
       (getSpaces as any).mockResolvedValue({ s1: mockSpace });
@@ -147,6 +154,9 @@ describe('SpaceManager', () => {
     it('should optionally create a tab group', async () => {
       const mockSpace = {
         id: 's1' as UUID,
+        name: 'Test Space',
+        color: '#3a76f0',
+        createNativeGroup: true,
         tabs: [{ url: 'https://site1.com' }]
       } as any;
       (getSpaces as any).mockResolvedValue({ s1: mockSpace });
@@ -158,6 +168,61 @@ describe('SpaceManager', () => {
       expect(chrome.tabs.group).toHaveBeenCalledWith(expect.objectContaining({
         tabIds: [100]
       }));
+    });
+
+    it('should set the group title and color to match the space', async () => {
+      const mockSpace = {
+        id: 's1' as UUID,
+        name: 'Work Project',
+        color: '#3a76f0', // Blue
+        tabs: [{ url: 'https://site1.com' }]
+      } as any;
+      (getSpaces as any).mockResolvedValue({ s1: mockSpace });
+      (chrome.tabs.create as any).mockResolvedValue({ id: 101 });
+      (chrome.tabs.group as any).mockResolvedValue(42); // Mock groupId
+
+      await manager.restoreSpace('s1' as UUID, true);
+
+      expect(chrome.tabGroups.update).toHaveBeenCalledWith(42, {
+        title: 'Work Project',
+        color: 'blue'
+      });
+    });
+
+    it('should fallback to grey if space color is unknown', async () => {
+      const mockSpace = {
+        id: 's1' as UUID,
+        name: 'Work Project',
+        color: '#3a76f0', // Blue
+        createNativeGroup: true,
+        tabs: [{ url: 'https://site1.com' }]
+      } as any;
+      (getSpaces as any).mockResolvedValue({ s1: mockSpace });
+      (chrome.tabs.create as any).mockResolvedValue({ id: 102 });
+      (chrome.tabs.group as any).mockResolvedValue(43);
+
+      await manager.restoreSpace('s1' as UUID, true);
+
+      expect(chrome.tabGroups.update).toHaveBeenCalledWith(43, {
+        title: 'Unknown Color',
+        color: 'grey'
+      });
+    });
+
+    it('should not crash if tab grouping fails', async () => {
+      const mockSpace = {
+        id: 's1' as UUID,
+        tabs: [{ url: 'https://site1.com' }]
+      } as any;
+      (getSpaces as any).mockResolvedValue({ s1: mockSpace });
+      (chrome.tabs.create as any).mockResolvedValue({ id: 103 });
+      (chrome.tabs.group as any).mockRejectedValue(new Error('Group Limit'));
+
+      const count = await manager.restoreSpace('s1' as UUID, true);
+
+      // Restoration should still report success for the opened tabs
+      expect(count).toBe(1);
+      expect(chrome.tabs.create).toHaveBeenCalled();
     });
   });
 

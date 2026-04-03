@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/preact';
 import { SpaceCard } from './SpaceCard';
 import { expandedSpaceId, updateSpaceName } from '../store';
-import type { Space, UUID } from '../../lib/types';
+import type { Space, UUID, ISOTimestamp } from '../../lib/types';
 
 // Mock store
 vi.mock('../store', () => ({
@@ -28,11 +28,12 @@ describe('SpaceCard Component', () => {
     id: 'space-1' as UUID,
     name: 'Test Space',
     color: '#ff0000',
-    createdAt: '2026-03-29T00:00:00Z' as any,
-    updatedAt: '2026-03-29T00:00:00Z' as any,
+    createdAt: '2026-03-29T00:00:00Z' as ISOTimestamp,
+    updatedAt: '2026-03-29T00:00:00Z' as ISOTimestamp,
     tabs: [
       { id: 't1' as UUID, url: 'https://test.com', title: 'Tab 1', favicon: 'fav1.png', scrollPosition: 0, chromeTabId: 1 },
     ],
+    createNativeGroup: false,
   };
 
   const defaultProps = {
