@@ -110,7 +110,7 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
             <button 
               className="btn-ghost-premium"
               onClick={handleRestoreClick}
-              title="Restore Space to Tabs"
+              title="Restore Space (Suspended Mode for memory efficiency)"
             >
               <ArrowUpRight size={18} />
             </button>
