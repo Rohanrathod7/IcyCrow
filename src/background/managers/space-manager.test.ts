@@ -19,6 +19,7 @@ describe('SpaceManager', () => {
         query: vi.fn(),
         create: vi.fn(),
         group: vi.fn(),
+        discard: vi.fn(),
       },
       tabGroups: {
         update: vi.fn(),
@@ -37,19 +38,15 @@ describe('SpaceManager', () => {
 
     // Mock fetch for favicon serialization
     global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      blob: async () => ({})
+      ok: true,
+      blob: async () => ({
+        type: 'image/png',
+        arrayBuffer: async () => new Uint8Array([102, 97, 107, 101]).buffer // "fake"
+      })
     });
 
-    // Mock FileReader for favicon serialization (Synchronous for testing)
-    global.FileReader = class {
-      onload: any;
-      result: any;
-      readAsDataURL() {
-        this.result = 'data:image/x-icon;base64,ZmFrZS1pbWFnZS1kYXRh';
-        if (this.onload) this.onload();
-      }
-    } as any;
+    // Mock btoa/atob for Node environment
+    global.btoa = (str: string) => Buffer.from(str, 'binary').toString('base64');
   });
 
   afterEach(() => {
@@ -74,23 +71,15 @@ describe('SpaceManager', () => {
     it('should convert favIconUrl to Base64 string', async () => {
       const mockTab = {
         url: 'https://example.com',
-        favIconUrl: 'https://example.com/favicon.ico'
+        favIconUrl: 'https://example.com/favicon.ico',
+        id: 123,
+        title: 'Example'
       } as chrome.tabs.Tab;
-
-      // Mock image fetch and blob conversion
-      const mockBlob = {
-        arrayBuffer: async () => new TextEncoder().encode('fake-image-data').buffer,
-        type: 'image/x-icon'
-      };
-      (global.fetch as any).mockResolvedValue({
-        ok: true,
-        blob: async () => mockBlob
-      });
 
       const result = await manager.serializeTab(mockTab);
 
-      // In the stub, this defaults to null, which will make the test FAIL (RED)
-      expect(result.favicon).toMatch(/^data:image\/x-icon;base64,/);
+      expect(global.fetch).toHaveBeenCalledWith('https://example.com/favicon.ico', expect.any(Object));
+      expect(result.favicon).toBe('data:image/png;base64,ZmFrZQ==');
     });
 
     it('should handle missing favIconUrl gracefully', async () => {
@@ -127,28 +116,67 @@ describe('SpaceManager', () => {
       expect(space.tabs[0].url).toBe('https://tab1.com');
       expect(space.tabs[1].url).toBe('https://tab2.com');
     });
+
+    it('should serialize provided raw tabs before saving', async () => {
+      (getSpaces as any).mockResolvedValue({});
+      const rawTabs = [
+        { id: 10, url: 'https://site1.com', title: 'Site 1', favIconUrl: 'https://site1.com/icon.png' },
+        { id: 20, url: 'https://site2.com', title: 'Site 2' }
+      ];
+
+      const space = await manager.createSpace('Custom Tabs', '#0000ff', false, false, rawTabs as any);
+
+      expect(space.tabs).toHaveLength(2);
+      // Verify they were serialized: they should have a UUID and favicon field (even if null)
+      expect(space.tabs[0].id).toHaveLength(36);
+      expect(space.tabs[1].id).toHaveLength(36);
+      expect('favicon' in space.tabs[0]).toBe(true);
+      expect('favicon' in space.tabs[1]).toBe(true);
+    });
   });
 
   describe('restoreSpace', () => {
-    it('should open tabs for a valid space', async () => {
+    it('should open tabs for a valid space (first active, rest background)', async () => {
       const mockSpace = {
         id: 's1' as UUID,
         name: 'Test Space',
         color: '#3a76f0',
-        createNativeGroup: false,
         tabs: [{ url: 'https://site1.com' }, { url: 'https://site2.com' }]
       } as any;
       (getSpaces as any).mockResolvedValue({ s1: mockSpace });
-      (chrome.tabs.create as any).mockResolvedValue({ id: 99 });
+      (chrome.tabs.create as any)
+        .mockResolvedValueOnce({ id: 99 })
+        .mockResolvedValueOnce({ id: 100 });
+      
+      (chrome.tabs.discard as any).mockResolvedValue({});
+      vi.useFakeTimers();
 
-      const count = await manager.restoreSpace('s1' as UUID);
+      const restorePromise = manager.restoreSpace('s1' as UUID);
+      
+      // Advance timers to trigger the batch discard
+      await vi.advanceTimersByTimeAsync(500);
+      const count = await restorePromise;
 
       expect(count).toBe(2);
       expect(chrome.tabs.create).toHaveBeenCalledTimes(2);
-      expect(chrome.tabs.create).toHaveBeenCalledWith(expect.objectContaining({
+      
+      // First tab active
+      expect(chrome.tabs.create).toHaveBeenNthCalledWith(1, expect.objectContaining({
         url: 'https://site1.com',
-        discarded: true
+        active: true
       }));
+
+      // Second tab background
+      expect(chrome.tabs.create).toHaveBeenNthCalledWith(2, expect.objectContaining({
+        url: 'https://site2.com',
+        active: false
+      }));
+
+      // Discard called for the background tab after 500ms
+      expect(chrome.tabs.discard).toHaveBeenCalledWith(100);
+      expect(chrome.tabs.discard).not.toHaveBeenCalledWith(99);
+      
+      vi.useRealTimers();
     });
 
     it('should optionally create a tab group', async () => {
@@ -156,12 +184,12 @@ describe('SpaceManager', () => {
         id: 's1' as UUID,
         name: 'Test Space',
         color: '#3a76f0',
-        createNativeGroup: true,
         tabs: [{ url: 'https://site1.com' }]
       } as any;
       (getSpaces as any).mockResolvedValue({ s1: mockSpace });
       (chrome.tabs.create as any).mockResolvedValue({ id: 100 });
       (chrome.windows.getCurrent as any).mockResolvedValue({ id: 1 });
+      (chrome.tabs.group as any).mockResolvedValue(10);
 
       await manager.restoreSpace('s1' as UUID, true);
 
@@ -179,33 +207,13 @@ describe('SpaceManager', () => {
       } as any;
       (getSpaces as any).mockResolvedValue({ s1: mockSpace });
       (chrome.tabs.create as any).mockResolvedValue({ id: 101 });
-      (chrome.tabs.group as any).mockResolvedValue(42); // Mock groupId
+      (chrome.tabs.group as any).mockResolvedValue(42);
 
       await manager.restoreSpace('s1' as UUID, true);
 
       expect(chrome.tabGroups.update).toHaveBeenCalledWith(42, {
         title: 'Work Project',
         color: 'blue'
-      });
-    });
-
-    it('should fallback to grey if space color is unknown', async () => {
-      const mockSpace = {
-        id: 's1' as UUID,
-        name: 'Work Project',
-        color: '#3a76f0', // Blue
-        createNativeGroup: true,
-        tabs: [{ url: 'https://site1.com' }]
-      } as any;
-      (getSpaces as any).mockResolvedValue({ s1: mockSpace });
-      (chrome.tabs.create as any).mockResolvedValue({ id: 102 });
-      (chrome.tabs.group as any).mockResolvedValue(43);
-
-      await manager.restoreSpace('s1' as UUID, true);
-
-      expect(chrome.tabGroups.update).toHaveBeenCalledWith(43, {
-        title: 'Unknown Color',
-        color: 'grey'
       });
     });
 
@@ -220,7 +228,6 @@ describe('SpaceManager', () => {
 
       const count = await manager.restoreSpace('s1' as UUID, true);
 
-      // Restoration should still report success for the opened tabs
       expect(count).toBe(1);
       expect(chrome.tabs.create).toHaveBeenCalled();
     });

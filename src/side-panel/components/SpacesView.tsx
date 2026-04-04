@@ -17,7 +17,7 @@ import {
 import { sendToSW } from '../../lib/messaging';
 import { TabItem } from './TabItem';
 import { EmptyState } from './EmptyState';
-import { spaces, isLoading, currentAppStatus, calculateReorder, calculateMove } from '../store';
+import { spaces, isLoading, currentAppStatus, activeSpaceId, activeView, expandedSpaceId, calculateReorder, calculateMove } from '../store';
 import { SpaceCard } from './SpaceCard';
 import { SpaceForm } from './SpaceForm';
 import type { SpacesStore, UUID, SpaceTab } from '../../lib/types';
@@ -216,28 +216,38 @@ export const SpacesView = () => {
   const handleCreateSpace = async (name: string, color: string, { captureCurrentTabs, createTabGroup }: { captureCurrentTabs: boolean; createTabGroup: boolean }, tabs?: any[]) => {
     try {
       currentAppStatus.value = 'saving';
-      await sendToSW({
-        type: 'SPACE_CREATE',
-        payload: { name, color, captureCurrentTabs, createTabGroup, tabs }
-      } as any);
+      // [WATCHDOG]: Prevent infinite loader if background task hangs
+      const response = await Promise.race([
+        sendToSW({
+          type: 'SPACE_CREATE',
+          payload: { name, color, captureCurrentTabs, createTabGroup, tabs }
+        } as any),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Background timeout (15s)')), 15000))
+      ]);
       
-      currentAppStatus.value = 'success';
-      
-      // Refresh list
-      const result = await chrome.storage.local.get('spaces');
-      const newSpaces = (result.spaces || {}) as any;
-      spaces.value = newSpaces;
-      
-      // Auto-focus new space if it's the only one or if we just created it
-      const newId = Object.keys(newSpaces).find(id => !spaces.value[id as UUID]);
-      if (newId || Object.keys(newSpaces).length === 1) {
-        import('../store').then(m => {
-          m.activeSpaceId.value = (newId || Object.keys(newSpaces)[0]) as UUID;
-          m.activeView.value = 'chat';
+      if (response && (response as any).ok) {
+        currentAppStatus.value = 'success';
+        const newSpace = (response as any).data.space;
+        
+        // [SYNC HAMMER]: Close form immediately and force state refresh
+        setShowForm(false);
+        
+        // Focus and expand new space
+        activeSpaceId.value = newSpace.id;
+        activeView.value = 'chat';
+        expandedSpaceId.value = newSpace.id;
+
+        // Manually refresh spaces list to be 100% sure the UI updates
+        chrome.storage.local.get('spaces').then(res => {
+          if (res.spaces) {
+            spaces.value = res.spaces as SpacesStore;
+          }
         });
+      } else {
+        // [ROOT CAUSE ESCAPE]: If SW returns !ok (e.g. Validation Error), we must throw to reset the UI
+        const errorMsg = (response as any)?.error?.message || 'Background worker rejected the request';
+        throw new Error(errorMsg);
       }
-      
-      setShowForm(false);
       
       // Revert to idle after 1000ms
       setTimeout(() => {
@@ -247,7 +257,7 @@ export const SpacesView = () => {
       }, 1000);
       
     } catch (err) {
-      console.error('Failed to create space:', err);
+      console.error('[IcyCrow] SpacesView Error:', err);
       currentAppStatus.value = 'idle';
     }
   };

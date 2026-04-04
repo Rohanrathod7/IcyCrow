@@ -118,6 +118,13 @@ const SpaceTabSchema = z.object({
   chromeTabId: z.number().nullable(),
 });
 
+const ScrubbedTabSchema = z.object({
+  id: z.number(),
+  url: z.string().url(),
+  title: z.string(),
+  favIconUrl: z.string().nullable().optional(),
+});
+
 export const SpaceCreateSchema = z.object({
   type: z.literal('SPACE_CREATE'),
   payload: z.object({
@@ -125,7 +132,7 @@ export const SpaceCreateSchema = z.object({
     color: z.string(),
     captureCurrentTabs: z.boolean(),
     createTabGroup: z.boolean(),
-    tabs: z.array(SpaceTabSchema).optional(),
+    tabs: z.array(z.union([SpaceTabSchema, ScrubbedTabSchema])).optional(),
   }),
   _meta: MetaSchema,
 });

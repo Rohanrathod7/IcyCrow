@@ -499,8 +499,8 @@ async function handleAiMessage(
 async function handleSpaceMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
   switch (message.type) {
     case 'SPACE_CREATE': {
-      const { name, color, captureCurrentTabs, createTabGroup } = message.payload;
-      const space = await spaceManager.createSpace(name, color, captureCurrentTabs, createTabGroup);
+      const { name, color, captureCurrentTabs, createTabGroup, tabs } = message.payload;
+      const space = await spaceManager.createSpace(name, color, captureCurrentTabs, createTabGroup, tabs);
       sendResponse({ ok: true, data: { space } });
       break;
     }

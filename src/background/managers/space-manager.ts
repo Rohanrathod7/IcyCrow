@@ -9,18 +9,36 @@ export class SpaceManager {
     let faviconBase64: string | null = null;
     
     if (tab.favIconUrl && tab.favIconUrl.startsWith('http')) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+
       try {
-        const response = await fetch(tab.favIconUrl);
+        const response = await fetch(tab.favIconUrl, { signal: controller.signal });
         if (response.ok) {
           const blob = await response.blob();
-          const reader = new FileReader();
-          faviconBase64 = await new Promise((resolve) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
+          
+          // [SIZE LIMIT]: Skip icons larger than 64KB to prevent storage/CPU bloat
+          if (blob.size > 65536) {
+            console.warn(`[IcyCrow] Skipping oversized favicon (${Math.round(blob.size/1024)}KB) for ${tab.url}`);
+            return {
+              id: crypto.randomUUID() as UUID,
+              url: tab.url || '',
+              title: tab.title || '',
+              favicon: null,
+              scrollPosition: 0,
+              chromeTabId: tab.id || null
+            };
+          }
+
+          const buffer = await blob.arrayBuffer();
+          // [PERFORMANCE]: O(n) conversion using join('') is much faster than reduce for binary strings
+          const binary = Array.from(new Uint8Array(buffer), (b) => String.fromCharCode(b)).join('');
+          faviconBase64 = `data:${blob.type};base64,${btoa(binary)}`;
         }
       } catch (err) {
-        console.warn(`[IcyCrow] Failed to serialize favicon for ${tab.url}:`, err);
+        console.warn(`[IcyCrow] Favicon capture timed out or failed for ${tab.url}`);
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
 
@@ -37,7 +55,7 @@ export class SpaceManager {
   /**
    * Creates a new space, optionally capturing current window tabs
    */
-  async createSpace(name: string, color: string, captureCurrentTabs: boolean, createTabGroup = false, tabs?: SpaceTab[]): Promise<Space> {
+  async createSpace(name: string, color: string, captureCurrentTabs: boolean, createTabGroup = false, tabs?: any[]): Promise<Space> {
     const spaces = await getSpaces();
     const spaceId = crypto.randomUUID() as UUID;
     const now = new Date().toISOString() as ISOTimestamp;
@@ -52,14 +70,31 @@ export class SpaceManager {
       createNativeGroup: createTabGroup
     };
 
+    let tabsToProcess: any[] = [];
     if (tabs && tabs.length > 0) {
-      newSpace.tabs = tabs;
+      tabsToProcess = tabs;
     } else if (captureCurrentTabs) {
-      const chromeTabs = await chrome.tabs.query({ currentWindow: true });
-      for (const tab of chromeTabs) {
-        newSpace.tabs.push(await this.serializeTab(tab));
-      }
+      tabsToProcess = await chrome.tabs.query({ currentWindow: true });
     }
+
+    // [PARALLEL SERIALIZATION]: Process all tabs simultaneously to prevent bottlenecks
+    const serializedTabs = await Promise.all(
+      tabsToProcess.map(async (tab) => {
+        const isInternalTab = tab.id && typeof tab.id === 'string' && tab.id.length >= 36 && 'favicon' in tab;
+        if (isInternalTab) {
+          return tab as SpaceTab;
+        } else {
+          try {
+            return await this.serializeTab(tab as chrome.tabs.Tab);
+          } catch (err) {
+            console.warn('[IcyCrow] Failed to serialize tab:', (tab as any).url, err);
+            return null;
+          }
+        }
+      })
+    );
+
+    newSpace.tabs = serializedTabs.filter((t): t is SpaceTab => t !== null);
 
     spaces[spaceId] = newSpace;
     await setSpaces(spaces);
@@ -85,30 +120,53 @@ export class SpaceManager {
     return (colorMap[hex.toLowerCase()] || 'grey') as chrome.tabGroups.Color;
   }
 
-  async restoreSpace(spaceId: UUID, createTabGroup = false): Promise<number> {
+  async restoreSpace(spaceId: UUID, createNativeGroup = false): Promise<number> {
     const spaces = await getSpaces();
     const space = spaces[spaceId];
     if (!space) return 0;
 
-    const tabIds: number[] = [];
-    
-    // [LOOP]: Sequential await to ensure IDs are captured reliably as per user request
-    for (const sTab of space.tabs) {
+    const allTabIds: number[] = [];
+    const backgroundTabIds: number[] = [];
+
+    // [BATCH CREATION]: Create all tabs immediately. First is active, rest background.
+    for (let i = 0; i < space.tabs.length; i++) {
+      const sTab = space.tabs[i];
       try {
         const tab = await chrome.tabs.create({
           url: sTab.url,
-          active: false
+          active: i === 0
         });
-        if (tab?.id) tabIds.push(tab.id);
+
+        if (tab?.id) {
+          allTabIds.push(tab.id);
+          // Only track for discard if it's a background tab and a discardable URL
+          if (i > 0 && sTab.url.startsWith('http')) {
+            backgroundTabIds.push(tab.id);
+          }
+        }
       } catch (err) {
         console.warn(`[IcyCrow] Failed to open tab ${sTab.url}:`, err);
       }
     }
 
-    if (createTabGroup && tabIds.length > 0) {
+    // [SINGLE TICK DELAY]: Wait for Chrome to register tabs before suspension
+    if (backgroundTabIds.length > 0) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // [BATCH DISCARD]: Suspend background tabs to save RAM/CPU
+      for (const id of backgroundTabIds) {
+        try {
+          await chrome.tabs.discard(id);
+        } catch (err) {
+          console.warn(`[IcyCrow] Failed to discard tab ${id}:`, err);
+        }
+      }
+    }
+
+    if (createNativeGroup && allTabIds.length > 0) {
       try {
         const groupId = await chrome.tabs.group({
-          tabIds: tabIds as [number, ...number[]]
+          tabIds: allTabIds as [number, ...number[]]
         });
 
         await chrome.tabGroups.update(groupId, {
@@ -116,12 +174,11 @@ export class SpaceManager {
           color: this.mapToTabGroupColor(space.color)
         });
       } catch (err) {
-        // [ERROR HANDLING]: Silent fail for grouping to prevent master crash
         console.error('[IcyCrow] Native Tab Grouping failed:', err);
       }
     }
 
-    return tabIds.length;
+    return allTabIds.length;
   }
 
   async deleteSpace(spaceId: UUID): Promise<boolean> {

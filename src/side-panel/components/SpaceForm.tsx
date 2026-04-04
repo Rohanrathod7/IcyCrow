@@ -116,35 +116,52 @@ IMPORTANT: Return ONLY the 2-3 word name. Do not include any conversational text
     }
 
     setIsSubmitting(true);
-    let capturedTabs: any[] | undefined = undefined;
+    setError(null);
+    setDuplicatesRemoved(0);
 
-    if (captureCurrentTabs) {
-      const rawTabs = await chrome.tabs.query({ currentWindow: true });
-      
-      // The Janitor Logic: Deduplicate by URL
-      const uniqueTabsMap = new Map();
-      rawTabs.forEach(tab => {
-        if (!tab.url) return;
-        // Normalize URL to handle trailing slashes
-        const normalizedUrl = tab.url.replace(/\/$/, '').toLowerCase();
-        if (!uniqueTabsMap.has(normalizedUrl)) {
-          uniqueTabsMap.set(normalizedUrl, tab);
+    try {
+      let capturedTabs: any[] | undefined = undefined;
+
+      if (captureCurrentTabs) {
+        console.log('[IcyCrow] Stage 1: Querying tabs...');
+        const rawTabs = await chrome.tabs.query({ currentWindow: true });
+        
+        // The Janitor Logic: Deduplicate by URL
+        const uniqueTabsMap = new Map();
+        rawTabs.forEach(tab => {
+          if (!tab.url) return;
+          const normalizedUrl = tab.url.replace(/\/$/, '').toLowerCase();
+          if (!uniqueTabsMap.has(normalizedUrl)) {
+            uniqueTabsMap.set(normalizedUrl, tab);
+          }
+        });
+
+        const uniqueTabs = Array.from(uniqueTabsMap.values());
+        const diff = rawTabs.length - uniqueTabs.length;
+        
+        if (diff > 0) {
+          setDuplicatesRemoved(diff);
+          await new Promise(resolve => setTimeout(resolve, 1400));
         }
-      });
-
-      const uniqueTabs = Array.from(uniqueTabsMap.values());
-      const diff = rawTabs.length - uniqueTabs.length;
-      
-      if (diff > 0) {
-        setDuplicatesRemoved(diff);
-        // Delay to allow user to see the "Janitor" feedback
-        await new Promise(resolve => setTimeout(resolve, 1400));
+        
+        capturedTabs = uniqueTabs.map(t => ({
+          id: t.id,
+          url: t.url,
+          title: t.title,
+          favIconUrl: t.favIconUrl
+        }));
       }
-      
-      capturedTabs = uniqueTabs;
-    }
 
-    onSubmit(name.trim(), color, { captureCurrentTabs, createTabGroup }, capturedTabs);
+      console.log('[IcyCrow] Stage 2: Background submission...');
+      await onSubmit(name.trim(), color, { captureCurrentTabs, createTabGroup }, capturedTabs);
+      console.log('[IcyCrow] Stage 3: Space created!');
+      
+    } catch (err: any) {
+      console.error('[IcyCrow] Creation failed:', err);
+      setError(`Failed to create Space: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -253,7 +270,7 @@ IMPORTANT: Return ONLY the 2-3 word name. Do not include any conversational text
           </div>
 
           <div className="flex-row items-center gap-12" style={{ marginTop: '12px', justifyContent: 'flex-end' }}>
-            {duplicatesRemoved !== null && (
+            {duplicatesRemoved !== null && duplicatesRemoved > 0 && (
               <div className="janitor-success">
                 <Sparkles size={14} className="sparkle-icon" />
                 <span>The Janitor cleaned up {duplicatesRemoved} duplicate{duplicatesRemoved === 1 ? '' : 's'}!</span>
