@@ -209,6 +209,7 @@ export interface SpaceTab {
   favicon: string | null;
   scrollPosition: number;
   chromeTabId: number | null;
+  activeTabId?: number; // Transient ID to bridge Chrome background events to saved state
 }
 
 export interface Space {
@@ -222,6 +223,9 @@ export interface Space {
 }
 
 export type SpacesStore = Record<UUID, Space>;
+
+/** WindowID -> SpaceID mapping for live sync tracking */
+export type ActiveWorkspaces = Record<number, UUID>;
 
 // chrome.storage.local: Highlights
 export interface TextQuoteAnchor {

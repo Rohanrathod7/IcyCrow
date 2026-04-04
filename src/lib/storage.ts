@@ -9,7 +9,9 @@ import type {
   IDBEmbedding,
   IDBAnnotation,
   ChatMessage,
-  SpatialData
+  SpatialData,
+  ActiveWorkspaces,
+  UUID
 } from './types';
 
 const mutex = new StorageMutex();
@@ -171,4 +173,38 @@ export async function getAllSpatialAnnotations(url: string): Promise<IDBAnnotati
   const db = await getDB();
   const allForUrl = await db.getAllFromIndex('annotations', 'url', url);
   return allForUrl.filter(a => a.type === 'spatial');
+}
+
+// Active Workspaces (WindowID -> SpaceID)
+export async function getActiveWorkspaces(): Promise<ActiveWorkspaces> {
+  try {
+    const result = await chrome.storage.local.get('activeWorkspaces');
+    return (result.activeWorkspaces as ActiveWorkspaces) || {};
+  } catch (err) {
+    console.error('[IcyCrow] getActiveWorkspaces error:', err);
+    return {};
+  }
+}
+
+export async function setActiveWorkspaces(data: ActiveWorkspaces): Promise<void> {
+  try {
+    await chrome.storage.local.set({ activeWorkspaces: data });
+  } catch (err) {
+    console.error('[IcyCrow] setActiveWorkspaces error:', err);
+    throw err;
+  }
+}
+
+/**
+ * Atomic update for a single window mapping.
+ * Set spaceId to null to remove the mapping.
+ */
+export async function updateActiveWorkspace(windowId: number, spaceId: UUID | null): Promise<void> {
+  const current = await getActiveWorkspaces();
+  if (spaceId === null) {
+    delete current[windowId];
+  } else {
+    current[windowId] = spaceId;
+  }
+  await setActiveWorkspaces(current);
 }
