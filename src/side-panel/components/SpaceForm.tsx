@@ -123,7 +123,6 @@ IMPORTANT: Return ONLY the 2-3 word name. Do not include any conversational text
       let capturedTabs: any[] | undefined = undefined;
 
       if (captureCurrentTabs) {
-        console.log('[IcyCrow] Stage 1: Querying tabs...');
         const rawTabs = await chrome.tabs.query({ currentWindow: true });
         
         // The Janitor Logic: Deduplicate by URL
@@ -152,9 +151,7 @@ IMPORTANT: Return ONLY the 2-3 word name. Do not include any conversational text
         }));
       }
 
-      console.log('[IcyCrow] Stage 2: Background submission...');
       await onSubmit(name.trim(), color, { captureCurrentTabs, createTabGroup }, capturedTabs);
-      console.log('[IcyCrow] Stage 3: Space created!');
       
     } catch (err: any) {
       console.error('[IcyCrow] Creation failed:', err);

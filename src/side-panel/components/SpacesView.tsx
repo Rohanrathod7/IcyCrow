@@ -242,7 +242,7 @@ export const SpacesView = () => {
           if (res.spaces) {
             spaces.value = res.spaces as SpacesStore;
           }
-        });
+        }).catch(err => console.error('[IcyCrow] Storage sync failed:', err));
       } else {
         // [ROOT CAUSE ESCAPE]: If SW returns !ok (e.g. Validation Error), we must throw to reset the UI
         const errorMsg = (response as any)?.error?.message || 'Background worker rejected the request';
