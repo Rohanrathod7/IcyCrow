@@ -12,9 +12,13 @@ import { saveArticle, saveEmbedding, getAllEmbeddings, saveBackupManifest } from
 import { validateExportPassword } from '@lib/export-worker';
 import { aiManager } from './managers/ai-manager';
 import { setupPdfInterceptor } from './managers/pdf-interceptor';
+import { syncManager } from './managers/sync-manager';
 import type { IDBArticle, UUID, ISOTimestamp, SpaceRestoreMsg } from '@lib/types';
 
 console.log('IcyCrow MV3 Service Worker installed.');
+
+// Initialize background sync engine
+syncManager.init().catch(err => console.error('[IcyCrow] SyncManager init failed:', err));
 
 /**
  * Handle hotkey commands
@@ -132,12 +136,18 @@ export async function handleMessage(
       case 'WINDOW_AI_QUERY':
       case 'AI_RESPONSE_STREAM':
       case 'EXPLAIN_TEXT_REQUEST':
+      case 'AI_INFER_CATEGORY':
         return await handleAiMessage(message, sendResponse, sender);
 
       case 'SPACE_CREATE':
       case 'SPACE_RESTORE':
       case 'SPACE_DELETE':
-      case 'SPACE_UPDATE':
+      case 'SPACE_SYNC_MANUAL_REQUEST':
+      case 'SPACE_ADD_ACTIVE_TAB':
+      case 'TAB_ADD_STANDALONE':
+      case 'TAB_ADD_MULTIPLE_STANDALONE':
+      case 'TAB_DELETE_STANDALONE':
+      case 'TAB_MOVE_TO_SPACE':
         return await handleSpaceMessage(message, sendResponse);
 
       default:
@@ -493,8 +503,73 @@ async function handleAiMessage(
       }
       break;
     }
+    case 'AI_INFER_CATEGORY': {
+      try {
+        const { titles } = message.payload;
+        if (!titles || titles.length === 0) {
+          return sendResponse({ ok: true, data: { category: null } });
+        }
+        
+        const prompt = `Categorize the following browser tab titles into a single short 1-3 word category name. Return ONLY the category name. Titles: ${titles.join(', ')}`;
+        
+        const isNanoReady = await aiManager.checkCapabilities();
+        if (isNanoReady) {
+          const result = await aiManager.queryBuiltIn(prompt, () => {});
+          return sendResponse({ ok: true, data: { category: result.trim().replace(/^["']|["']$/g, '') } });
+        }
+
+        const stateResult = await chrome.storage?.session?.get('sessionState');
+        const state = (stateResult?.sessionState as SessionState) || {};
+        let geminiIds = state.geminiTabIds || [];
+        if (state.manualGeminiTabId) {
+          geminiIds = [state.manualGeminiTabId, ...geminiIds.filter(id => id !== state.manualGeminiTabId)];
+        }
+
+        if (geminiIds.length === 0) {
+           return sendResponse({ ok: false, error: { code: 'NO_AI', message: 'No AI available' } });
+        }
+        
+        const taskId = crypto.randomUUID();
+        
+        // Wait for the bridge to finish streaming the response
+        const bridgeResult = await new Promise<string>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            chrome.runtime.onMessage.removeListener(listener);
+            reject(new Error('BRIDGE_TIMEOUT'));
+          }, 15000);
+
+          const listener = (msg: any) => {
+            if (msg.type === 'AI_RESPONSE_STREAM' && msg.payload.taskId === taskId) {
+              if (msg.payload.done) {
+                clearTimeout(timeout);
+                chrome.runtime.onMessage.removeListener(listener);
+                resolve(msg.payload.chunk || '');
+              } else if (msg.payload.error) {
+                clearTimeout(timeout);
+                chrome.runtime.onMessage.removeListener(listener);
+                reject(new Error(msg.payload.error));
+              }
+            }
+          };
+          chrome.runtime.onMessage.addListener(listener);
+
+          chrome.tabs.sendMessage(geminiIds[0], { type: 'AI_QUERY', payload: { prompt, taskId } })
+            .catch(err => {
+              clearTimeout(timeout);
+              chrome.runtime.onMessage.removeListener(listener);
+              reject(err);
+            });
+        });
+
+        sendResponse({ ok: true, data: { category: bridgeResult.trim().replace(/^["']|["']$/g, '') } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'INFER_ERROR', message: err.message } });
+      }
+      break;
+    }
   }
 }
+
 
 async function handleSpaceMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
   switch (message.type) {
@@ -518,6 +593,36 @@ async function handleSpaceMessage(message: ValidatedInboundMessage, sendResponse
     case 'SPACE_UPDATE': {
       const updated = await spaceManager.updateSpace(message.payload.spaceId, message.payload.updates);
       sendResponse({ ok: true, data: { updated } });
+      break;
+    }
+    case 'SPACE_SYNC_MANUAL_REQUEST': {
+      const synced = await spaceManager.syncManualSnapshot(message.payload.spaceId);
+      sendResponse({ ok: true, data: { synced } });
+      break;
+    }
+    case 'SPACE_ADD_ACTIVE_TAB': {
+      const result = await spaceManager.addActiveTabToSpace(message.payload.spaceId);
+      sendResponse({ ok: true, data: result });
+      break;
+    }
+    case 'TAB_ADD_STANDALONE': {
+      const result = await spaceManager.addActiveTabStandalone();
+      sendResponse({ ok: true, data: result });
+      break;
+    }
+    case 'TAB_ADD_MULTIPLE_STANDALONE': {
+      const result = await spaceManager.addMultipleTabsStandalone(message.payload.tabs);
+      sendResponse({ ok: true, data: result });
+      break;
+    }
+    case 'TAB_DELETE_STANDALONE': {
+      const deleted = await spaceManager.deleteStandaloneTab(message.payload.tabId);
+      sendResponse({ ok: true, data: { deleted } });
+      break;
+    }
+    case 'TAB_MOVE_TO_SPACE': {
+      const moved = await spaceManager.moveTabToSpace(message.payload.tabId, message.payload.spaceId);
+      sendResponse({ ok: true, data: { moved } });
       break;
     }
   }

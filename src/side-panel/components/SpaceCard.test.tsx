@@ -2,14 +2,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/preact';
 import { SpaceCard } from './SpaceCard';
-import { expandedSpaceId, updateSpaceName } from '../store';
+import { expandedSpaceId, updateSpaceConfig } from '../store';
 import type { Space, UUID, ISOTimestamp } from '../../lib/types';
 
 // Mock store
 vi.mock('../store', () => ({
   expandedSpaceId: { value: null },
-  updateSpaceName: vi.fn(),
+  updateSpaceConfig: vi.fn(),
   deleteSpace: vi.fn(),
+  addActiveTabToSpace: vi.fn().mockResolvedValue({ success: true }),
+  activeWorkspaces: { value: {} },
   spaces: { value: {} },
 }));
 
@@ -21,6 +23,8 @@ vi.mock('lucide-preact', () => ({
   Edit2: () => <div data-testid="icon-edit" />,
   Trash2: () => <div data-testid="icon-trash" />,
   X: () => <div data-testid="icon-x" />,
+  Plus: () => <div data-testid="icon-plus" />,
+  Check: () => <div data-testid="icon-check" />,
 }));
 
 describe('SpaceCard Component', () => {
@@ -88,7 +92,7 @@ describe('SpaceCard Component', () => {
     fireEvent.input(input, { target: { value: 'New Space Name' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     
-    expect(updateSpaceName).toHaveBeenCalledWith('space-1', 'New Space Name');
+    expect(updateSpaceConfig).toHaveBeenCalledWith('space-1', { name: 'New Space Name' });
   });
 
   it('renders the action icons: Restore (ArrowUpRight), Edit, Delete', () => {
@@ -109,5 +113,17 @@ describe('SpaceCard Component', () => {
     expandedSpaceId.value = 'other-space' as UUID;
     render(<SpaceCard {...defaultProps} />);
     expect(screen.queryByText('Tab 1')).toBeNull();
+  });
+
+  it('triggers addActiveTabToSpace when the plus button is clicked', async () => {
+    const { addActiveTabToSpace } = await import('../store');
+    render(<SpaceCard {...defaultProps} />);
+    
+    const plusBtn = screen.getByTestId('icon-plus').parentElement;
+    if (plusBtn) fireEvent.click(plusBtn);
+    
+    expect(addActiveTabToSpace).toHaveBeenCalledWith('space-1');
+    // After click, it should show check icon (micro-interaction)
+    expect(screen.getByTestId('icon-check')).toBeDefined();
   });
 });

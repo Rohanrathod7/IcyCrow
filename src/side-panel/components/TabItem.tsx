@@ -28,54 +28,53 @@ export const TabItem = memo(({ tab, containerId, onRemove, isOverlay = false }: 
   });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
-    opacity: isDragging && !isOverlay ? 0.3 : 1,
-    zIndex: isDragging ? 999 : 1,
+    opacity: isDragging ? 0 : 1,
+    zIndex: isDragging ? 9999 : 1,
     position: 'relative' as const,
   };
+
 
   return (
     <div 
       ref={setNodeRef}
       style={style}
-      className={`tab-row flex-row items-center justify-between ${isOverlay ? 'overlay' : ''}`}
+      className={`tab-row ${isOverlay ? 'overlay' : ''} ${isDragging ? 'is-dragging' : ''}`}
     >
-      <div className="flex-row items-center gap-8 overflow-hidden flex-1">
+      <div className="tab-info-group">
         <div 
-          className="drag-handle text-dim clickable-icon" 
+          className="drag-handle" 
           {...(attributes as any)} 
           {...listeners}
-          style={{ cursor: 'grab', padding: '4px 0' }}
         >
-          <GripVertical size={14} />
+          <GripVertical size={12} />
         </div>
 
         {tab.favicon ? (
           <img 
             src={tab.favicon} 
             className="tab-icon-small" 
-            style={{ width: '16px', height: '16px', borderRadius: '2px', flexShrink: 0 }} 
             onError={(e) => (e.currentTarget.style.display = 'none')}
+            alt=""
           />
         ) : (
-          <div data-testid="fallback-icon" style={{ flexShrink: 0, display: 'flex' }}>
-            <Globe size={16} className="text-dim" />
+          <div className="tab-icon-small flex center" data-testid="fallback-icon">
+            <Globe size={12} className="text-dim" />
           </div>
         )}
         <span 
-          className="tab-title small text-truncate" 
+          className="tab-title" 
           title={tab.title}
-          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: isOverlay ? '0' : '24px' }}
         >
           {tab.title}
         </span>
       </div>
       
       {!isOverlay && (
-        <div className="tab-remove-overlay">
+        <div className="tab-actions">
           <button 
-            className="btn-ghost-small danger"
+            className="tab-btn-remove"
             onClick={(e) => {
               e.stopPropagation();
               onRemove(tab.id);

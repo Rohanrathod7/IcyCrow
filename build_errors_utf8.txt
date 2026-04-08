@@ -1,0 +1,18 @@
+﻿
+> icycrow@0.1.0 build
+> tsc && vite build
+
+src/side-panel/components/SpacesView.tsx(109,20): error TS2304: Cannot find name 'calculateMove'.
+src/side-panel/components/SpacesView.tsx(116,22): error TS2304: Cannot find name 'calculateReorder'.
+src/side-panel/components/SpacesView.tsx(143,26): error TS2304: Cannot find name 'calculateReorder'.
+src/side-panel/components/SpacesView.tsx(146,26): error TS2304: Cannot find name 'calculateMove'.
+src/side-panel/components/SpacesView.tsx(216,9): error TS6133: 'handleCreateSpace' is declared but its value is never read.
+src/side-panel/components/SpacesView.tsx(218,7): error TS2304: Cannot find name 'currentAppStatus'.
+src/side-panel/components/SpacesView.tsx(229,9): error TS2304: Cannot find name 'currentAppStatus'.
+src/side-panel/components/SpacesView.tsx(233,9): error TS2304: Cannot find name 'setShowForm'.
+src/side-panel/components/SpacesView.tsx(236,9): error TS2304: Cannot find name 'activeSpaceId'.
+src/side-panel/components/SpacesView.tsx(237,9): error TS2304: Cannot find name 'activeView'.
+src/side-panel/components/SpacesView.tsx(238,9): error TS2304: Cannot find name 'expandedSpaceId'.
+src/side-panel/components/SpacesView.tsx(254,13): error TS2304: Cannot find name 'currentAppStatus'.
+src/side-panel/components/SpacesView.tsx(255,11): error TS2304: Cannot find name 'currentAppStatus'.
+src/side-panel/components/SpacesView.tsx(261,7): error TS2304: Cannot find name 'currentAppStatus'.

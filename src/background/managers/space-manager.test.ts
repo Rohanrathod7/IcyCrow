@@ -7,6 +7,9 @@ import { UUID } from '@lib/types';
 vi.mock('@lib/storage', () => ({
   getSpaces: vi.fn(),
   setSpaces: vi.fn(),
+  getActiveWorkspaces: vi.fn(),
+  setActiveWorkspaces: vi.fn(),
+  updateActiveWorkspace: vi.fn(),
 }));
 
 describe('SpaceManager', () => {
@@ -231,6 +234,34 @@ describe('SpaceManager', () => {
       expect(count).toBe(1);
       expect(chrome.tabs.create).toHaveBeenCalled();
     });
+
+    it('should register the window for live sync and inject activeTabIds', async () => {
+      const mockSpace = {
+        id: 's1' as UUID,
+        name: 'Sync Space',
+        tabs: [{ id: 't1' as UUID, url: 'https://site1.com' }]
+      } as any;
+      
+      (getSpaces as any).mockResolvedValue({ s1: mockSpace });
+      (chrome.tabs.create as any).mockResolvedValue({ id: 999, windowId: 55 });
+      (chrome.windows.getCurrent as any).mockResolvedValue({ id: 55 });
+      
+      await manager.restoreSpace('s1' as UUID);
+
+      // Verify window registration
+      const { updateActiveWorkspace } = await import('@lib/storage');
+      expect(updateActiveWorkspace).toHaveBeenCalledWith(55, 's1');
+
+      // Verify ID injection into persistence
+      expect(setSpaces).toHaveBeenCalledWith(expect.objectContaining({
+        s1: expect.objectContaining({
+          tabs: [expect.objectContaining({
+            id: 't1',
+            activeTabId: 999 // The new transient ID
+          })]
+        })
+      }));
+    });
   });
 
   describe('deleteSpace', () => {
@@ -255,6 +286,54 @@ describe('SpaceManager', () => {
       expect(setSpaces).toHaveBeenCalledWith(expect.objectContaining({
         s1: expect.objectContaining({ name: 'New', color: 'red' })
       }));
+    });
+  });
+
+  describe('addActiveTabToSpace', () => {
+    it('should add the currently active tab to the space', async () => {
+      const mockSpace = { id: 's1', name: 'Test', tabs: [] };
+      (getSpaces as any).mockResolvedValue({ s1: mockSpace });
+      (chrome.tabs.query as any).mockResolvedValue([{
+        id: 500,
+        url: 'https://new-tab.com',
+        title: 'New Tab',
+        favIconUrl: 'https://new-tab.com/icon.png'
+      }]);
+
+      const result = await manager.addActiveTabToSpace('s1');
+
+      expect(result.success).toBe(true);
+      expect(setSpaces).toHaveBeenCalledWith(expect.objectContaining({
+        s1: expect.objectContaining({
+          tabs: [expect.objectContaining({ url: 'https://new-tab.com' })]
+        })
+      }));
+    });
+
+    it('should prevent duplicate tabs based on URL', async () => {
+      const mockSpace = { 
+        id: 's1', 
+        name: 'Test', 
+        tabs: [{ url: 'https://exists.com', title: 'Existing' }] 
+      };
+      (getSpaces as any).mockResolvedValue({ s1: mockSpace });
+      (chrome.tabs.query as any).mockResolvedValue([{
+        url: 'https://exists.com',
+        title: 'Duplicate Title'
+      }]);
+
+      const result = await manager.addActiveTabToSpace('s1');
+
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe('duplicate');
+      expect(setSpaces).not.toHaveBeenCalled();
+    });
+
+    it('should handle cases where no active tab is found', async () => {
+      (chrome.tabs.query as any).mockResolvedValue([]);
+      const result = await manager.addActiveTabToSpace('s1');
+      expect(result.success).toBe(false);
+      expect(result.reason).toBe('no_active_tab');
     });
   });
 });

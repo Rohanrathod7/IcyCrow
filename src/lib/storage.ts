@@ -11,6 +11,7 @@ import type {
   ChatMessage,
   SpatialData,
   ActiveWorkspaces,
+  StandaloneTabsStore,
   UUID
 } from './types';
 
@@ -120,6 +121,44 @@ export async function setSpaces(spaces: SpacesStore): Promise<void> {
   } catch (err) {
     console.error('[IcyCrow] setSpaces error:', err);
     throw err;
+  }
+}
+
+// Standalone Tabs
+export async function getStandaloneTabs(): Promise<StandaloneTabsStore> {
+  try {
+    const result = await chrome.storage.local.get('standaloneTabs');
+    return (result.standaloneTabs as StandaloneTabsStore) || [];
+  } catch (err) {
+    console.error('[IcyCrow] getStandaloneTabs error:', err);
+    return [];
+  }
+}
+
+export async function setStandaloneTabs(tabs: StandaloneTabsStore): Promise<void> {
+  try {
+    await chrome.storage.local.set({ standaloneTabs: tabs });
+  } catch (err) {
+    console.error('[IcyCrow] setStandaloneTabs error:', err);
+    throw err;
+  }
+}
+
+// UI Preferences (Persistence)
+export async function getPreferredView(): Promise<'spaces' | 'tabs'> {
+  try {
+    const result = await chrome.storage.local.get('preferredView');
+    return (result.preferredView as 'spaces' | 'tabs') || 'spaces';
+  } catch (err) {
+    return 'spaces';
+  }
+}
+
+export async function setPreferredView(view: 'spaces' | 'tabs'): Promise<void> {
+  try {
+    await chrome.storage.local.set({ preferredView: view });
+  } catch (err) {
+    console.error('[IcyCrow] setPreferredView error:', err);
   }
 }
 

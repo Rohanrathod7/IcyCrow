@@ -1,41 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
-import { 
-  DndContext, 
-  DragOverlay, 
-  PointerSensor, 
-  useSensor, 
-  useSensors, 
-  closestCorners,
-  rectIntersection,
-  DragEndEvent,
-  DragOverEvent,
-  DragStartEvent,
-  defaultDropAnimationSideEffects,
-  CollisionDetection,
-  getFirstCollision
-} from '@dnd-kit/core';
+import { useEffect } from 'preact/hooks';
 import { sendToSW } from '../../lib/messaging';
-import { TabItem } from './TabItem';
 import { EmptyState } from './EmptyState';
-import { spaces, isLoading, currentAppStatus, activeSpaceId, activeView, expandedSpaceId, calculateReorder, calculateMove } from '../store';
+import { 
+  spaces, 
+  isLoading, 
+  draftSpaces
+} from '../store';
 import { SpaceCard } from './SpaceCard';
-import { SpaceForm } from './SpaceForm';
-import type { SpacesStore, UUID, SpaceTab } from '../../lib/types';
+import { SplitButton } from './SplitButton';
+import { TabSelectionModal } from './TabSelectionModal';
+import type { SpacesStore, UUID } from '../../lib/types';
 
 export const SpacesView = () => {
-  const [showForm, setShowForm] = useState(false);
-  const [activeTab, setActiveTab] = useState<SpaceTab | null>(null);
-  const [draftSpaces, setDraftSpaces] = useState<SpacesStore | null>(null);
-  const lastOverId = useRef<string | null>(null);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
-
   useEffect(() => {
     const fetchSpaces = async () => {
       try {
@@ -67,113 +43,6 @@ export const SpacesView = () => {
     };
   }, []);
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const activeId = active.id as string;
-    
-    // 1. Initialize draft from the source signal
-    setDraftSpaces({ ...spaces.value });
-
-    // 2. Find the tab being dragged in the signal (initial capture)
-    for (const space of Object.values(spaces.value)) {
-      const tab = space.tabs.find(t => t.id === activeId);
-      if (tab) {
-        setActiveTab(tab);
-        break;
-      }
-    }
-  };
-
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over || !draftSpaces) return;
-
-    const activeId = active.id as string;
-    const overId = over.id as string;
-
-    const activeSpace = findDraftContainer(activeId, draftSpaces);
-    const overSpace = draftSpaces[overId as UUID] ? overId : findDraftContainer(overId, draftSpaces);
-
-    if (!activeSpace || !overSpace) return;
-
-    if (activeSpace !== overSpace && lastOverId.current !== overSpace) {
-      const targetSpace = draftSpaces[overSpace as UUID];
-      if (!targetSpace) return;
-
-      const overIndex = draftSpaces[overId as UUID] 
-        ? targetSpace.tabs.length 
-        : targetSpace.tabs.findIndex(t => t.id === overId);
-
-      const safeIndex = overIndex === -1 ? targetSpace.tabs.length : overIndex;
-
-      const next = calculateMove(draftSpaces, activeId, activeSpace as UUID, overSpace as UUID, safeIndex);
-      if (next) {
-        setDraftSpaces(next);
-        lastOverId.current = overSpace;
-      }
-    } else if (activeId !== overId && activeSpace === overSpace) {
-      if (!draftSpaces[overId as UUID]) {
-        const next = calculateReorder(draftSpaces, overSpace as UUID, activeId, overId);
-        if (next) setDraftSpaces(next);
-      }
-    }
-  }, [draftSpaces]);
-
-  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
-    const { active, over } = event;
-    
-    if (draftSpaces) {
-      // 1. Finalize the move structure in the draft if needed
-      let finalState = { ...draftSpaces };
-      
-      if (over) {
-        const activeId = active.id as string;
-        const overId = over.id as string;
-        const activeSpace = findDraftContainer(activeId, finalState);
-        const overSpace = finalState[overId as UUID] ? overId : findDraftContainer(overId, finalState);
-
-        if (activeSpace && overSpace) {
-          const targetSpace = finalState[overSpace as UUID];
-          const overIndex = finalState[overId as UUID] 
-            ? targetSpace.tabs.length 
-            : targetSpace.tabs.findIndex(t => t.id === overId);
-          const safeIndex = overIndex === -1 ? targetSpace.tabs.length : overIndex;
-
-          if (activeSpace === overSpace) {
-            const next = calculateReorder(finalState, overSpace as UUID, activeId, overId);
-            if (next) finalState = next;
-          } else {
-            const next = calculateMove(finalState, activeId, activeSpace as UUID, overSpace as UUID, safeIndex);
-            if (next) finalState = next;
-          }
-        }
-      }
-
-      // 2. Commit the entire drag session in ONE SHOT to the global store & storage
-      spaces.value = finalState;
-      await chrome.storage.local.set({ spaces: finalState });
-    }
-
-    // 3. Cleanup
-    setActiveTab(null);
-    setDraftSpaces(null);
-    lastOverId.current = null;
-  }, [draftSpaces]);
-
-  const findDraftContainer = (id: string, store: SpacesStore) => {
-    if (id in store) return id;
-    for (const space of Object.values(store)) {
-      if (space.tabs.some(t => t.id === id)) return space.id;
-    }
-    return undefined;
-  };
-
-  // Internal helper for components (prioritizes draft during drag)
-  const findContainer = (id: string) => {
-    const current = draftSpaces || spaces.value;
-    return findDraftContainer(id, current);
-  };
-
   const handleRestore = async (spaceId: string) => {
     const space = spaces.value[spaceId as UUID];
     if (!space) return;
@@ -182,10 +51,10 @@ export const SpacesView = () => {
       await sendToSW({
         type: 'SPACE_RESTORE',
         payload: { 
-          spaceId,
+          spaceId: spaceId as UUID,
           createNativeGroup: space.createNativeGroup 
         }
-      } as any);
+      });
       
       // Also make it the active space in UI
       import('../store').then(m => {
@@ -202,8 +71,8 @@ export const SpacesView = () => {
     try {
       await sendToSW({
         type: 'SPACE_DELETE',
-        payload: { spaceId }
-      } as any);
+        payload: { spaceId: spaceId as UUID }
+      });
       
       const newSpaces = { ...spaces.value };
       delete newSpaces[spaceId as UUID];
@@ -213,138 +82,52 @@ export const SpacesView = () => {
     }
   };
 
-  const handleCreateSpace = async (name: string, color: string, { captureCurrentTabs, createTabGroup }: { captureCurrentTabs: boolean; createTabGroup: boolean }, tabs?: any[]) => {
-    try {
-      currentAppStatus.value = 'saving';
-      // [WATCHDOG]: Prevent infinite loader if background task hangs
-      const response = await Promise.race([
-        sendToSW({
-          type: 'SPACE_CREATE',
-          payload: { name, color, captureCurrentTabs, createTabGroup, tabs }
-        } as any),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Background timeout (15s)')), 15000))
-      ]);
-      
-      if (response && (response as any).ok) {
-        currentAppStatus.value = 'success';
-        const newSpace = (response as any).data.space;
-        
-        // [SYNC HAMMER]: Close form immediately and force state refresh
-        setShowForm(false);
-        
-        // Focus and expand new space
-        activeSpaceId.value = newSpace.id;
-        activeView.value = 'chat';
-        expandedSpaceId.value = newSpace.id;
-
-        // Manually refresh spaces list to be 100% sure the UI updates
-        chrome.storage.local.get('spaces').then(res => {
-          if (res.spaces) {
-            spaces.value = res.spaces as SpacesStore;
-          }
-        }).catch(err => console.error('[IcyCrow] Storage sync failed:', err));
-      } else {
-        // [ROOT CAUSE ESCAPE]: If SW returns !ok (e.g. Validation Error), we must throw to reset the UI
-        const errorMsg = (response as any)?.error?.message || 'Background worker rejected the request';
-        throw new Error(errorMsg);
-      }
-      
-      // Revert to idle after 1000ms
-      setTimeout(() => {
-        if (currentAppStatus.value === 'success') {
-          currentAppStatus.value = 'idle';
-        }
-      }, 1000);
-      
-    } catch (err) {
-      console.error('[IcyCrow] SpacesView Error:', err);
-      currentAppStatus.value = 'idle';
-    }
-  };
-
-
   return (
     <div className="view-container">
-      <div className="flex-row items-center" style={{ marginBottom: '16px' }}>
-        <h2 className="section-title" style={{ margin: 0 }}>Spaces</h2>
-        <button className="btn-primary small" onClick={() => setShowForm(true)}>+ New</button>
+      <SplitButton 
+        onMainClick={async () => {
+          const store = await import('../store');
+          store.saveCurrentSessionAsSpace();
+        }}
+        onChevronClick={async () => {
+          const store = await import('../store');
+          store.selectionModalState.value = { isOpen: true, mode: 'all', targetTabs: [] };
+        }}
+      />
+      <TabSelectionModal />
+
+      <div className="flex-row items-center justify-between" style={{ marginBottom: '24px', paddingBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+        <h2 className="section-title" style={{ margin: 0, fontSize: '1.1rem', letterSpacing: '-0.01em', fontWeight: 700 }}>Spaces</h2>
+        <button className="btn-primary small animate-fade-in" onClick={async () => {
+           const store = await import('../store');
+           store.selectionModalState.value = { isOpen: true, mode: 'none', targetTabs: [] };
+        }} title="Create a new workspace">+ New Space</button>
       </div>
 
-      {showForm && (
-        <SpaceForm 
-          onSubmit={handleCreateSpace} 
-          onCancel={() => setShowForm(false)} 
-        />
-      )}
 
-      <DndContext 
-        sensors={sensors}
-        collisionDetection={((args) => {
-          // 1. First find the container using Rect Intersection
-          const containerCollisions = rectIntersection({
-            ...args,
-            droppableContainers: args.droppableContainers.filter(ctr => draftSpaces && !!draftSpaces[ctr.id as UUID])
-          });
-          
-          let overId = getFirstCollision(containerCollisions, 'id');
 
-          // 2. If no direct container hit, use standard item collision
-          if (!overId) {
-             const intersections = closestCorners(args);
-             return intersections;
-          }
 
-          // 3. If we hit a container, find items IN that container
-          const intersections = closestCorners({
-            ...args,
-            droppableContainers: args.droppableContainers.filter(ctr => 
-              ctr.id === overId || 
-              (ctr.data.current?.containerId === overId)
-            )
-          });
-          
-          return intersections.length > 0 ? intersections : containerCollisions;
-        }) as CollisionDetection}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="bento-grid" style={{ gridTemplateColumns: '1fr' }}>
-          {(draftSpaces || spaces.value) && Object.values(draftSpaces || spaces.value).map(s => (
+      <div className="bento-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
+        {(draftSpaces.value || spaces.value) && Object.values(draftSpaces.value || spaces.value).map((s) => (
+          <div 
+            key={s.id} 
+            className="animate-slide-up" 
+          >
             <SpaceCard 
-              key={s.id} 
               space={s} 
               onRestore={handleRestore}
               onDelete={handleDelete}
             />
-          ))}
+          </div>
+        ))}
 
-          {Object.keys(spaces.value).length === 0 && !isLoading.value && (
-            <EmptyState onAction={() => setShowForm(true)} />
-          )}
-        </div>
-
-        <DragOverlay dropAnimation={{
-          sideEffects: defaultDropAnimationSideEffects({
-            styles: {
-              active: {
-                opacity: '0.5',
-              },
-            },
-          }),
-        }}>
-          {activeTab ? (
-            <div className="drag-overlay-container glass" style={{ width: '100%', pointerEvents: 'none' }}>
-              <TabItem 
-                tab={activeTab} 
-                containerId={findContainer(activeTab.id) as UUID || '' as UUID}
-                onRemove={() => {}} 
-                isOverlay 
-              />
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+        {Object.keys(spaces.value).length === 0 && !isLoading.value && (
+          <EmptyState onAction={async () => {
+            const store = await import('../store');
+            store.selectionModalState.value = { isOpen: true, mode: 'none', targetTabs: [] };
+          }} />
+        )}
+      </div>
     </div>
   );
 };

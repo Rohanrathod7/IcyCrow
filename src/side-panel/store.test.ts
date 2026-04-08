@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { 
   spaces, 
-  updateSpaceName, 
   removeTabFromSpace, 
   expandedSpaceId, 
   reorderTabsInSpace,
-  moveTabBetweenSpaces
+  moveTabBetweenSpaces,
+  updateSpaceConfig,
+  triggerManualSync
 } from './store';
 import type { Space, UUID } from '../lib/types';
 
@@ -52,22 +53,30 @@ describe('side-panel/store', () => {
     expandedSpaceId.value = null;
   });
 
-  describe('updateSpaceName', () => {
-    it('should update the space name in signal and persist via SW message', async () => {
+  describe('updateSpaceConfig', () => {
+    it('should update the syncMode in signal and persist via SW message', async () => {
       vi.mocked(sendToSW).mockResolvedValue({ ok: true });
       
-      await updateSpaceName(spaceId, 'New Name');
+      await updateSpaceConfig(spaceId, { syncMode: 'auto' });
       
-      expect(spaces.value[spaceId]?.name).toBe('New Name');
+      expect(spaces.value[spaceId]?.syncMode).toBe('auto');
       expect(sendToSW).toHaveBeenCalledWith({
         type: 'SPACE_UPDATE',
-        payload: { spaceId, updates: { name: 'New Name' } },
+        payload: { spaceId, updates: { syncMode: 'auto' } },
       });
     });
+  });
 
-    it('should revert or handle error if SW update fails', async () => {
-      // For now, the requirement just says "call updateSpaceName". 
-      // A robust implementation should handle failure, but let's stick to RED first.
+  describe('triggerManualSync', () => {
+    it('should send SPACE_SYNC_MANUAL_REQUEST to the SW', async () => {
+      vi.mocked(sendToSW).mockResolvedValue({ ok: true });
+      
+      await triggerManualSync(spaceId);
+      
+      expect(sendToSW).toHaveBeenCalledWith({
+        type: 'SPACE_SYNC_MANUAL_REQUEST',
+        payload: { spaceId },
+      });
     });
   });
 

@@ -220,9 +220,13 @@ export interface Space {
   updatedAt: ISOTimestamp;
   tabs: SpaceTab[];
   createNativeGroup: boolean;
+  syncMode?: 'auto' | 'manual';
 }
 
 export type SpacesStore = Record<UUID, Space>;
+
+/** Standalone tabs collection */
+export type StandaloneTabsStore = SpaceTab[];
 
 /** WindowID -> SpaceID mapping for live sync tracking */
 export type ActiveWorkspaces = Record<number, UUID>;
@@ -417,9 +421,14 @@ export type SpaceDeleteRes = ApiResponse<{ deleted: boolean }>;
 
 export type SpaceUpdateMsg = BaseMessage<'SPACE_UPDATE', {
   spaceId: UUID;
-  updates: Partial<Pick<Space, 'name' | 'color'>>;
+  updates: Partial<Pick<Space, 'name' | 'color' | 'syncMode'>>;
 }>;
 export type SpaceUpdateRes = ApiResponse<{ updated: boolean }>;
+
+export type SpaceSyncManualRequestMsg = BaseMessage<'SPACE_SYNC_MANUAL_REQUEST', {
+  spaceId: UUID;
+}>;
+export type SpaceSyncManualRequestRes = ApiResponse<{ synced: boolean }>;
 
 export type ArticleSaveMsg = BaseMessage<'ARTICLE_SAVE', {
   tabId: number;
@@ -523,6 +532,7 @@ export type InboundMessage =
   | SpaceRestoreMsg
   | SpaceDeleteMsg
   | SpaceUpdateMsg
+  | SpaceSyncManualRequestMsg
   | ArticleSaveMsg
   | SemanticSearchMsg
   | ScrapeContentMsg

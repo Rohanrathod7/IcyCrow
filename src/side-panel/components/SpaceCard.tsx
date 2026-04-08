@@ -1,8 +1,8 @@
-import { useState } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { memo } from 'preact/compat';
 import { Space, UUID } from '../../lib/types';
-import { expandedSpaceId, updateSpaceName, removeTabFromSpace } from '../store';
-import { ChevronDown, ChevronUp, ArrowUpRight, Edit2, Trash2 } from 'lucide-preact';
+import { expandedSpaceId, updateSpaceConfig, removeTabFromSpace, activeWorkspaces, triggerManualSync, addActiveTabToSpace } from '../store';
+import { ChevronDown, ChevronUp, ArrowUpRight, Edit2, Trash2, Save, MoreVertical, Plus, Check } from 'lucide-preact';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { TabItem } from './TabItem';
@@ -16,9 +16,25 @@ interface SpaceCardProps {
 export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(space.name);
+  const [showMenu, setShowMenu] = useState(false);
+  const [isJustSaved, setIsJustSaved] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (!showMenu) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMenu]);
   
   const isExpanded = expandedSpaceId.value === space.id;
   const tabCount = space.tabs?.length || 0;
+  // Live means it's mapped to ANY window (for pulse), but we could refine to "current window"
+  const isLive = Object.values(activeWorkspaces.value).includes(space.id);
 
   const { setNodeRef } = useDroppable({
     id: space.id,
@@ -30,17 +46,27 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
 
   const handleToggleExpand = (e: MouseEvent) => {
     e.stopPropagation();
-    expandedSpaceId.value = isExpanded ? null : space.id;
+    const expanding = !isExpanded;
+    expandedSpaceId.value = expanding ? space.id : null;
+    
+    // Add a temporary animation class to the card if opening
+    if (expanding && cardRef.current) {
+        cardRef.current.classList.add('is-opening');
+        setTimeout(() => {
+            cardRef.current?.classList.remove('is-opening');
+        }, 400); 
+    }
   };
 
   const handleRename = (e: MouseEvent) => {
     e.stopPropagation();
     setIsEditing(true);
+    setShowMenu(false);
   };
 
   const handleSaveName = async () => {
     if (editedName.trim() && editedName !== space.name) {
-      await updateSpaceName(space.id, editedName);
+      await updateSpaceConfig(space.id, { name: editedName });
     }
     setIsEditing(false);
   };
@@ -55,7 +81,10 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
 
   const handleDeleteClick = (e: MouseEvent) => {
     e.stopPropagation();
-    onDelete(space.id);
+    if (confirm(`Delete space "${space.name}"?`)) {
+        onDelete(space.id);
+    }
+    setShowMenu(false);
   };
 
   const handleRestoreClick = (e: MouseEvent) => {
@@ -63,29 +92,83 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
     onRestore(space.id);
   };
 
+  const handleSyncModeChange = async (mode: 'auto' | 'manual', e: MouseEvent) => {
+    e.stopPropagation();
+    await updateSpaceConfig(space.id, { syncMode: mode });
+  };
+
+  const handleManualSync = async (e: MouseEvent) => {
+    e.stopPropagation();
+    await triggerManualSync(space.id);
+    setShowMenu(false);
+  };
+
   const handleRemoveTab = async (tabId: UUID) => {
     await removeTabFromSpace(space.id, tabId);
   };
 
+  const toggleMenu = (e: MouseEvent) => {
+    e.stopPropagation();
+    setShowMenu(!showMenu);
+  };
+
+  const [saveResult, setSaveResult] = useState<'success' | 'duplicate' | 'restricted' | 'no_active_tab' | 'storage_error' | null>(null);
+
+  const handleQuickAdd = async (e: MouseEvent) => {
+    e.stopPropagation();
+    if (isJustSaved || saveResult) return;
+
+    try {
+      const result = await addActiveTabToSpace(space.id);
+      if (result.success) {
+        setSaveResult(result.reason === 'duplicate' ? 'duplicate' : 'success');
+        setIsJustSaved(true);
+        setTimeout(() => {
+          setIsJustSaved(false);
+          setSaveResult(null);
+        }, 1500);
+      } else {
+        const failureReason = result.reason as any;
+        setSaveResult(failureReason);
+        console.error(`[IcyCrow] Quick Add failed in UI: ${failureReason}`);
+        setTimeout(() => setSaveResult(null), 3000); // Longer for errors
+      }
+    } catch (err) {
+      setSaveResult('storage_error');
+      setTimeout(() => setSaveResult(null), 3000);
+    }
+  };
+
+  const getQuickAddTitle = () => {
+    if (saveResult === 'success') return 'Added!';
+    if (saveResult === 'duplicate') return 'Already Saved';
+    if (saveResult === 'restricted') return 'Settings/System pages cannot be saved';
+    if (saveResult === 'no_active_tab') return 'Error: No active tab found. Try focusing the browser window first.';
+    if (saveResult === 'storage_error') return 'Storage Error: Could not save tab.';
+    return 'Quick Add Active Tab';
+  };
+
   return (
     <div 
-      ref={setNodeRef}
-      className={`bento-item ${isExpanded ? 'expanded' : ''}`}
-      data-testid={`space-card-${space.id}`}
-      style={{ borderLeft: `6px solid ${space.color || 'var(--accent-primary)'}` }}
+      ref={(el) => {
+        setNodeRef(el);
+        (cardRef as any).current = el;
+      }}
+      className={`space-card ${isExpanded ? 'expanded' : ''} ${isLive ? 'live-border' : ''}`}
+      data-test-id={`space-card-${space.id}`}
+      style={{ 
+        borderLeftColor: space.color || 'var(--accent-primary)',
+        zIndex: showMenu ? 100 : undefined 
+      }}
     >
-      <div className="flex-col gap-12">
-        <div 
-          className="flex-row items-center header-row clickable" 
-          onClick={handleToggleExpand}
-          style={{ cursor: 'pointer' }}
-        >
-          <div className="flex-row items-center gap-3 flex-1">
+      <div className="flex-col gap-8">
+        <div className="space-card-header">
+          <div className="space-card-title-group" onClick={handleToggleExpand}>
             <div className="chevron-icon">
-              {isExpanded ? <ChevronUp size={18} className="text-gray-400 mt-0.5" /> : <ChevronDown size={18} className="text-gray-400 mt-0.5" />}
+              {isExpanded ? <ChevronUp size={14} className="text-dim" /> : <ChevronDown size={14} className="text-dim" />}
             </div>
             
-            <div className="flex-col items-start leading-tight flex-1 overflow-hidden">
+            <div className="flex-row items-center gap-2 min-width-0">
               {isEditing ? (
                 <input 
                   autoFocus
@@ -95,39 +178,76 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
                   onBlur={handleSaveName}
                   onKeyDown={handleKeyDown}
                   onClick={(e) => e.stopPropagation()}
-                  style={{ width: '100%' }}
                 />
               ) : (
-                <div className="flex-row items-center gap-2">
-                  <span className="font-semibold text-white text-truncate" style={{ fontSize: '1rem' }}>{space.name}</span>
-                  <span className="space-tab-badge">{tabCount} tabs</span>
-                </div>
+                <span className="font-semibold text-white text-truncate" style={{ fontSize: '0.875rem' }}>
+                    {space.name}
+                </span>
               )}
+              {isLive && <div className="pulse-dot-mini" />}
+              <div className="badge-pill-count">
+                  {tabCount}
+              </div>
             </div>
           </div>
           
-          <div className="flex-row gap-4 action-group">
+          <div className="flex-row items-center gap-2 no-shrink">
             <button 
-              className="btn-ghost-premium"
+              className={`btn-ghost-small ${isJustSaved ? 'text-green-400 animate-scale-up' : ''} ${saveResult === 'restricted' ? 'text-red-400' : ''}`}
+              onClick={handleQuickAdd}
+              title={getQuickAddTitle()}
+            >
+              {isJustSaved ? <Check size={14} /> : <Plus size={14} />}
+            </button>
+
+            <button 
+              className="btn-ghost-small"
               onClick={handleRestoreClick}
-              title="Restore Space (Suspended Mode for memory efficiency)"
+              title="Restore"
             >
-              <ArrowUpRight size={18} />
+              <ArrowUpRight size={14} />
             </button>
-            <button 
-              className="btn-ghost-premium"
-              onClick={handleRename}
-              title="Rename Space"
-            >
-              <Edit2 size={16} />
-            </button>
-            <button 
-              className="btn-ghost-premium danger"
-              onClick={handleDeleteClick}
-              title="Delete Space"
-            >
-              <Trash2 size={16} />
-            </button>
+            
+            <div className="relative">
+              <button 
+                className={`btn-ghost-small ${showMenu ? 'active' : ''}`}
+                onClick={toggleMenu}
+                title="Options"
+              >
+                <MoreVertical size={14} />
+              </button>
+              
+              {showMenu && (
+                <div className="dropdown-menu-glass glass-card">
+                  <div className="menu-section">
+                    <div className="menu-label">Sync Mode</div>
+                    <div className="segmented-control tiny">
+                        <div 
+                            className="segment-slider" 
+                            style={{ 
+                                width: 'calc(50% - 2px)', 
+                                transform: `translateX(${space.syncMode === 'auto' ? '0' : '100%'})` 
+                            }} 
+                        />
+                        <div className={`segment-item ${space.syncMode === 'auto' ? 'active' : ''}`} onClick={(e) => handleSyncModeChange('auto', e)}>Auto</div>
+                        <div className={`segment-item ${space.syncMode !== 'auto' ? 'active' : ''}`} onClick={(e) => handleSyncModeChange('manual', e)}>Man</div>
+                    </div>
+                    {space.syncMode !== 'auto' && isLive && (
+                        <button className="menu-item-btn" onClick={handleManualSync}>
+                            <Save size={12} /> Snapshot Now
+                        </button>
+                    )}
+                  </div>
+                  <div className="menu-divider" />
+                  <button className="menu-item-btn" onClick={handleRename}>
+                    <Edit2 size={12} /> Rename
+                  </button>
+                  <button className="menu-item-btn danger" onClick={handleDeleteClick}>
+                    <Trash2 size={12} /> Delete
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -112,8 +112,6 @@ export const ChatView = () => {
   }, []);
 
   const handleSendMessage = (content: string) => {
-    if (!activeSpaceId.value) return;
-
     const taskId = crypto.randomUUID() as UUID;
     const timestamp = new Date().toISOString() as ISOTimestamp;
 
@@ -131,8 +129,10 @@ export const ChatView = () => {
     currentAppStatus.value = 'thinking';
     setShowPicker(false);
 
-    // Persist to local storage
-    appendChatMessage(activeSpaceId.value, newMessage);
+    // Persist to local storage ONLY if space is active
+    if (activeSpaceId.value) {
+      appendChatMessage(activeSpaceId.value, newMessage);
+    }
 
     if (chatEngine.value === 'window.ai') {
       aiManager.queryBuiltIn(content, (chunk) => {
@@ -171,10 +171,19 @@ export const ChatView = () => {
         payload: {
           taskId,
           prompt: content,
-          spaceId: activeSpaceId.value,
+          spaceId: activeSpaceId.value || 'global-chat',
           timestamp
         }
       });
+    }
+  };
+
+  const handleFocusBridge = () => {
+    if (connectedTab?.id) {
+       chrome.tabs.get(connectedTab.id).then(tab => {
+          chrome.windows.update(tab.windowId, { focused: true });
+          chrome.tabs.update(tab.id, { active: true });
+       });
     }
   };
 
@@ -198,18 +207,31 @@ export const ChatView = () => {
           <option value="window.ai">Gemini Nano (Local)</option>
         </select>
         {chatEngine.value === 'gemini' && (
-          <div className="bridge-status-mini" style={{ 
-            fontSize: '10px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '4px',
-            opacity: 0.8
-          }}>
+          <button 
+            className="bridge-status-mini-btn" 
+            onClick={handleFocusBridge}
+            disabled={!connectedTab}
+            title={connectedTab ? `Connected: ${connectedTab.title}\nClick to focus tab` : "No Bridge Connected"}
+            style={{ 
+              fontSize: '10px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '4px',
+              opacity: 0.8,
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              padding: '2px 8px',
+              borderRadius: '20px',
+              cursor: connectedTab ? 'pointer' : 'default',
+              color: 'var(--text-main)'
+            }}
+          >
             <span style={{ color: connectedTab ? '#22c55e' : '#ef4444' }}>●</span>
-            <span className="truncate" style={{ maxWidth: '120px' }}>
-              {connectedTab ? connectedTab.title : 'No Bridge Connected'}
+            <span className="truncate" style={{ maxWidth: '100px', fontWeight: 600 }}>
+              {connectedTab ? connectedTab.title : 'Offline'}
             </span>
-          </div>
+            {connectedTab && <span style={{ fontSize: '9px', opacity: 0.6 }}>🌐</span>}
+          </button>
         )}
         <button 
           className="btn-ghost" 
@@ -227,22 +249,10 @@ export const ChatView = () => {
       )}
 
       <div className="chat-messages-list">
-        {!activeSpaceId.value ? (
-          <div className="empty-state glass-card" style={{ margin: '20px', padding: '20px', textAlign: 'center' }}>
-            <p className="text-dim">No space selected.</p>
-            <p style={{ fontSize: '0.85em', margin: '8px 0 16px 0' }}>Chat history and context are tied to specific spaces.</p>
-            <button 
-              className="btn-primary small" 
-              onClick={() => {
-                import('../store').then(m => m.activeView.value = 'spaces');
-              }}
-            >
-              Go to Spaces
-            </button>
-          </div>
-        ) : chatMessages.value.length === 0 ? (
-          <div className="text-dim" style={{ textAlign: 'center', marginTop: '20px' }}>
-            No messages yet. Ask Gemini about your open tabs!
+        {chatMessages.value.length === 0 ? (
+          <div className="text-dim" style={{ textAlign: 'center', marginTop: '40px', padding: '0 20px', fontSize: '0.9rem' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '16px', opacity: 0.5 }}>💬</div>
+            No messages yet. {activeSpaceId.value ? 'Ask Gemini about this space!' : 'Select a Space to persist your chat.'}
           </div>
         ) : (
           chatMessages.value.map((msg) => (
@@ -260,7 +270,7 @@ export const ChatView = () => {
           </div>
         )}
       </div>
-      <ChatInput onSubmit={handleSendMessage} disabled={isLoading.value || !activeSpaceId.value} />
+      <ChatInput onSubmit={handleSendMessage} disabled={isLoading.value} />
     </div>
   );
 };

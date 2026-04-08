@@ -161,7 +161,25 @@ export const SpaceUpdateSchema = z.object({
     updates: z.object({
       name: z.string().optional(),
       color: z.string().optional(),
+      syncMode: z.enum(['auto', 'manual']).optional(),
+      tabs: z.array(SpaceTabSchema).optional(),
     }),
+  }),
+  _meta: MetaSchema,
+});
+
+export const SpaceSyncManualRequestSchema = z.object({
+  type: z.literal('SPACE_SYNC_MANUAL_REQUEST'),
+  payload: z.object({
+    spaceId: UUIDSchema,
+  }),
+  _meta: MetaSchema,
+});
+
+export const SpaceAddActiveTabSchema = z.object({
+  type: z.literal('SPACE_ADD_ACTIVE_TAB'),
+  payload: z.object({
+    spaceId: UUIDSchema,
   }),
   _meta: MetaSchema,
 });
@@ -258,6 +276,46 @@ export const ExplainTextRequestSchema = z.object({
   _meta: MetaSchema,
 });
 
+export const AiInferCategorySchema = z.object({
+  type: z.literal('AI_INFER_CATEGORY'),
+  payload: z.object({
+    titles: z.array(z.string()),
+  }),
+  _meta: MetaSchema,
+});
+
+
+export const TabAddStandaloneSchema = z.object({
+  type: z.literal('TAB_ADD_STANDALONE'),
+  payload: z.undefined(),
+  _meta: MetaSchema,
+});
+
+export const TabAddMultipleStandaloneSchema = z.object({
+  type: z.literal('TAB_ADD_MULTIPLE_STANDALONE'),
+  payload: z.object({
+    tabs: z.array(z.any()), // Can be refined to a basic tab schema if needed
+  }),
+  _meta: MetaSchema,
+});
+
+export const TabDeleteStandaloneSchema = z.object({
+  type: z.literal('TAB_DELETE_STANDALONE'),
+  payload: z.object({
+    tabId: UUIDSchema,
+  }),
+  _meta: MetaSchema,
+});
+
+export const TabMoveToSpaceSchema = z.object({
+  type: z.literal('TAB_MOVE_TO_SPACE'),
+  payload: z.object({
+    tabId: UUIDSchema,
+    spaceId: UUIDSchema,
+  }),
+  _meta: MetaSchema,
+});
+
 export const InboundMessageSchema = z.discriminatedUnion('type', [
   HighlightCreateSchema,
   HighlightDeleteSchema,
@@ -270,6 +328,7 @@ export const InboundMessageSchema = z.discriminatedUnion('type', [
   SpaceRestoreSchema,
   SpaceDeleteSchema,
   SpaceUpdateSchema,
+  SpaceSyncManualRequestSchema,
   ArticleSaveSchema,
   SemanticSearchSchema,
   ScrapeContentSchema,
@@ -281,6 +340,12 @@ export const InboundMessageSchema = z.discriminatedUnion('type', [
   WindowAiQuerySchema,
   ManualRegisterBridgeSchema,
   ExplainTextRequestSchema,
+  AiInferCategorySchema,
+  SpaceAddActiveTabSchema,
+  TabAddStandaloneSchema,
+  TabAddMultipleStandaloneSchema,
+  TabDeleteStandaloneSchema,
+  TabMoveToSpaceSchema,
 ]);
 
 export type ValidatedInboundMessage = z.infer<typeof InboundMessageSchema>;

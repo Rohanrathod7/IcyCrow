@@ -12,11 +12,11 @@ export const SearchView = () => {
 
     isLoading.value = true;
     try {
-      const results = await sendToSW<any[]>({
+      const response = await sendToSW<any[]>({
         type: 'SEMANTIC_SEARCH',
-        payload: { query: query.trim() }
-      } as any);
-      searchResults.value = results || [];
+        payload: { query: query.trim(), topK: 10 }
+      });
+      searchResults.value = response.data || [];
     } catch (err) {
       console.error('Search failed:', err);
       error.value = 'Search failed. Check your connection to the background worker.';

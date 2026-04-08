@@ -2,8 +2,15 @@ import type { ValidatedInboundMessage } from './zod-schemas';
 
 /**
  * Type-safe interface for sending messages to the Service Worker.
- * Automatically casts the response to the generic type T.
+ * Automatically injects required metadata and casts the response.
  */
-export async function sendToSW<T>(message: ValidatedInboundMessage): Promise<T> {
-  return chrome.runtime.sendMessage(message) as Promise<T>;
+export async function sendToSW<T>(message: Omit<ValidatedInboundMessage, '_meta'>): Promise<{ ok: boolean; data?: T; error?: any }> {
+  const messageWithMeta = {
+    ...message,
+    _meta: {
+      senderId: 'side-panel',
+      timestamp: new Date().toISOString(),
+    },
+  };
+  return chrome.runtime.sendMessage(messageWithMeta);
 }
