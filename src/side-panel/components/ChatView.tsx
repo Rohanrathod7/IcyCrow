@@ -1,15 +1,30 @@
-import { useState, useEffect } from 'preact/hooks';
+import { Cloud, Cpu, Sparkles, ChevronDown } from 'lucide-preact';
+import { useRef, useState, useEffect } from 'preact/hooks';
 import { aiManager } from '@bg/managers/ai-manager';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ContextPicker } from './ContextPicker';
+import { BridgeSelector } from './BridgeSelector';
 import { chatMessages, isLoading, selectedContextTabs, chatEngine, activeSpaceId, currentAppStatus } from '../store';
 import { appendChatMessage } from '@lib/storage';
-import type { UUID, ISOTimestamp, InboundMessage, SessionState } from '@lib/types';
+import type { UUID, ISOTimestamp, InboundMessage } from '@lib/types';
+
 
 export const ChatView = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
   const [showPicker, setShowPicker] = useState(false);
-  const [connectedTab, setConnectedTab] = useState<{ title: string; url: string; id: number } | null>(null);
 
   const handleIncomingPrompt = async (payload: { text: string; action: string; pdfTitle?: string }) => {
     // [PROMPT ROUTING]: Format based on action type
@@ -44,17 +59,7 @@ export const ChatView = () => {
 
   useEffect(() => {
     const fetchInitialStatus = async () => {
-      const res = await chrome.storage.session.get('sessionState');
-      const state = (res.sessionState as SessionState) || {};
-      const targetId = state.manualGeminiTabId || (state.geminiTabIds?.[0] || state.geminiTabId);
-      if (targetId) {
-        try {
-          const tab = await chrome.tabs.get(targetId);
-          if (tab) setConnectedTab({ title: tab.title || 'Gemini', url: tab.url || '', id: tab.id! });
-        } catch (e) {
-          console.warn('[ChatView] Failed to fetch initial bridge tab:', e);
-        }
-      }
+      // Logic moved to BridgeSelector
     };
     fetchInitialStatus();
 
@@ -67,7 +72,7 @@ export const ChatView = () => {
         if (!taskId) return;
         
         if (tabInfo) {
-          setConnectedTab(tabInfo);
+          // Handled by BridgeSelector/Store
         }
         
         // Find existing assistant message for this task or create one
@@ -171,74 +176,115 @@ export const ChatView = () => {
         payload: {
           taskId,
           prompt: content,
-          spaceId: activeSpaceId.value || 'global-chat',
+          spaceId: activeSpaceId.value,
           timestamp
+        }
+      }).then((res) => {
+        if (res && !res.ok) {
+          console.error('[IcyCrow] Query routing failed:', res.error);
+          isLoading.value = false;
+          currentAppStatus.value = 'idle';
+          
+          // Inject a system error message
+          chatMessages.value = [...chatMessages.value, {
+            id: crypto.randomUUID() as UUID,
+            role: 'assistant',
+            content: `⚠️ Error: ${res.error?.message || 'Could not connect to Gemini bridge.'}`,
+            timestamp: new Date().toISOString() as ISOTimestamp,
+            contextTabIds: [],
+            taskId
+          }];
         }
       });
     }
   };
 
-  const handleFocusBridge = () => {
-    if (connectedTab?.id) {
-       chrome.tabs.get(connectedTab.id).then(tab => {
-          chrome.windows.update(tab.windowId, { focused: true });
-          chrome.tabs.update(tab.id, { active: true });
-       });
-    }
-  };
+  // handleFocusBridge removed in favor of manual selection in BridgeSelector
 
   return (
-    <div className="chat-view">
+    <div className="chat-view" ref={containerRef}>
       <div className="chat-header glass-card" style={{ 
         display: 'flex', 
-        justifyContent: 'space-between', 
-        padding: '10px 16px',
+        alignItems: 'center',
+        padding: '6px 12px', /* Slightly more horizontal padding */
         margin: '10px 16px 0 16px',
-        borderRadius: '12px'
+        borderRadius: '12px',
+        gap: '8px' /* Reduced gap for compact header */
       }}>
-        <select 
-          className="engine-select btn-ghost" 
-          data-testid="engine-selector"
-          value={chatEngine.value}
-          onChange={(e) => chatEngine.value = (e.target as HTMLSelectElement).value as any}
-          style={{ border: 'none', background: 'transparent', outline: 'none' }}
-        >
-          <option value="gemini">Gemini Bridge (Cloud)</option>
-          <option value="window.ai">Gemini Nano (Local)</option>
-        </select>
-        {chatEngine.value === 'gemini' && (
-          <button 
-            className="bridge-status-mini-btn" 
-            onClick={handleFocusBridge}
-            disabled={!connectedTab}
-            title={connectedTab ? `Connected: ${connectedTab.title}\nClick to focus tab` : "No Bridge Connected"}
+        {/* 1. Engine Selector (Fixed Width) */}
+        <div className="engine-selector-pill" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 8px',
+          background: 'rgba(255,255,255,0.05)',
+          borderRadius: '8px',
+          position: 'relative',
+          cursor: 'pointer',
+          flexShrink: 0
+        }}>
+          {chatEngine.value === 'gemini' ? <Cloud size={14} style={{ color: 'var(--accent-primary)' }} /> : <Cpu size={14} style={{ color: 'var(--accent-secondary)' }} />}
+          <span style={{ 
+            fontSize: '11px', 
+            fontWeight: 600,
+            display: width < 320 ? 'none' : 'block' /* Hide label earlier at 320px */
+          }}>
+            {chatEngine.value === 'gemini' ? 'Cloud' : 'Local'}
+          </span>
+          <ChevronDown size={10} style={{ opacity: 0.5 }} />
+          <select 
+            className="engine-select-overlay" 
+            value={chatEngine.value}
+            onChange={(e) => chatEngine.value = (e.target as HTMLSelectElement).value as any}
             style={{ 
-              fontSize: '10px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '4px',
-              opacity: 0.8,
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              padding: '2px 8px',
-              borderRadius: '20px',
-              cursor: connectedTab ? 'pointer' : 'default',
-              color: 'var(--text-main)'
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              opacity: 0,
+              cursor: 'pointer'
             }}
           >
-            <span style={{ color: connectedTab ? '#22c55e' : '#ef4444' }}>●</span>
-            <span className="truncate" style={{ maxWidth: '100px', fontWeight: 600 }}>
-              {connectedTab ? connectedTab.title : 'Offline'}
-            </span>
-            {connectedTab && <span style={{ fontSize: '9px', opacity: 0.6 }}>🌐</span>}
-          </button>
+            <option value="gemini">Gemini Cloud</option>
+            <option value="window.ai">Gemini Nano (Local)</option>
+          </select>
+        </div>
+        
+        {/* 2. Bridge Selector (Flexible Middle) */}
+        {chatEngine.value === 'gemini' ? (
+          <div style={{ 
+            flex: 1, 
+            minWidth: 0, 
+            display: 'flex', 
+            justifyContent: 'flex-start', /* Align to left on wide screens */
+            gap: width < 300 ? '4px' : '8px' 
+          }}>
+            <BridgeSelector compact={width < 320} width={width} />
+          </div>
+        ) : (
+          <div style={{ flex: 1 }} /> /* Spacer for local engine */
         )}
+
+        {/* 3. Context Button (Fixed Width) */}
         <button 
           className="btn-ghost" 
           onClick={() => setShowPicker(!showPicker)}
-          style={{ background: showPicker ? 'var(--glass-bg)' : 'transparent' }}
+          style={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: showPicker ? 'var(--glass-bg)' : 'transparent',
+            padding: '6px 10px',
+            borderRadius: '8px',
+            fontSize: '11px',
+            fontWeight: 600,
+            flexShrink: 0,
+            marginLeft: 'auto' /* Extra insurance for right-alignment */
+          }}
         >
-          {showPicker ? 'Close Context' : '✨ Context'}
+          <Sparkles size={14} style={{ color: showPicker ? 'var(--accent-primary)' : 'inherit', flexShrink: 0 }} />
+          {width > 360 && <span style={{ flexShrink: 0 }}>Context</span>}
         </button>
       </div>
 
@@ -262,15 +308,13 @@ export const ChatView = () => {
         {isLoading.value && (
           <div className="chat-message assistant loading" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
             <span className="dot-flashing">...</span>
-            {connectedTab && (
-              <div className="text-dim" style={{ fontSize: '11px', marginTop: '6px', opacity: 0.8 }}>
-                📡 Linked to: <strong>{connectedTab.title}</strong>
-              </div>
-            )}
           </div>
         )}
       </div>
-      <ChatInput onSubmit={handleSendMessage} disabled={isLoading.value} />
+      <ChatInput 
+        onSubmit={handleSendMessage} 
+        isGenerating={isLoading.value} 
+      />
     </div>
   );
 };

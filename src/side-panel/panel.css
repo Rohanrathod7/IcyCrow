@@ -210,11 +210,67 @@ button:active {
   transform: scale(0.98);
 }
 
+.btn-ghost {
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--text-main);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-ghost:active {
+  transform: scale(0.95);
+}
+
+.engine-select-overlay {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: transparent;
+}
+
+.engine-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='white' opacity='0.5' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px !important;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.engine-select:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
 /* Chat Interface */
 .chat-view {
   display: flex;
   flex-direction: column;
   height: 100%;
+}
+
+.chat-header.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 15px -2px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+  overflow: visible; /* Removing hidden overflow to allow dropdowns */
 }
 
 .chat-messages-list {
@@ -232,6 +288,7 @@ button:active {
   border-radius: 12px;
   line-height: 1.5;
   font-size: 0.95em;
+  position: relative;
 }
 
 .chat-message.user {
@@ -1054,6 +1111,37 @@ button:active {
   display: flex;
   justify-content: space-between;
   pointer-events: none; /* Allow clicks through the row itself */
+}
+
+.nav-icon-row-bridge.bridge-status-container {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1px;
+  gap: 0px; /* Tighter gap for the bridge group */
+  min-width: 0;
+  flex: 1;
+}
+
+.engine-selector-pill {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+}
+
+.engine-selector-pill:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .nav-icon-row-bridge button {
