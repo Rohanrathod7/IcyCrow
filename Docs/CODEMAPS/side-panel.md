@@ -1,4 +1,4 @@
-[LAST UPDATED: 2026-04-03]
+[LAST UPDATED: 2026-04-10]
 
 ### Side Panel Shell & Navigation (Epic S10)
 
@@ -55,6 +55,8 @@
   - **Manual Override Mode**: Supports explicit tab focus via `MANUAL_REGISTER_BRIDGE`.
   - `ContextPicker.tsx` -> Listens to `chrome.tabs.query` to pick context for AI.
   - `SettingsView.tsx` -> Security Controls (Lock/Unlock/Nuke), Encrypted Backups (Export/Import), and Storage Usage Dashboard.
+  - `ChatView.tsx` -> Main messaging shell. Orchstrates responsive status grouping (left) vs action buttons (right).
+  - `BridgeSelector.tsx` -> Hardened dropdown controller. Uses `e.stopPropagation()` and `CSS.overflow: visible` mapping to prevent clipping.
   - `ErrorBoundary.tsx` -> Global catch-all for render crashes. Provides "Friendly Crash" UI and reload logic.
 
 * Testing (Side Panel)
