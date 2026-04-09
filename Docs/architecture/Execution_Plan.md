@@ -795,5 +795,7 @@ DO:
 > **Summary:** Resolved silent failures in chat messaging by implementing empty states and active space guards. Refactored `TabRow` to `TabItem` for improved stability.
 | **S36** | **UX Stabilization & Command Palette** | ✅ COMPLETED | b483ded | 2026-04-03 |
 > **Summary:** Implemented global Command Palette (Cmd+K), emotional empty states with animated mascot, and "The Janitor" smart tab deduplication engine.
+| **S37** | **Responsive Header & Component Grouping** | ✅ COMPLETED | [Current] | 2026-04-10 |
+> **Summary:** Implemented fluid, container-aware chat header with left-aligned Status/Status grouping. Finalized selector visibility by resolving global CSS overflow clipping.
 
 
