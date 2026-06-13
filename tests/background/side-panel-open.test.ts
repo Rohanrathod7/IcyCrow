@@ -8,12 +8,14 @@ const chromeMock = {
   sidePanel: {
     setOptions: vi.fn(),
     open: vi.fn(),
+    setPanelBehavior: vi.fn().mockResolvedValue(undefined),
   },
   commands: {
     onCommand: { addListener: vi.fn() },
   },
   alarms: {
     onAlarm: { addListener: vi.fn() },
+    create: vi.fn(),
   },
   runtime: {
     id: 'test-extension-id',
@@ -22,14 +24,22 @@ const chromeMock = {
     onMessage: { addListener: vi.fn() },
   },
   tabs: {
-    onUpdated: { addListener: vi.fn() },
+    onCreated: { addListener: vi.fn() },
     onRemoved: { addListener: vi.fn() },
-    query: vi.fn(),
-    sendMessage: vi.fn(),
+    onMoved: { addListener: vi.fn() },
+    onAttached: { addListener: vi.fn() },
+    onDetached: { addListener: vi.fn() },
+    onUpdated: { addListener: vi.fn() },
+    query: vi.fn().mockResolvedValue([]),
+    sendMessage: vi.fn().mockResolvedValue(undefined),
+  },
+  windows: {
+    onRemoved: { addListener: vi.fn() },
+    getAll: vi.fn().mockResolvedValue([]),
   },
   storage: {
-    session: { get: vi.fn(), set: vi.fn() },
-    local: { get: vi.fn(), set: vi.fn() },
+    session: { get: vi.fn().mockResolvedValue({}), set: vi.fn().mockResolvedValue(undefined) },
+    local: { get: vi.fn().mockResolvedValue({}), set: vi.fn().mockResolvedValue(undefined) },
   }
 };
 
@@ -45,12 +55,12 @@ describe('Service Worker Side Panel Handler', () => {
   });
 
   it('should register a listener for chrome.action.onClicked', async () => {
-    await import('../../src/background/index');
+    await import('../../src/background/service-worker');
     expect(chrome.action.onClicked.addListener).toHaveBeenCalled();
   });
 
   it('should call chrome.sidePanel.open when action is clicked', async () => {
-    await import('../../src/background/index');
+    await import('../../src/background/service-worker');
     const calls = (chrome.action.onClicked.addListener as any).mock.calls;
     if (calls.length === 0) throw new Error('No listener registered');
     

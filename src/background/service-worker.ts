@@ -33,6 +33,10 @@ chrome.commands?.onCommand?.addListener(async (command) => {
 });
 
 chrome.runtime?.onInstalled?.addListener(async (details) => {
+  if (typeof chrome !== 'undefined' && (chrome as any).sidePanel?.setPanelBehavior) {
+    await (chrome as any).sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+      .catch((err: any) => console.error('[IcyCrow] Failed to set side panel behavior on install:', err));
+  }
   if (details.reason === 'install') {
     const existing = await chrome.storage?.local?.get('settings');
     if (existing && !existing.settings) {
@@ -73,6 +77,11 @@ export async function boot() {
 
     await chrome.storage?.session?.set({ sessionState: newState });
     console.log(`[IcyCrow] SW Booted: Restart #${newState.swRestartCount}`);
+    
+    if (typeof chrome !== 'undefined' && (chrome as any).sidePanel?.setPanelBehavior) {
+      await (chrome as any).sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+        .catch((err: any) => console.error('[IcyCrow] Failed to set side panel behavior on boot:', err));
+    }
     
     chrome.alarms?.create('keepalive', { periodInMinutes: 0.4 });
     chrome.alarms?.create('crypto-autolock', { periodInMinutes: 1.0 });
