@@ -113,47 +113,56 @@ export const App = () => {
       if (next) {
         draftSpaces.value = next;
       }
-    } else {
-      // LIVE REORDER: Update draft state even for same-space moves.
-      // This ensures the DOM is in the correct final position BEFORE the drop animation finishes.
-      const sourceSpace = currentDraft[activeSpace as UUID];
-      const oldIndex = sourceSpace.tabs.findIndex(t => t.id === activeId);
-      const newIndex = sourceSpace.tabs.findIndex(t => t.id === overId);
-
-      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-        const next = calculateReorder(currentDraft, activeSpace as UUID, activeId, overId);
-        if (next) {
-          draftSpaces.value = next;
-        }
-      }
     }
   };
 
-  const handleDragEnd = async (_event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
     const finalDraft = draftSpaces.value;
     
-    if (finalDraft) {
-      // BATCHED ATOMIC HANDOVER:
-      // We update the main store while keeping the draft alive during the drop animation.
-      // This prevents the instant unmount jitter found in the previous iteration.
+    if (over && active.id !== over.id) {
+      const activeId = active.id as string;
+      const overId = over.id as string;
+      const currentSpaces = finalDraft || spaces.value;
+
+      const findContainer = (id: string, store: SpacesStore) => {
+        if (id in store) return id;
+        for (const space of Object.values(store)) {
+          if (space.tabs.some(t => t.id === id)) return space.id;
+        }
+        return undefined;
+      };
+
+      const activeSpace = findContainer(activeId, currentSpaces);
+      const overSpace = currentSpaces[overId as UUID] ? overId : findContainer(overId, currentSpaces);
+
+      if (activeSpace && overSpace && activeSpace === overSpace) {
+        const next = calculateReorder(currentSpaces, activeSpace as UUID, activeId, overId);
+        if (next) {
+          batch(() => {
+            spaces.value = next;
+          });
+          await chrome.storage.local.set({ spaces: next });
+        }
+      } else if (finalDraft) {
+        batch(() => {
+          spaces.value = finalDraft;
+        });
+        await chrome.storage.local.set({ spaces: finalDraft });
+      }
+    } else if (finalDraft) {
       batch(() => {
         spaces.value = finalDraft;
       });
-      
-      setTimeout(() => {
-        batch(() => {
-          activeDragTab.value = null;
-          draftSpaces.value = null;
-        });
-      }, 350);
-
       await chrome.storage.local.set({ spaces: finalDraft });
-    } else {
+    }
+
+    setTimeout(() => {
       batch(() => {
         activeDragTab.value = null;
         draftSpaces.value = null;
       });
-    }
+    }, 350);
   };
 
   const renderView = () => {
