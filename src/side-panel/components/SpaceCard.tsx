@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { memo } from 'preact/compat';
 import { Space, UUID } from '../../lib/types';
-import { expandedSpaceId, updateSpaceConfig, removeTabFromSpace, activeWorkspaces, triggerManualSync, addActiveTabToSpace } from '../store';
+import { expandedSpaceId, updateSpaceConfig, removeTabFromSpace, activeWorkspaces, triggerManualSync, addActiveTabToSpace, searchQuery } from '../store';
 import { ChevronDown, ChevronUp, ArrowUpRight, Edit2, Trash2, Save, MoreVertical, Plus, Check } from 'lucide-preact';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
@@ -31,7 +31,7 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showMenu]);
   
-  const isExpanded = expandedSpaceId.value === space.id;
+  const isExpanded = searchQuery.value.trim() !== '' || expandedSpaceId.value === space.id;
   const tabCount = space.tabs?.length || 0;
   // Live means it's mapped to ANY window (for pulse), but we could refine to "current window"
   const isLive = Object.values(activeWorkspaces.value).includes(space.id);
@@ -251,20 +251,27 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
           </div>
         </div>
 
-        {isExpanded && space.tabs && (
-          <div className="accordion-body flex-col gap-8" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', minHeight: space.tabs.length === 0 ? '40px' : 'auto' }}>
-            <SortableContext items={space.tabs.map(t => t.id)} strategy={verticalListSortingStrategy}>
-              {space.tabs.map(tab => (
-                <TabItem key={tab.id} tab={tab} containerId={space.id} onRemove={handleRemoveTab} />
-              ))}
-              {space.tabs.length === 0 && (
-                <div className="empty-drop-zone text-dim small center" style={{ padding: '8px', border: '1px dashed var(--border-color)', borderRadius: '6px' }}>
-                  Drop tabs here
-                </div>
-              )}
-            </SortableContext>
-          </div>
-        )}
+        {isExpanded && space.tabs && (() => {
+          const query = searchQuery.value.toLowerCase().trim();
+          const displayedTabs = space.tabs.filter(tab => {
+            if (!query) return true;
+            return tab.title.toLowerCase().includes(query) || tab.url.toLowerCase().includes(query);
+          });
+          return (
+            <div className="accordion-body" style={{ minHeight: displayedTabs.length === 0 ? '40px' : 'auto' }}>
+              <SortableContext items={displayedTabs.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                {displayedTabs.map(tab => (
+                  <TabItem key={tab.id} tab={tab} containerId={space.id} onRemove={handleRemoveTab} />
+                ))}
+                {displayedTabs.length === 0 && (
+                  <div className="empty-drop-zone text-dim small center" style={{ padding: '8px', border: '1px dashed var(--border-color)', borderRadius: '6px' }}>
+                    {query ? 'No matching tabs' : 'Drop tabs here'}
+                  </div>
+                )}
+              </SortableContext>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

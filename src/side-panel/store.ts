@@ -52,6 +52,7 @@ export const commandPaletteOpen = signal(false);
 export const activeDragTab = signal<SpaceTab | null>(null);
 export const draftSpaces = signal<SpacesStore | null>(null);
 export const manualBridgeTabId = signal<number | null>(null);
+export const searchQuery = signal('');
 
 export const selectionModalState = signal({
   isOpen: false,

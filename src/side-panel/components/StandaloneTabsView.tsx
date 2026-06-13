@@ -1,9 +1,22 @@
 import { useState } from 'preact/hooks';
-import { standaloneTabs, addActiveTabStandalone, deleteStandaloneTab, moveTabToSpace, spaces, standaloneModalState } from '../store';
+import { standaloneTabs, addActiveTabStandalone, deleteStandaloneTab, moveTabToSpace, spaces, standaloneModalState, searchQuery } from '../store';
 import { X, Globe, MoreVertical } from 'lucide-preact';
 import { SplitButton } from './SplitButton';
 import { StandaloneTabSelectionModal } from './StandaloneTabSelectionModal';
 import type { UUID, SpaceTab } from '../../lib/types';
+
+const highlightMatch = (text: string, query: string) => {
+  if (!query.trim()) return text;
+  const regex = new RegExp(`(${query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) => 
+        regex.test(part) ? <span key={i} className="search-match-highlight">{part}</span> : part
+      )}
+    </>
+  );
+};
 
 export const StandaloneTabsView = () => {
   const [isAdding, setIsAdding] = useState(false);
@@ -17,7 +30,11 @@ export const StandaloneTabsView = () => {
     setIsAdding(false);
   };
 
-  const tabs = standaloneTabs.value;
+  const query = searchQuery.value.toLowerCase().trim();
+  const tabs = standaloneTabs.value.filter(tab => {
+    if (!query) return true;
+    return tab.title.toLowerCase().includes(query) || tab.url.toLowerCase().includes(query);
+  });
 
   return (
     <div className="view-container standalone-view">
@@ -77,7 +94,7 @@ const StandaloneTabItem = ({ tab }: { tab: SpaceTab }) => {
           )}
         </div>
         <div className="tab-details">
-          <span className="tab-title-text" title={tab.title}>{tab.title}</span>
+          <span className="tab-title-text" title={tab.title}>{highlightMatch(tab.title, searchQuery.value)}</span>
           <span className="tab-url-text">{new URL(tab.url).hostname}</span>
         </div>
       </div>

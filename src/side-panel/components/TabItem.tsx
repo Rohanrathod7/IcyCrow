@@ -3,6 +3,20 @@ import { CSS } from '@dnd-kit/utilities';
 import { SpaceTab, UUID } from '../../lib/types';
 import { X, Globe, GripVertical } from 'lucide-preact';
 import { memo } from 'preact/compat';
+import { searchQuery } from '../store';
+
+const highlightMatch = (text: string, query: string) => {
+  if (!query.trim()) return text;
+  const regex = new RegExp(`(${query.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')})`, 'gi');
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) => 
+        regex.test(part) ? <span key={i} className="search-match-highlight">{part}</span> : part
+      )}
+    </>
+  );
+};
 
 interface TabItemProps {
   tab: SpaceTab;
@@ -67,7 +81,7 @@ export const TabItem = memo(({ tab, containerId, onRemove, isOverlay = false }: 
           className="tab-title" 
           title={tab.title}
         >
-          {tab.title}
+          {highlightMatch(tab.title, searchQuery.value)}
         </span>
       </div>
       

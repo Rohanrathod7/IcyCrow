@@ -15,11 +15,10 @@ import { SpacesView } from './components/SpacesView';
 import { SettingsView } from './components/SettingsView';
 import { ChatView } from './components/ChatView';
 import { HighlightsPanel } from './components/HighlightsPanel';
-import { MascotHeader } from './components/MascotHeader';
+import { DatabaseHeader } from './components/DatabaseHeader';
 import { CommandPalette } from './components/CommandPalette';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useEffect } from 'preact/hooks';
-import { ViewFilter } from './components/ViewFilter';
 import { StandaloneTabsView } from './components/StandaloneTabsView';
 import { 
   DndContext, 
@@ -161,7 +160,6 @@ export const App = () => {
       case 'spaces':
         return (
           <div className="dashboard-layout">
-            <ViewFilter />
             <div className="dashboard-content-wrapper">
               <div className={`dashboard-slide ${dashboardViewMode.value === 'spaces' ? 'active' : ''}`}>
                 <SpacesView />
@@ -229,7 +227,7 @@ export const App = () => {
             </div>
           )}
 
-          <MascotHeader />
+          <DatabaseHeader />
           <main style={{ flex: 1, overflowY: 'auto', backgroundColor: '#121212' }}>
             {renderView()}
           </main>

@@ -4,7 +4,8 @@ import { EmptyState } from './EmptyState';
 import { 
   spaces, 
   isLoading, 
-  draftSpaces
+  draftSpaces,
+  searchQuery
 } from '../store';
 import { SpaceCard } from './SpaceCard';
 import { SplitButton } from './SplitButton';
@@ -82,6 +83,19 @@ export const SpacesView = () => {
     }
   };
 
+  const query = searchQuery.value.toLowerCase().trim();
+  const rawStore = draftSpaces.value || spaces.value;
+
+  const filteredSpaces = Object.values(rawStore).filter((space) => {
+    if (!query) return true;
+    const spaceNameMatches = space.name.toLowerCase().includes(query);
+    const hasMatchingTab = space.tabs && space.tabs.some(tab => 
+      tab.title.toLowerCase().includes(query) || 
+      tab.url.toLowerCase().includes(query)
+    );
+    return spaceNameMatches || hasMatchingTab;
+  });
+
   return (
     <div className="view-container">
       <SplitButton 
@@ -96,19 +110,16 @@ export const SpacesView = () => {
       />
       <TabSelectionModal />
 
-      <div className="flex-row items-center justify-between" style={{ marginBottom: '24px', paddingBottom: '12px', borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
-        <h2 className="section-title" style={{ margin: 0, fontSize: '1.1rem', letterSpacing: '-0.01em', fontWeight: 700 }}>Spaces</h2>
+      <div className="flex-row items-center justify-between" style={{ marginBottom: '20px', paddingBottom: '10px', borderBottom: '1px solid rgba(255, 255, 255, 0.03)' }}>
+        <h2 className="section-title" style={{ margin: 0, fontSize: '0.85rem', letterSpacing: '-0.01em', fontWeight: 700 }}>Spaces</h2>
         <button className="btn-primary small animate-fade-in" onClick={async () => {
            const store = await import('../store');
            store.selectionModalState.value = { isOpen: true, mode: 'none', targetTabs: [] };
         }} title="Create a new workspace">+ New Space</button>
       </div>
 
-
-
-
-      <div className="bento-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
-        {(draftSpaces.value || spaces.value) && Object.values(draftSpaces.value || spaces.value).map((s) => (
+      <div className="spaces-list">
+        {filteredSpaces.map((s) => (
           <div 
             key={s.id} 
             className="animate-slide-up" 
