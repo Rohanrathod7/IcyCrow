@@ -50,7 +50,7 @@ describe('InboundMessageSchema Validation', () => {
   });
 
   it('validates AI_QUERY', () => {
-    const valid = { type: 'AI_QUERY', payload: { prompt: 'hi', contextTabs: [{ tabId: 1, url: 'http://a.com', title: 't' }], spaceId: '6b6b801a-82bd-4849-81bc-b7ea6aa5bcad' } };
+    const valid = { type: 'AI_QUERY', payload: { prompt: 'hi', taskId: '6b6b801a-82bd-4849-81bc-b7ea6aa5bcad', spaceId: '6b6b801a-82bd-4849-81bc-b7ea6aa5bcad' } };
     expect(() => InboundMessageSchema.parse(valid)).not.toThrow();
     expect(() => InboundMessageSchema.parse({ ...valid, payload: { ...valid.payload, prompt: 123 } })).toThrow();
   });
@@ -68,7 +68,7 @@ describe('InboundMessageSchema Validation', () => {
   });
 
   it('validates SPACE_CREATE', () => {
-    const valid = { type: 'SPACE_CREATE', payload: { name: 'n', color: 'c', captureCurrentTabs: true } };
+    const valid = { type: 'SPACE_CREATE', payload: { name: 'n', color: 'c', captureCurrentTabs: true, createTabGroup: false } };
     expect(() => InboundMessageSchema.parse(valid)).not.toThrow();
     expect(() => InboundMessageSchema.parse({ ...valid, payload: { ...valid.payload, name: 123 } })).toThrow();
   });

@@ -82,15 +82,25 @@ describe('side-panel/store', () => {
 
   describe('removeTabFromSpace', () => {
     it('should filter out the tab and update state/storage', async () => {
-      vi.mocked(sendToSW).mockResolvedValue({ ok: true });
+      vi.mocked(sendToSW).mockResolvedValue({ ok: true, data: true });
       
       await removeTabFromSpace(spaceId, 't1' as UUID);
       
       expect(spaces.value[spaceId]?.tabs).toHaveLength(1);
       expect(spaces.value[spaceId]?.tabs[0].id).toBe('t2');
       
-      // Verification of storage persist: current store uses chrome.storage.local for spaces sync
-      expect(mockChrome.storage.local.set).toHaveBeenCalled();
+      // Verification of SW message dispatch
+      expect(sendToSW).toHaveBeenCalledWith({
+        type: 'SPACE_UPDATE',
+        payload: {
+          spaceId,
+          updates: {
+            tabs: [
+              { id: 't2' as UUID, url: 'https://test2.com', title: 'Test 2', favicon: null, scrollPosition: 0, chromeTabId: null }
+            ]
+          }
+        }
+      });
     });
   });
 

@@ -76,7 +76,7 @@ export const TabSelectionModal = () => {
 
     try {
       const spaceTabs = tabs.filter(t => selectedIds.has(t.id!)).map(t => ({
-        id: crypto.randomUUID() as any, // ID will be generated in SW but let's scrub it to match SpaceTab
+        id: t.id!,
         url: t.url!,
         title: t.title || 'Untitled',
         favIconUrl: t.favIconUrl || undefined
