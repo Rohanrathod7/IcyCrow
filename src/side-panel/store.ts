@@ -299,20 +299,7 @@ export async function saveCurrentSessionAsSpace() {
 }
 
 
-// Global listener for session changes
-if (typeof chrome !== 'undefined' && chrome.storage?.session) {
-  chrome.storage.session.onChanged.addListener((changes) => {
-    if (changes.cryptoKeyUnlocked) {
-      isLocked.value = !changes.cryptoKeyUnlocked.newValue;
-    }
-    if (changes.sessionState && changes.sessionState.newValue) {
-      const state = changes.sessionState.newValue as any;
-      if (state.manualGeminiTabId !== undefined) {
-        manualBridgeTabId.value = state.manualGeminiTabId;
-      }
-    }
-  });
-}
+
 
 /**
  * Loads the chat history for a specific space.
@@ -372,6 +359,16 @@ if (typeof chrome !== 'undefined' && chrome.storage) {
 
       if (changes.preferredView && changes.preferredView.newValue) {
         dashboardViewMode.value = changes.preferredView.newValue as 'spaces' | 'tabs';
+      }
+    } else if (area === 'session') {
+      if (changes.cryptoKeyUnlocked) {
+        isLocked.value = !changes.cryptoKeyUnlocked.newValue;
+      }
+      if (changes.sessionState && changes.sessionState.newValue) {
+        const state = changes.sessionState.newValue as any;
+        if (state.manualGeminiTabId !== undefined) {
+          manualBridgeTabId.value = state.manualGeminiTabId;
+        }
       }
     }
   });
