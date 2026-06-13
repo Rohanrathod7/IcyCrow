@@ -33,7 +33,7 @@ const MetaSchema = z.object({
 export const HighlightCreateSchema = z.object({
   type: z.literal('HIGHLIGHT_CREATE'),
   payload: z.object({
-    url: z.string().url(),
+    url: z.string(),
     urlHash: SHA256HashSchema,
     text: z.string(),
     color: HighlightColorSchema,
@@ -102,7 +102,7 @@ export const AiResponseStreamSchema = z.object({
     error: z.string().optional(),
     tabInfo: z.object({
       title: z.string(),
-      url: z.string().url(),
+      url: z.string(),
       id: z.number(),
     }).optional(),
   }),
@@ -111,7 +111,7 @@ export const AiResponseStreamSchema = z.object({
 
 const SpaceTabSchema = z.object({
   id: UUIDSchema,
-  url: z.string().url(),
+  url: z.string(),
   title: z.string(),
   favicon: z.string().nullable(),
   scrollPosition: z.number(),
@@ -120,7 +120,7 @@ const SpaceTabSchema = z.object({
 
 const ScrubbedTabSchema = z.object({
   id: z.number(),
-  url: z.string().url(),
+  url: z.string(),
   title: z.string(),
   favIconUrl: z.string().nullable().optional(),
 });
@@ -188,7 +188,7 @@ export const ArticleSaveSchema = z.object({
   type: z.literal('ARTICLE_SAVE'),
   payload: z.object({
     tabId: z.number(),
-    url: z.string().url(),
+    url: z.string(),
     title: z.string(),
     spaceId: UUIDSchema.nullable(),
   }),
