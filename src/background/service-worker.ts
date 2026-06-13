@@ -639,12 +639,4 @@ async function handleSpaceMessage(message: ValidatedInboundMessage, sendResponse
 
 watchGeminiTab('https://gemini.google.com/*');
 
-if (typeof chrome !== 'undefined' && chrome.action?.onClicked) {
-  chrome.action.onClicked.addListener((tab) => {
-    if (tab.windowId) {
-      (chrome as any).sidePanel?.open?.({ windowId: tab.windowId });
-    }
-  });
-}
-
 boot().catch(console.error);

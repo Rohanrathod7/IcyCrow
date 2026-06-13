@@ -54,21 +54,8 @@ describe('Service Worker Side Panel Handler', () => {
     vi.clearAllMocks();
   });
 
-  it('should register a listener for chrome.action.onClicked', async () => {
+  it('should configure native side panel behavior on action click', async () => {
     await import('../../src/background/service-worker');
-    expect(chrome.action.onClicked.addListener).toHaveBeenCalled();
-  });
-
-  it('should call chrome.sidePanel.open when action is clicked', async () => {
-    await import('../../src/background/service-worker');
-    const calls = (chrome.action.onClicked.addListener as any).mock.calls;
-    if (calls.length === 0) throw new Error('No listener registered');
-    
-    const callback = calls[0][0];
-    const mockTab = { id: 123, windowId: 456 };
-    
-    await callback(mockTab);
-
-    expect(chrome.sidePanel.open).toHaveBeenCalledWith({ windowId: 456 });
+    expect(chrome.sidePanel.setPanelBehavior).toHaveBeenCalledWith({ openPanelOnActionClick: true });
   });
 });
