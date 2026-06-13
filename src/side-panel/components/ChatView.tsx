@@ -313,7 +313,7 @@ export const ChatView = () => {
       </div>
       <ChatInput 
         onSubmit={handleSendMessage} 
-        isGenerating={isLoading.value} 
+        disabled={isLoading.value} 
       />
     </div>
   );

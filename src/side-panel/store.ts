@@ -51,6 +51,7 @@ export const currentAppStatus = signal<AppStatus>('idle');
 export const commandPaletteOpen = signal(false);
 export const activeDragTab = signal<SpaceTab | null>(null);
 export const draftSpaces = signal<SpacesStore | null>(null);
+export const manualBridgeTabId = signal<number | null>(null);
 
 export const selectionModalState = signal({
   isOpen: false,
@@ -66,16 +67,23 @@ export const standaloneModalState = signal({ isOpen: false });
  */
 export async function hydrateStore() {
   try {
-    const [local, session, preferredView, storedStandalone] = await Promise.all([
+    const [local, session, preferredView, storedStandalone, sessionStateRes] = await Promise.all([
       chrome.storage.local.get(['settings', 'activeWorkspaces']) as Promise<Record<string, any>>,
       chrome.storage.session.get('cryptoKeyUnlocked') as Promise<Record<string, any>>,
       getPreferredView(),
-      getStandaloneTabs()
+      getStandaloneTabs(),
+      chrome.storage.session.get('sessionState') as Promise<Record<string, any>>
     ]);
     if (local && local.settings) settings.value = local.settings as IcyCrowSettings;
     if (local && local.activeWorkspaces) activeWorkspaces.value = local.activeWorkspaces as ActiveWorkspaces;
     if (session.cryptoKeyUnlocked !== undefined) {
       isLocked.value = !session.cryptoKeyUnlocked;
+    }
+    if (sessionStateRes && sessionStateRes.sessionState) {
+      const state = sessionStateRes.sessionState;
+      if (state.manualGeminiTabId !== undefined) {
+        manualBridgeTabId.value = state.manualGeminiTabId;
+      }
     }
     dashboardViewMode.value = preferredView;
     standaloneTabs.value = storedStandalone;
@@ -268,7 +276,7 @@ export async function saveCurrentSessionAsSpace() {
     const response = await sendToSW<Space | null>({
       type: 'SPACE_CREATE',
       payload: { 
-        name: suggestedName, 
+        name: suggestedName || generateFallbackSpaceName(), 
         color: 'var(--accent-primary)', 
         captureCurrentTabs: false, // We pass them manually to avoid re-querying
         createTabGroup: false,
@@ -296,6 +304,12 @@ if (typeof chrome !== 'undefined' && chrome.storage?.session) {
   chrome.storage.session.onChanged.addListener((changes) => {
     if (changes.cryptoKeyUnlocked) {
       isLocked.value = !changes.cryptoKeyUnlocked.newValue;
+    }
+    if (changes.sessionState && changes.sessionState.newValue) {
+      const state = changes.sessionState.newValue as any;
+      if (state.manualGeminiTabId !== undefined) {
+        manualBridgeTabId.value = state.manualGeminiTabId;
+      }
     }
   });
 }

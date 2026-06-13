@@ -2,7 +2,13 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { Circle, Target, ChevronDown, ChevronUp, RefreshCw } from 'lucide-preact';
 import { manualBridgeTabId } from '../store';
 import { sendToSW } from '../../lib/messaging';
-import type { BridgeTab, GeminiHealthCheckData, SessionState } from '../../lib/types';
+import type { SessionState } from '../../lib/types';
+
+interface BridgeTab {
+  id: number;
+  title: string;
+  url: string;
+}
 
 interface BridgeSelectorProps {
   compact?: boolean;
@@ -37,12 +43,14 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
   const fetchTabs = async () => {
     setIsRefreshing(true);
     try {
-      const response = await sendToSW<GeminiHealthCheckData>({ 
-        type: 'GEMINI_HEALTH_CHECK',
-        payload: undefined 
-      });
-      if (response.ok && response.data) {
-        setTabs(response.data.availableTabs || []);
+      if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
+        const queryResults = await chrome.tabs.query({ url: 'https://gemini.google.com/*' });
+        const formattedTabs = queryResults.map(t => ({
+          id: t.id!,
+          title: t.title || 'Gemini Tab',
+          url: t.url || 'https://gemini.google.com'
+        }));
+        setTabs(formattedTabs);
       }
     } catch (err) {
       console.error('[IcyCrow] Failed to refresh Gemini tabs:', err);
