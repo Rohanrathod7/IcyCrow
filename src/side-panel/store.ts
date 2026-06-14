@@ -54,6 +54,7 @@ export const draftSpaces = signal<SpacesStore | null>(null);
 export const manualBridgeTabId = signal<number | null>(null);
 export const searchQuery = signal('');
 export const currentWindowId = signal<number | null>(null);
+export const currentWindowOpenTabs = signal<chrome.tabs.Tab[]>([]);
 
 export const selectionModalState = signal({
   isOpen: false,
@@ -90,6 +91,8 @@ export async function hydrateStore() {
     }
     if (currentWin && currentWin.id !== undefined) {
       currentWindowId.value = currentWin.id;
+      const winTabs = await chrome.tabs.query({ windowId: currentWin.id });
+      currentWindowOpenTabs.value = winTabs;
     }
     dashboardViewMode.value = preferredView;
     standaloneTabs.value = storedStandalone;
@@ -376,6 +379,43 @@ if (typeof chrome !== 'undefined' && chrome.storage) {
           manualBridgeTabId.value = state.manualGeminiTabId;
         }
       }
+    }
+  });
+}
+
+// Global listeners for tab changes to maintain current window tabs
+if (typeof chrome !== 'undefined' && chrome.tabs) {
+  chrome.tabs.onCreated.addListener((tab) => {
+    if (tab.windowId === currentWindowId.value) {
+      currentWindowOpenTabs.value = [...currentWindowOpenTabs.value, tab];
+    }
+  });
+
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (tab.windowId === currentWindowId.value) {
+      currentWindowOpenTabs.value = currentWindowOpenTabs.value.map(t => t.id === tabId ? tab : t);
+    }
+  });
+
+  chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+    if (removeInfo.windowId === currentWindowId.value) {
+      currentWindowOpenTabs.value = currentWindowOpenTabs.value.filter(t => t.id !== tabId);
+    }
+  });
+
+  chrome.tabs.onAttached.addListener((tabId, attachInfo) => {
+    if (attachInfo.newWindowId === currentWindowId.value) {
+      chrome.tabs.query({ windowId: currentWindowId.value }, (tabs) => {
+        if (tabs) {
+          currentWindowOpenTabs.value = tabs;
+        }
+      });
+    }
+  });
+
+  chrome.tabs.onDetached.addListener((tabId, detachInfo) => {
+    if (detachInfo.oldWindowId === currentWindowId.value) {
+      currentWindowOpenTabs.value = currentWindowOpenTabs.value.filter(t => t.id !== tabId);
     }
   });
 }
