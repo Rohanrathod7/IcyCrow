@@ -61,11 +61,20 @@ export function watchGeminiTab(urlPattern: string) {
     const ids = await findGeminiTab(urlPattern);
     const result = await chrome.storage.session.get('sessionState');
     const state = result.sessionState || {};
+    
+    let manualId = state.manualGeminiTabId || null;
+    if (manualId !== null) {
+      if (!ids.includes(manualId)) {
+        manualId = null;
+      }
+    }
+
     await chrome.storage.session.set({
       sessionState: { 
         ...state, 
         geminiTabIds: ids,
-        geminiTabId: ids[0] || null 
+        geminiTabId: manualId || ids[0] || null,
+        manualGeminiTabId: manualId
       }
     });
     
@@ -81,7 +90,7 @@ export function watchGeminiTab(urlPattern: string) {
            // Silent catch
          });
        }
-    }
+     }
   };
   
   // Proactive scan on boot
@@ -89,7 +98,7 @@ export function watchGeminiTab(urlPattern: string) {
 
   if (chrome.tabs?.onUpdated) {
     chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
-      if (changeInfo.status === 'complete' && tab.url?.includes('gemini.google.com')) {
+      if (changeInfo.status || changeInfo.url) {
         updateId();
       }
     });
