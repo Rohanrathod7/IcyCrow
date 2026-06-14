@@ -464,6 +464,9 @@ export async function scrapeResponse(taskId: string): Promise<void> {
 
     if (noChangeCount % 5 === 0) {
       log(`Polling state check: noChangeCount=${noChangeCount}, stabilityCount=${stabilityCount}, isUIFinished=${isUIFinished}, textLength=${currentText.length}`);
+      try {
+        log(`Container HTML snippet: ${container!.outerHTML.slice(0, 350).replace(/\s+/g, ' ')}`);
+      } catch (e) {}
     }
 
     // 2. Finalization Trigger: Stability (3s) OR Timeout (60s)
