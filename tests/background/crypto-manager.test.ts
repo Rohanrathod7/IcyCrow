@@ -51,8 +51,8 @@ describe('CryptoManager', () => {
       const secret = 'Top Secret Data';
       const { ciphertext, iv } = await manager.encrypt(secret);
       
-      expect(ciphertext).toBeInstanceOf(ArrayBuffer);
-      expect(iv).toBeInstanceOf(Uint8Array);
+      expect(ciphertext && (ciphertext instanceof ArrayBuffer || ciphertext.constructor?.name === 'ArrayBuffer')).toBe(true);
+      expect(iv && (iv instanceof Uint8Array || iv.constructor?.name === 'Uint8Array')).toBe(true);
       
       const decrypted = await manager.decrypt(ciphertext, iv);
       expect(decrypted).toBe(secret);

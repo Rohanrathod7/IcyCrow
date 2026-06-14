@@ -454,7 +454,7 @@ if (typeof chrome !== 'undefined' && chrome.tabs) {
     }
   });
 
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  chrome.tabs.onUpdated.addListener((tabId, _changeInfo, tab) => {
     if (tab.windowId === currentWindowId.value) {
       currentWindowOpenTabs.value = currentWindowOpenTabs.value.map(t => t.id === tabId ? tab : t);
     }
@@ -466,7 +466,7 @@ if (typeof chrome !== 'undefined' && chrome.tabs) {
     }
   });
 
-  chrome.tabs.onAttached.addListener((tabId, attachInfo) => {
+  chrome.tabs.onAttached.addListener((_tabId, attachInfo) => {
     if (attachInfo.newWindowId === currentWindowId.value) {
       chrome.tabs.query({ windowId: currentWindowId.value }, (tabs) => {
         if (tabs) {

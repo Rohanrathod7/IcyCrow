@@ -311,13 +311,19 @@ describe('side-panel/store', () => {
     });
 
     it('should clear selection', () => {
-      selectedStandaloneTabIds.value = { tab1: true, tab2: true };
+      selectedStandaloneTabIds.value = {
+        ['tab1' as UUID]: true,
+        ['tab2' as UUID]: true
+      };
       clearStandaloneTabSelection();
       expect(selectedStandaloneTabIds.value).toEqual({});
     });
 
     it('should bulk delete selected standalone tabs', async () => {
-      selectedStandaloneTabIds.value = { tab1: true, tab3: true };
+      selectedStandaloneTabIds.value = {
+        ['tab1' as UUID]: true,
+        ['tab3' as UUID]: true
+      };
       bulkSelectionMode.value = true;
       vi.mocked(sendToSW).mockResolvedValue({ ok: true, data: { deleted: true } });
 
@@ -339,7 +345,9 @@ describe('side-panel/store', () => {
     });
 
     it('should bulk move selected standalone tabs to space', async () => {
-      selectedStandaloneTabIds.value = { tab2: true };
+      selectedStandaloneTabIds.value = {
+        ['tab2' as UUID]: true
+      };
       bulkSelectionMode.value = true;
       vi.mocked(sendToSW).mockResolvedValue({ ok: true, data: { moved: true } });
       

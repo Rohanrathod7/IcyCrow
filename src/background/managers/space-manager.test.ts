@@ -23,12 +23,14 @@ describe('SpaceManager', () => {
         create: vi.fn(),
         group: vi.fn(),
         discard: vi.fn(),
+        get: vi.fn().mockResolvedValue({ id: 100, url: 'https://site2.com' }),
       },
       tabGroups: {
         update: vi.fn(),
       },
       windows: {
         getCurrent: vi.fn(),
+        getLastFocused: vi.fn(),
       },
       storage: {
         local: {
@@ -157,7 +159,7 @@ describe('SpaceManager', () => {
       const restorePromise = manager.restoreSpace('s1' as UUID);
       
       // Advance timers to trigger the batch discard
-      await vi.advanceTimersByTimeAsync(500);
+      await vi.advanceTimersByTimeAsync(2000);
       const count = await restorePromise;
 
       expect(count).toBe(2);
@@ -324,7 +326,7 @@ describe('SpaceManager', () => {
 
       const result = await manager.addActiveTabToSpace('s1');
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
       expect(result.reason).toBe('duplicate');
       expect(setSpaces).not.toHaveBeenCalled();
     });

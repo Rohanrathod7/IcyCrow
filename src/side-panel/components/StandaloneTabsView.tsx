@@ -140,9 +140,14 @@ const StandaloneTabItem = ({ tab }: { tab: SpaceTab }) => {
   const openTab = currentWindowOpenTabs.value.find(t => t.url === tab.url);
   const isOpen = !!openTab;
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (isOpen && openTab && openTab.id !== undefined) {
-      chrome.tabs.update(openTab.id, { active: true });
+      try {
+        await chrome.tabs.update(openTab.id, { active: true });
+      } catch (err) {
+        console.warn(`[IcyCrow] Failed to focus tab ${openTab.id}, falling back to creation:`, err);
+        chrome.tabs.create({ url: tab.url });
+      }
     } else {
       chrome.tabs.create({ url: tab.url });
     }

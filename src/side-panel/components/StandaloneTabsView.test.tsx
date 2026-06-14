@@ -115,7 +115,7 @@ describe('StandaloneTabsView - Smart Focus', () => {
       bulkSelectionMode.value = false;
       selectedStandaloneTabIds.value = {};
       spaces.value = {
-        'space-a': { id: 'space-a' as UUID, name: 'Space A', color: 'blue', tabs: [] } as any
+        ['space-a' as UUID]: { id: 'space-a' as UUID, name: 'Space A', color: 'blue', tabs: [] } as any
       };
     });
 
@@ -141,7 +141,7 @@ describe('StandaloneTabsView - Smart Focus', () => {
       expect(checkbox1.checked).toBe(false);
 
       fireEvent.click(checkbox1);
-      expect(selectedStandaloneTabIds.value['tab1']).toBe(true);
+      expect(selectedStandaloneTabIds.value['tab1' as UUID]).toBe(true);
 
       const cancelBtn = screen.getByText('Cancel');
       fireEvent.click(cancelBtn);

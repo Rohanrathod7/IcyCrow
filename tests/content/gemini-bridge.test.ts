@@ -49,7 +49,7 @@ describe('Gemini Bridge', () => {
   });
 
   describe('injectPrompt', () => {
-    it('finds input and calls humanType', async () => {
+    it('finds input and injects text via fallback/execCommand', async () => {
       const input = document.createElement('div');
       input.className = 'ql-editor';
       document.body.appendChild(input);
@@ -58,12 +58,13 @@ describe('Gemini Bridge', () => {
       sendBtn.setAttribute('aria-label', 'Send message');
       document.body.appendChild(sendBtn);
 
-      const clickSpy = vi.spyOn(sendBtn, 'click');
+      const clicked = vi.fn();
+      sendBtn.addEventListener('click', clicked);
 
       await injectPrompt('Hello Gemini');
 
-      expect(humanType).toHaveBeenCalledWith(input, 'Hello Gemini');
-      expect(clickSpy).toHaveBeenCalled();
+      expect(input.innerText).toBe('Hello Gemini');
+      expect(clicked).toHaveBeenCalled();
     });
 
     it('throws error if input not found', async () => {
@@ -75,7 +76,7 @@ describe('Gemini Bridge', () => {
     it('streams chunks via MutationObserver and ends when stable', async () => {
       vi.useFakeTimers();
       const container = document.createElement('model-response');
-      container.innerText = 'Initial text';
+      container.textContent = 'Initial text';
       document.body.appendChild(container);
 
       // Mock send button status
@@ -86,11 +87,11 @@ describe('Gemini Bridge', () => {
       const scrapePromise = scrapeResponse('task-123');
 
       // Trigger mutation via the mock callback
-      container.innerText = 'Step 1 content';
+      container.textContent = 'Step 1 content';
       if (observerCallback) observerCallback([], {} as any);
       
       // Advance timers for stability check
-      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(3000); // 3000ms to let stabilityCount reach 3
       
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
         type: 'AI_RESPONSE_STREAM',
@@ -103,7 +104,7 @@ describe('Gemini Bridge', () => {
     it('forces completion when max duration reached', async () => {
       vi.useFakeTimers();
       const container = document.createElement('model-response');
-      container.innerText = 'Initial text';
+      container.textContent = 'Initial text';
       document.body.appendChild(container);
 
       // No send button found (simulating sticky state)
@@ -111,7 +112,7 @@ describe('Gemini Bridge', () => {
       const scrapePromise = scrapeResponse('task-123');
       
       // Advance past 30s
-      await vi.advanceTimersByTimeAsync(35000);
+      await vi.advanceTimersByTimeAsync(240000 + 1000); // 4 minutes + 1s to trigger maxDurationTimer
       
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({
         type: 'AI_RESPONSE_STREAM',
