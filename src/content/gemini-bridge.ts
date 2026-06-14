@@ -307,10 +307,8 @@ export async function injectPrompt(prompt: string): Promise<void> {
   }
   log(`Found send button: ${sendBtn.tagName}.${sendBtn.className}`);
 
-  // 5. Dual-Submission Protocol (Synthetic Enter + Click)
-  log('Triggering submission events...');
-  const enterDown = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true });
-  input.dispatchEvent(enterDown);
+  // 5. Submission Protocol (Click send button)
+  log('Triggering submission events (clicking send button)...');
   
   const wasDisabled = sendBtn.disabled;
   if (wasDisabled) {
