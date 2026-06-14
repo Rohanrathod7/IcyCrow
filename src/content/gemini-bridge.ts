@@ -215,50 +215,25 @@ export async function injectPrompt(prompt: string): Promise<void> {
   }
 
   // 2. Framework-Aware Injection Loop
-  const target = input.querySelector('p') || input.querySelector('div') || input;
-  let currentVal = '';
-
-  // Option A: Main World Quill API Injection (bypassing isolated world limits)
+  // Option A: execCommand
   try {
-    input.setAttribute('data-icy-inject', 'active');
-    const script = document.createElement('script');
-    script.textContent = `
-      (function() {
-        const el = document.querySelector('[data-icy-inject="active"]');
-        if (el) {
-          let parent = el;
-          let qInstance = null;
-          while (parent) {
-            const keys = Object.keys(parent);
-            const quillKey = keys.find(k => k.includes('quill') || k === '__quill' || (parent[k] && typeof parent[k].setText === 'function'));
-            if (quillKey && parent[quillKey]) {
-              qInstance = parent[quillKey];
-              break;
-            }
-            parent = parent.parentElement;
-          }
-          if (qInstance && typeof qInstance.setText === 'function') {
-            qInstance.setText(${JSON.stringify(prompt)});
-            if (typeof qInstance.update === 'function') qInstance.update();
-          }
-        }
-      })();
-    `;
-    document.documentElement.appendChild(script);
-    script.remove();
-    input.removeAttribute('data-icy-inject');
-    
-    currentVal = target.textContent || '';
-    if (currentVal.trim()) {
-      log('Prompt successfully set via Main World Quill API.');
+    document.execCommand('selectAll', false, undefined);
+    if (!document.execCommand('insertText', false, prompt)) {
+      throw new Error('execCommand insertText returned false');
     }
+    log('Prompt text inserted via execCommand.');
   } catch (err: any) {
-    log(`Main World Quill API injection failed: ${err.message}`);
+    log(`execCommand failed: ${err.message}`);
   }
 
-  // Option B: ClipboardEvent paste (primary fallback)
+  // Check if text was inserted
+  const target = input.querySelector('p') || input.querySelector('div') || input;
+  let currentVal = target.textContent || '';
+  log(`Current input text after execCommand: "${currentVal.slice(0, 30)}..."`);
+
+  // Option B: ClipboardEvent paste fallback
   if (!currentVal.trim()) {
-    log('Attempting ClipboardEvent paste...');
+    log('execCommand was empty, attempting ClipboardEvent paste fallback...');
     try {
       const dataTransfer = new DataTransfer();
       dataTransfer.setData('text/plain', prompt);
@@ -267,11 +242,8 @@ export async function injectPrompt(prompt: string): Promise<void> {
         cancelable: true,
         clipboardData: dataTransfer
       });
-      // Dispatch on the active target paragraph to let the editor's handler process it
-      target.dispatchEvent(pasteEvent);
-      // Also dispatch on input container for safety
       input.dispatchEvent(pasteEvent);
-      log('Paste events dispatched.');
+      log('Paste event dispatched.');
     } catch (err: any) {
       log(`Paste event failed: ${err.message}`);
     }
@@ -280,29 +252,25 @@ export async function injectPrompt(prompt: string): Promise<void> {
     log(`Current input text after paste event: "${currentVal.slice(0, 30)}..."`);
   }
 
-  // Option C: execCommand (secondary fallback)
+  // Option C: Manual innerText assignment fallback
   if (!currentVal.trim()) {
-    log('Attempting execCommand insertText...');
-    try {
-      document.execCommand('selectAll', false, undefined);
-      if (!document.execCommand('insertText', false, prompt)) {
-        throw new Error('execCommand insertText returned false');
-      }
-      log('Prompt text inserted via execCommand.');
-    } catch (err: any) {
-      log(`execCommand failed: ${err.message}`);
-    }
-
-    currentVal = target.textContent || '';
-    log(`Current input text after execCommand: "${currentVal.slice(0, 30)}..."`);
-  }
-
-  // Option D: Manual innerText assignment (last resort)
-  if (!currentVal.trim()) {
-    log('Attempting manual innerText assignment...');
+    log('Paste event was empty, attempting manual innerText assignment...');
     try {
       target.innerText = prompt;
-      log('Manual innerText assigned.');
+      
+      input.dispatchEvent(new InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: prompt
+      }));
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      
+      const textEvent = new Event('textInput', { bubbles: true });
+      (textEvent as any).data = prompt;
+      input.dispatchEvent(textEvent);
+      log('Manual innerText and events dispatched.');
     } catch (err: any) {
       log(`Manual assignment failed: ${err.message}`);
     }
@@ -311,57 +279,15 @@ export async function injectPrompt(prompt: string): Promise<void> {
     log(`Current input text after manual assignment: "${currentVal.slice(0, 30)}..."`);
   }
 
-  // 3. Force state synchronization event dispatch
-  try {
-    input.dispatchEvent(new InputEvent('beforeinput', {
-      bubbles: true,
-      cancelable: true,
-      inputType: 'insertText',
-      data: prompt
-    }));
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    
-    const textEvent = new Event('textInput', { bubbles: true });
-    (textEvent as any).data = prompt;
-    input.dispatchEvent(textEvent);
-    
-    // Also dispatch keypress events to simulate typing and trigger ProseMirror/Angular state change
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent('keypress', { key: 'a', bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'a', bubbles: true }));
-    log('Framework sync events dispatched.');
-  } catch (err: any) {
-    log(`Failed to dispatch sync events: ${err.message}`);
-  }
-
-  // 4. Definitive Wait for State Sync (Critical for Gemini's dynamic send button)
+  // 3. Definitive Wait for State Sync (Critical for Gemini's dynamic send button)
   const isBackground = document.visibilityState === 'hidden';
-  const syncWait = isBackground ? 200 : 400; 
+  const syncWait = isBackground ? 150 : 300; 
   log(`Waiting ${syncWait}ms for state sync (isBackground=${isBackground})...`);
   await new Promise(r => setTimeout(r, syncWait));
 
-  // 5. Query send button AFTER typing, when it should be rendered
-  const sendBtn = findLastSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
+  // 4. Query send button AFTER typing, when it should be rendered
+  const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
   if (!sendBtn) {
-    // DIAGNOSTIC: Query and log details of all buttons in the DOM
-    const allButtons = querySelectorAllDeep('button');
-    log(`DIAGNOSTIC: Total buttons found in DOM: ${allButtons.length}`);
-    allButtons.forEach((btn, idx) => {
-      const style = window.getComputedStyle(btn);
-      const rect = btn.getBoundingClientRect();
-      const label = btn.getAttribute('aria-label') || '';
-      const className = btn.className || '';
-      const matIcon = btn.querySelector('mat-icon');
-      const svgIconAttr = (matIcon ? matIcon.getAttribute('svgicon') || matIcon.getAttribute('svgIcon') : 'none') || 'none';
-      
-      const isPotentialSend = label.toLowerCase().includes('send') || className.toLowerCase().includes('send') || svgIconAttr.toLowerCase().includes('send');
-      
-      if (isPotentialSend || allButtons.length <= 40 || idx < 5 || idx >= allButtons.length - 10) {
-        log(`Button #${idx}: label="${label}", class="${className}", size=${rect.width}x${rect.height}, display=${style.display}, visibility=${style.visibility}, matIconSvg="${svgIconAttr}", isPotentialSend=${isPotentialSend}`);
-      }
-    });
-
     const errorDetails = `Gemini send button not found after typing. Telemetry logs:\n${telemetryLogs.join('\n')}`;
     log(`ERROR: ${errorDetails}`);
     throw new Error(errorDetails);
@@ -411,43 +337,46 @@ export async function injectPrompt(prompt: string): Promise<void> {
 /**
  * Observes the response container and streams text chunks via messages.
  */
+/**
+ * Observes the response container and streams text chunks via messages.
+ */
 export async function scrapeResponse(taskId: string): Promise<void> {
+  const logId = `telemetry-scrape-${taskId}`;
+  const telemetryLogs: string[] = [];
   const log = (msg: string) => {
+    telemetryLogs.push(msg);
     try {
       chrome.runtime.sendMessage({
         type: 'AI_RESPONSE_STREAM',
-        payload: { taskId: 'telemetry-scrape', chunk: `[TELEMETRY] ${msg}`, done: false }
+        payload: { taskId: logId, chunk: `[SCRAPE] ${msg}`, done: false }
       });
     } catch (e) {}
   };
 
-  log('Starting response scraping...');
+  log('Starting scrapeResponse listener...');
+  log(`lastSeenContainer is: ${lastSeenContainer ? `${lastSeenContainer.tagName}.${lastSeenContainer.className}` : 'null'}`);
 
   // Wait for a new response container to appear
   let container: HTMLElement | null = null;
   let attempts = 0;
   
-  log(`Waiting for new response container. lastSeenContainer: ${lastSeenContainer ? `${lastSeenContainer.tagName}.${lastSeenContainer.className}` : 'null'}`);
-
   while (!container && attempts < 40) { // 20s max wait
     const candidates = querySelectorAllDeep(GEMINI_SELECTORS.responseContainer.join(', '));
     const currentLast = candidates[candidates.length - 1] as HTMLElement;
     
+    log(`Attempt #${attempts}: Found ${candidates.length} response container candidates.`);
     if (currentLast) {
-      // It's a new container if reference changed
       const isNewReference = currentLast !== lastSeenContainer;
-      // It's a new turn if it was previously marked historical but now being reused (rare, but safer)
-      const isReused = currentLast === lastSeenContainer && currentLast.dataset.icyTask !== taskId && getDeepText(currentLast).length < 20;
-
-      log(`Attempt #${attempts}: Found ${candidates.length} candidates. Last candidate: ${currentLast.tagName}.${currentLast.className}. isNewRef=${isNewReference}, isReused=${isReused}`);
-
+      const currentText = getDeepText(currentLast);
+      const isReused = currentLast === lastSeenContainer && currentLast.dataset.icyTask !== taskId && currentText.length < 20;
+      
+      log(`Candidate last: tag=${currentLast.tagName}, class=${currentLast.className}, isNew=${isNewReference}, isReused=${isReused}, textLength=${currentText.length}`);
+      
       if (isNewReference || isReused) {
         container = currentLast;
         container.dataset.icyTask = taskId;
-        log(`Container selected: ${container.tagName}.${container.className}`);
+        log(`Target response container selected: ${container.tagName}.${container.className}`);
       }
-    } else {
-      log(`Attempt #${attempts}: No response container candidates found in DOM.`);
     }
     
     if (!container) {
@@ -457,32 +386,28 @@ export async function scrapeResponse(taskId: string): Promise<void> {
   }
 
   if (!container) {
-    log('ERROR: Response container not found after 20 seconds.');
-    throw new Error('Gemini response container not found. Try refreshing the page.');
+    const errorDetails = `Gemini response container not found. Telemetry logs:\n${telemetryLogs.join('\n')}`;
+    log(`ERROR: ${errorDetails}`);
+    throw new Error(errorDetails);
   }
-
-  log(`Streaming started for container: ${container.tagName}.${container.className}. InnerHTML: ${container.innerHTML.slice(0, 300)}`);
 
   let lastText = '';
   let noChangeCount = 0;
   let stabilityCount = 0; // Requires N consecutive confirmations of "Finished"
 
   const streamChunk = (text: string, done = false) => {
-    try {
-      chrome.runtime.sendMessage({
-        type: 'AI_RESPONSE_STREAM',
-        payload: { taskId, chunk: text, done }
-      });
-    } catch (e: any) {
-      log(`Failed to stream chunk: ${e.message}`);
-    }
+    chrome.runtime.sendMessage({
+      type: 'AI_RESPONSE_STREAM',
+      payload: { taskId, chunk: text, done }
+    });
   };
 
+  log('Registering MutationObserver on response container...');
   const observer = new MutationObserver(() => {
     const currentText = scrapeDeepText(container!);
-    log(`Observer fired. Text length: ${currentText.length}. Sample: "${currentText.slice(0, 50)}..."`);
     
     if (currentText !== lastText) {
+      log(`MutationObserver: text changed (length: ${currentText.length})`);
       streamChunk(currentText, false);
       lastText = currentText;
       noChangeCount = 0;
@@ -490,17 +415,23 @@ export async function scrapeResponse(taskId: string): Promise<void> {
     }
   });
 
-  observer.observe(container, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
+  try {
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+    log('MutationObserver registered successfully.');
+  } catch (err: any) {
+    log(`ERROR: Failed to register MutationObserver: ${err.message}`);
+  }
 
   // Polling fallback if MutationObserver misses things in frames
+  log('Starting polling fallback interval...');
   const pollingInterval = setInterval(() => {
     const currentText = scrapeDeepText(container!);
     if (currentText !== lastText) {
-      log(`Polling detected change. Text length: ${currentText.length}. Sample: "${currentText.slice(0, 50)}..."`);
+      log(`Polling fallback: text changed (length: ${currentText.length})`);
       streamChunk(currentText, false);
       lastText = currentText;
       noChangeCount = 0;
@@ -509,13 +440,9 @@ export async function scrapeResponse(taskId: string): Promise<void> {
       noChangeCount++;
     }
 
-    if (currentText.length === 0 && noChangeCount % 5 === 0) {
-      log(`Warning: Scraped text is empty. Container innerHTML: ${container!.innerHTML.slice(0, 300)}`);
-    }
-
     // 1. Completion Guard: Look for "Send" button and absence of "Stop" button
-    const sendBtn = findLastSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
-    const stopBtn = findLastSelector((GEMINI_SELECTORS as any).stopButton);
+    const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
+    const stopBtn = findSelector((GEMINI_SELECTORS as any).stopButton);
     
     // Logic: Finished if Send is enabled AND Stop is gone
     const isUIFinished = (sendBtn && !sendBtn.disabled) && !stopBtn;
@@ -526,11 +453,15 @@ export async function scrapeResponse(taskId: string): Promise<void> {
       stabilityCount = 0;
     }
 
+    if (noChangeCount % 5 === 0) {
+      log(`Polling state check: noChangeCount=${noChangeCount}, stabilityCount=${stabilityCount}, isUIFinished=${isUIFinished}, textLength=${currentText.length}`);
+    }
+
     // 2. Finalization Trigger: Stability (3s) OR Timeout (60s)
     const shouldFinalize = (stabilityCount >= 3 && lastText.length > 0) || noChangeCount > 60;
 
     if (shouldFinalize) {
-      log(`Finalizing stream. stabilityCount=${stabilityCount}, noChangeCount=${noChangeCount}, finalLength=${lastText.length}`);
+      log(`Finalizing scrape: stabilityCount=${stabilityCount}, noChangeCount=${noChangeCount}, final textLength=${lastText.length}`);
       clearInterval(pollingInterval);
       observer.disconnect();
       if (maxDurationTimer) clearTimeout(maxDurationTimer);
@@ -540,7 +471,7 @@ export async function scrapeResponse(taskId: string): Promise<void> {
 
   // Safety: Force completion if Gemini hangs (Extending for long responses)
   const maxDurationTimer = setTimeout(() => {
-    log('WARNING: Max response duration reached (4 minutes). Forcing finalization.');
+    log('Max duration timer hit (4 minutes). Forcing completion...');
     clearInterval(pollingInterval);
     observer.disconnect();
     streamChunk(lastText, true);
