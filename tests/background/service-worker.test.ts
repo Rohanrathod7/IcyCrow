@@ -303,7 +303,13 @@ describe('Message Router', () => {
     const onMessageCallback = listeners.onMessage[0];
     const sendResponse = vi.fn();
     
-    mockSessionState.sessionState = { geminiTabId: 456 } as any;
+    mockSessionState.sessionState = { 
+      geminiTabId: 456,
+      geminiTabIds: [456],
+      manualGeminiTabId: 456
+    } as any;
+
+    vi.mocked(chrome.tabs.sendMessage).mockResolvedValueOnce({ ok: true, pong: true });
 
     onMessageCallback({ type: 'GEMINI_HEALTH_CHECK', payload: undefined }, { id: 'mock-extension-id' }, sendResponse);
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -312,6 +318,13 @@ describe('Message Router', () => {
       ok: true,
       data: expect.objectContaining({ 
         tabFound: true,
+        healthy: true,
+        manualGeminiTabId: 456,
+        tabInfo: expect.objectContaining({
+          id: 456,
+          url: expect.any(String),
+          title: expect.any(String)
+        }),
         selectors: expect.any(Object)
       })
     }));

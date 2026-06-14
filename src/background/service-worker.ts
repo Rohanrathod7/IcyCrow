@@ -4,7 +4,7 @@ import { InboundMessageSchema, type ValidatedInboundMessage } from '@lib/zod-sch
 import { cryptoManager } from './crypto-manager';
 import { getHighlights, updateHighlights, getChatHistory } from '@lib/storage';
 import { taskQueue } from '@lib/task-queue';
-import { watchGeminiTab, verifyAndRecoverBridge, verifyBridgeHealth } from './gemini-detector';
+import { watchGeminiTab, verifyAndRecoverBridge } from './gemini-detector';
 import { GEMINI_SELECTORS } from '@lib/gemini-selectors';
 import { offscreenManager } from './offscreen-manager';
 import { spaceManager } from './managers/space-manager';
@@ -392,8 +392,39 @@ async function handleAiMessage(
     case 'GEMINI_HEALTH_CHECK': {
       const result = await chrome.storage?.session?.get('sessionState');
       const state = (result?.sessionState as SessionState) || {};
-      const tabId = state.geminiTabId || (state.geminiTabIds && state.geminiTabIds[0]);
-      sendResponse({ ok: true, data: { tabFound: !!tabId, selectors: GEMINI_SELECTORS } });
+      
+      let tabId = state.manualGeminiTabId || null;
+      if (!tabId || !(state.geminiTabIds || []).includes(tabId)) {
+        tabId = (state.geminiTabIds && state.geminiTabIds[0]) || null;
+      }
+
+      let healthy = false;
+      let tabInfo = null;
+
+      if (tabId) {
+        try {
+          const tab = await chrome.tabs.get(tabId);
+          tabInfo = {
+            id: tab.id,
+            title: tab.title || 'Google Gemini',
+            url: tab.url || 'https://gemini.google.com'
+          };
+          healthy = await verifyAndRecoverBridge(tabId);
+        } catch (e) {
+          console.warn('[IcyCrow] Health check verification failed:', e);
+        }
+      }
+
+      sendResponse({ 
+        ok: true, 
+        data: { 
+          tabFound: !!tabId,
+          healthy,
+          manualGeminiTabId: state.manualGeminiTabId || null,
+          tabInfo,
+          selectors: GEMINI_SELECTORS
+        } 
+      });
       break;
     }
     case 'SEMANTIC_SEARCH': {
