@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { standaloneTabs, addActiveTabStandalone, deleteStandaloneTab, moveTabToSpace, spaces, standaloneModalState, searchQuery } from '../store';
+import { standaloneTabs, addActiveTabStandalone, deleteStandaloneTab, moveTabToSpace, spaces, standaloneModalState, searchQuery, currentWindowOpenTabs } from '../store';
 import { X, Globe, MoreVertical } from 'lucide-preact';
 import { SplitButton } from './SplitButton';
 import { StandaloneTabSelectionModal } from './StandaloneTabSelectionModal';
@@ -83,9 +83,20 @@ const StandaloneTabItem = ({ tab }: { tab: SpaceTab }) => {
     setShowMenu(false);
   };
 
+  const openTab = currentWindowOpenTabs.value.find(t => t.url === tab.url);
+  const isOpen = !!openTab;
+
+  const handleClick = () => {
+    if (isOpen && openTab && openTab.id !== undefined) {
+      chrome.tabs.update(openTab.id, { active: true });
+    } else {
+      chrome.tabs.create({ url: tab.url });
+    }
+  };
+
   return (
     <div className="standalone-tab-card glass-card">
-      <div className="tab-main" onClick={() => chrome.tabs.create({ url: tab.url })}>
+      <div className="tab-main" onClick={handleClick}>
         <div className="tab-icon-wrapper">
           {tab.favicon ? (
             <img src={tab.favicon} alt="" className="tab-icon" onError={(e) => (e.currentTarget.style.display = 'none')} />
@@ -94,7 +105,10 @@ const StandaloneTabItem = ({ tab }: { tab: SpaceTab }) => {
           )}
         </div>
         <div className="tab-details">
-          <span className="tab-title-text" title={tab.title}>{highlightMatch(tab.title, searchQuery.value)}</span>
+          <div className="flex-row items-center gap-2 min-width-0 flex-1">
+            <span className="tab-title-text" title={tab.title}>{highlightMatch(tab.title, searchQuery.value)}</span>
+            {isOpen && <span className="badge-pill-open">Open</span>}
+          </div>
           <span className="tab-url-text">{new URL(tab.url).hostname}</span>
         </div>
       </div>

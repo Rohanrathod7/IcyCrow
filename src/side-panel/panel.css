@@ -2475,3 +2475,19 @@ button:active {
   padding: 0 1px;
 }
 
+.badge-pill-open {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
