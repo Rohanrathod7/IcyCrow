@@ -32,8 +32,8 @@ export function querySelectorAllDeep(selector: string, root: Node = document): H
 
 function isElementVisible(el: HTMLElement): boolean {
   try {
-    // Exclude Quill/ProseMirror clipboard or hidden helper elements
-    if (el.classList.contains('ql-clipboard') || el.classList.contains('ql-hidden')) return false;
+    // Exclude Quill/ProseMirror clipboard or hidden helper elements (checking element and ancestors)
+    if (el.closest('.ql-clipboard, .ql-hidden, [class*="clipboard"]')) return false;
 
     const style = window.getComputedStyle(el);
     if (style.display === 'none' || style.visibility === 'hidden') return false;

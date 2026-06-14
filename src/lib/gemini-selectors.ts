@@ -4,9 +4,11 @@
  */
 export const GEMINI_SELECTORS = {
   inputField: [
-    'div[contenteditable="true"]',
+    'rich-textarea div[contenteditable="true"]:not(.ql-clipboard):not(.ql-hidden)',
+    'rich-textarea p',
     'rich-textarea textarea',
-    '.ql-editor'
+    'div[contenteditable="true"]:not(.ql-clipboard):not(.ql-hidden)',
+    '.ql-editor:not(.ql-clipboard):not(.ql-hidden)'
   ],
   sendButton: [
     'button[aria-label="Send message"]',
