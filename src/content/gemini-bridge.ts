@@ -474,10 +474,10 @@ export async function scrapeResponse(taskId: string): Promise<void> {
         noChangeCount++;
       }
 
-      // Completion check
+      // Completion check: Finished if the send button is back in the DOM and the stop button is absent
       const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
       const stopBtn = findSelector((GEMINI_SELECTORS as any).stopButton);
-      const isUIFinished = (sendBtn && !sendBtn.disabled) && !stopBtn;
+      const isUIFinished = !!(sendBtn && !stopBtn);
 
       if (isUIFinished) {
         stabilityCount++;

@@ -69,7 +69,7 @@ export const ChatView = () => {
       
       if (message.type === 'AI_RESPONSE_STREAM' && message.payload) {
         const { taskId, chunk, done, error, tabInfo } = message.payload as any;
-        if (!taskId) return;
+        if (!taskId || taskId.startsWith('telemetry')) return;
         
         if (tabInfo) {
           // Handled by BridgeSelector/Store
@@ -204,6 +204,7 @@ export const ChatView = () => {
   return (
     <div className="chat-view" ref={containerRef}>
       <div className="chat-header glass-card" style={{ 
+        position: 'relative',
         display: 'flex', 
         alignItems: 'center',
         padding: '6px 12px', /* Slightly more horizontal padding */
