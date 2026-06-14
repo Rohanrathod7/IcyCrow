@@ -218,31 +218,42 @@ export async function injectPrompt(prompt: string): Promise<void> {
   const target = input.querySelector('p') || input.querySelector('div') || input;
   let currentVal = '';
 
-  // Option A: Quill JS programmatic API injection
+  // Option A: Main World Quill API Injection (bypassing isolated world limits)
   try {
-    let parent: any = input;
-    let quillInstance: any = null;
-    while (parent) {
-      const keys = Object.keys(parent);
-      const quillKey = keys.find(k => k.includes('quill') || k === '__quill' || (parent[k] && typeof parent[k].setText === 'function'));
-      if (quillKey && parent[quillKey]) {
-        quillInstance = parent[quillKey];
-        break;
-      }
-      parent = parent.parentElement;
-    }
+    input.setAttribute('data-icy-inject', 'active');
+    const script = document.createElement('script');
+    script.textContent = `
+      (function() {
+        const el = document.querySelector('[data-icy-inject="active"]');
+        if (el) {
+          let parent = el;
+          let qInstance = null;
+          while (parent) {
+            const keys = Object.keys(parent);
+            const quillKey = keys.find(k => k.includes('quill') || k === '__quill' || (parent[k] && typeof parent[k].setText === 'function'));
+            if (quillKey && parent[quillKey]) {
+              qInstance = parent[quillKey];
+              break;
+            }
+            parent = parent.parentElement;
+          }
+          if (qInstance && typeof qInstance.setText === 'function') {
+            qInstance.setText(${JSON.stringify(prompt)});
+            if (typeof qInstance.update === 'function') qInstance.update();
+          }
+        }
+      })();
+    `;
+    document.documentElement.appendChild(script);
+    script.remove();
+    input.removeAttribute('data-icy-inject');
     
-    if (quillInstance && typeof quillInstance.setText === 'function') {
-      log(`Found Quill instance on ${parent.tagName}.${parent.className}. Injecting via setText()...`);
-      quillInstance.setText(prompt);
-      if (typeof quillInstance.update === 'function') {
-        quillInstance.update();
-      }
-      currentVal = target.textContent || '';
-      log(`Text after Quill setText: "${currentVal.slice(0, 30)}..."`);
+    currentVal = target.textContent || '';
+    if (currentVal.trim()) {
+      log('Prompt successfully set via Main World Quill API.');
     }
   } catch (err: any) {
-    log(`Quill API injection failed: ${err.message}`);
+    log(`Main World Quill API injection failed: ${err.message}`);
   }
 
   // Option B: ClipboardEvent paste (primary fallback)
