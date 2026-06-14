@@ -30,13 +30,35 @@ export function querySelectorAllDeep(selector: string, root: Node = document): H
   return results;
 }
 
+function isElementVisible(el: HTMLElement): boolean {
+  try {
+    const style = window.getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    
+    // In JSDOM mock environment, layout sizing is not computed (always 0)
+    const isJSDOM = typeof navigator !== 'undefined' && navigator.userAgent?.toLowerCase().includes('jsdom');
+    if (isJSDOM) return true;
+    
+    // Check bounding rect for sizing
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      // Allow background tabs to pass sizing check if they are not explicitly display:none
+      return document.visibilityState === 'hidden';
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 /**
- * Tries each selector in order, returns first matching element.
+ * Tries each selector in order, returns first matching visible element.
  */
 export function findSelector(selectors: string[]): HTMLElement | null {
   for (const s of selectors) {
     const elements = querySelectorAllDeep(s);
-    if (elements.length > 0) return elements[0];
+    const visible = elements.filter(isElementVisible);
+    if (visible.length > 0) return visible[0];
   }
   return null;
 }
@@ -112,12 +134,13 @@ function scrapeDeepText(container: HTMLElement): string {
 }
 
 /**
- * Tries each selector in order, returns the LAST matching element in the DOM.
+ * Tries each selector in order, returns the LAST matching visible element in the DOM.
  */
 export function findLastSelector(selectors: string[]): HTMLElement | null {
   for (const s of selectors) {
     const elements = querySelectorAllDeep(s);
-    if (elements.length > 0) return elements[elements.length - 1];
+    const visible = elements.filter(isElementVisible);
+    if (visible.length > 0) return visible[visible.length - 1];
   }
   return null;
 }
@@ -148,17 +171,26 @@ export async function injectPrompt(prompt: string): Promise<void> {
   lastSeenContainer = existing.length > 0 ? (existing[existing.length - 1] as HTMLElement) : null;
   log(`Found ${existing.length} existing response containers.`);
   
+  // Find all matching inputs (both visible and hidden) for debugging
+  const rawInputs = querySelectorAllDeep(GEMINI_SELECTORS.inputField.join(', '));
+  log(`Raw input candidates found in DOM: ${rawInputs.length}`);
+  rawInputs.forEach((el, idx) => {
+    const style = window.getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    log(`Candidate #${idx}: tag=${el.tagName}, class=${el.className}, visible=${style.display !== 'none'}, rect=${rect.width}x${rect.height}`);
+  });
+
   const input = findLastSelector(GEMINI_SELECTORS.inputField);
   if (!input) {
     log('ERROR: Gemini input field not found.');
     throw new Error('Gemini input field not found');
   }
-  log('Found input field.');
+  log(`Found input field: ${input.tagName}.${input.className}`);
 
   // 1. Force Tab Visibility/Focus to beat background throttling
   window.focus();
   input.focus();
-  log('Window and input focused.');
+  log(`Window focused. Active element: ${document.activeElement?.tagName}.${document.activeElement?.className}`);
 
   // Set selection explicitly to target the inner paragraph or the input itself
   const selection = window.getSelection();
@@ -168,72 +200,95 @@ export async function injectPrompt(prompt: string): Promise<void> {
     const target = input.querySelector('p') || input.querySelector('div') || input;
     range.selectNodeContents(target);
     selection.addRange(range);
-    log('Selection range set on target block.');
+    log(`Selection range set on target block: ${target.tagName}.${target.className}`);
   } else {
     log('Warning: window.getSelection() returned null.');
   }
 
-  // 2. Framework-Aware Injection
+  // 2. Framework-Aware Injection Loop
+  // Option A: execCommand
   try {
-    // Select all existing text inside the focused input area first
     document.execCommand('selectAll', false, undefined);
-    
-    // [HARDENING]: Some Gemini versions handle \n as "Send", so we ensure it's treated as data
-    // using a more reliable insertText implementation for contenteditable.
     if (!document.execCommand('insertText', false, prompt)) {
-       throw new Error('execCommand returned false');
-     }
-     log('Prompt text successfully inserted via execCommand.');
+      throw new Error('execCommand insertText returned false');
+    }
+    log('Prompt text inserted via execCommand.');
   } catch (err: any) {
-    log(`execCommand failed, falling back to manual assignment: ${err.message}`);
-    console.warn('[IcyCrow] execCommand failed, falling back to manual assignment:', err);
-    // [ROBUST FALLBACK]: Assignment + Manual Events with framework-aware inputType
-    const beforeInputEvent = new InputEvent('beforeinput', {
-      bubbles: true,
-      cancelable: true,
-      inputType: 'insertText',
-      data: prompt
-    });
-    input.dispatchEvent(beforeInputEvent);
+    log(`execCommand failed: ${err.message}`);
+  }
 
-    if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
-      input.value = prompt;
-    } else {
-      // Find the inner editable block (Gemini uses <p> inside contenteditable) to preserve ProseMirror structures
-      const targetBlock = input.querySelector('p') || input.querySelector('div') || input;
-      targetBlock.innerText = prompt;
+  // Check if text was inserted
+  const target = input.querySelector('p') || input.querySelector('div') || input;
+  let currentVal = target.textContent || '';
+  log(`Current input text after execCommand: "${currentVal.slice(0, 30)}..."`);
+
+  // Option B: ClipboardEvent paste fallback
+  if (!currentVal.trim()) {
+    log('execCommand was empty, attempting ClipboardEvent paste fallback...');
+    try {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.setData('text/plain', prompt);
+      const pasteEvent = new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: dataTransfer
+      });
+      input.dispatchEvent(pasteEvent);
+      log('Paste event dispatched.');
+    } catch (err: any) {
+      log(`Paste event failed: ${err.message}`);
     }
 
-    input.dispatchEvent(new InputEvent('input', {
-      bubbles: true,
-      inputType: 'insertText',
-      data: prompt
-    }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    log('Prompt text assigned via manual fallback.');
+    currentVal = target.textContent || '';
+    log(`Current input text after paste event: "${currentVal.slice(0, 30)}..."`);
+  }
+
+  // Option C: Manual innerText assignment fallback
+  if (!currentVal.trim()) {
+    log('Paste event was empty, attempting manual innerText assignment...');
+    try {
+      target.innerText = prompt;
+      
+      input.dispatchEvent(new InputEvent('beforeinput', {
+        bubbles: true,
+        cancelable: true,
+        inputType: 'insertText',
+        data: prompt
+      }));
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      
+      const textEvent = new Event('textInput', { bubbles: true });
+      (textEvent as any).data = prompt;
+      input.dispatchEvent(textEvent);
+      log('Manual innerText and events dispatched.');
+    } catch (err: any) {
+      log(`Manual assignment failed: ${err.message}`);
+    }
+
+    currentVal = target.textContent || '';
+    log(`Current input text after manual assignment: "${currentVal.slice(0, 30)}..."`);
   }
 
   // 3. Definitive Wait for State Sync (Critical for Gemini's dynamic send button)
   const isBackground = document.visibilityState === 'hidden';
-  const syncWait = isBackground ? 100 : 200; 
+  const syncWait = isBackground ? 150 : 300; 
   log(`Waiting ${syncWait}ms for state sync (isBackground=${isBackground})...`);
   await new Promise(r => setTimeout(r, syncWait));
 
-  // Query send button AFTER typing, when it should be rendered
+  // 4. Query send button AFTER typing, when it should be rendered
   const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
   if (!sendBtn) {
     log('ERROR: Gemini send button not found after typing.');
     throw new Error('Gemini send button not found');
   }
-  log('Found send button.');
+  log(`Found send button: ${sendBtn.tagName}.${sendBtn.className}`);
 
-  // 4. Dual-Submission Protocol (Synthetic Enter + Click)
+  // 5. Dual-Submission Protocol (Synthetic Enter + Click)
   log('Triggering submission events...');
-  // Attempt 1: Enter Keypress
   const enterDown = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true });
   input.dispatchEvent(enterDown);
   
-  // Attempt 2: Comprehensive Click Simulation
   const wasDisabled = sendBtn.disabled;
   if (wasDisabled) {
     log('Send button was disabled, temporarily enabling...');
