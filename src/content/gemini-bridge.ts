@@ -338,10 +338,23 @@ export async function injectPrompt(prompt: string): Promise<void> {
  * Observes the response container and streams text chunks via messages.
  */
 export async function scrapeResponse(taskId: string): Promise<void> {
+  const log = (msg: string) => {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'AI_RESPONSE_STREAM',
+        payload: { taskId: 'telemetry-scrape', chunk: `[TELEMETRY] ${msg}`, done: false }
+      });
+    } catch (e) {}
+  };
+
+  log('Starting response scraping...');
+
   // Wait for a new response container to appear
   let container: HTMLElement | null = null;
   let attempts = 0;
   
+  log(`Waiting for new response container. lastSeenContainer: ${lastSeenContainer ? `${lastSeenContainer.tagName}.${lastSeenContainer.className}` : 'null'}`);
+
   while (!container && attempts < 40) { // 20s max wait
     const candidates = querySelectorAllDeep(GEMINI_SELECTORS.responseContainer.join(', '));
     const currentLast = candidates[candidates.length - 1] as HTMLElement;
@@ -352,10 +365,15 @@ export async function scrapeResponse(taskId: string): Promise<void> {
       // It's a new turn if it was previously marked historical but now being reused (rare, but safer)
       const isReused = currentLast === lastSeenContainer && currentLast.dataset.icyTask !== taskId && getDeepText(currentLast).length < 20;
 
+      log(`Attempt #${attempts}: Found ${candidates.length} candidates. Last candidate: ${currentLast.tagName}.${currentLast.className}. isNewRef=${isNewReference}, isReused=${isReused}`);
+
       if (isNewReference || isReused) {
         container = currentLast;
         container.dataset.icyTask = taskId;
+        log(`Container selected: ${container.tagName}.${container.className}`);
       }
+    } else {
+      log(`Attempt #${attempts}: No response container candidates found in DOM.`);
     }
     
     if (!container) {
@@ -365,22 +383,30 @@ export async function scrapeResponse(taskId: string): Promise<void> {
   }
 
   if (!container) {
+    log('ERROR: Response container not found after 20 seconds.');
     throw new Error('Gemini response container not found. Try refreshing the page.');
   }
+
+  log(`Streaming started for container: ${container.tagName}.${container.className}. InnerHTML: ${container.innerHTML.slice(0, 300)}`);
 
   let lastText = '';
   let noChangeCount = 0;
   let stabilityCount = 0; // Requires N consecutive confirmations of "Finished"
 
   const streamChunk = (text: string, done = false) => {
-    chrome.runtime.sendMessage({
-      type: 'AI_RESPONSE_STREAM',
-      payload: { taskId, chunk: text, done }
-    });
+    try {
+      chrome.runtime.sendMessage({
+        type: 'AI_RESPONSE_STREAM',
+        payload: { taskId, chunk: text, done }
+      });
+    } catch (e: any) {
+      log(`Failed to stream chunk: ${e.message}`);
+    }
   };
 
   const observer = new MutationObserver(() => {
     const currentText = scrapeDeepText(container!);
+    log(`Observer fired. Text length: ${currentText.length}. Sample: "${currentText.slice(0, 50)}..."`);
     
     if (currentText !== lastText) {
       streamChunk(currentText, false);
@@ -400,12 +426,17 @@ export async function scrapeResponse(taskId: string): Promise<void> {
   const pollingInterval = setInterval(() => {
     const currentText = scrapeDeepText(container!);
     if (currentText !== lastText) {
+      log(`Polling detected change. Text length: ${currentText.length}. Sample: "${currentText.slice(0, 50)}..."`);
       streamChunk(currentText, false);
       lastText = currentText;
       noChangeCount = 0;
       stabilityCount = 0;
     } else {
       noChangeCount++;
+    }
+
+    if (currentText.length === 0 && noChangeCount % 5 === 0) {
+      log(`Warning: Scraped text is empty. Container innerHTML: ${container!.innerHTML.slice(0, 300)}`);
     }
 
     // 1. Completion Guard: Look for "Send" button and absence of "Stop" button
@@ -425,6 +456,7 @@ export async function scrapeResponse(taskId: string): Promise<void> {
     const shouldFinalize = (stabilityCount >= 3 && lastText.length > 0) || noChangeCount > 60;
 
     if (shouldFinalize) {
+      log(`Finalizing stream. stabilityCount=${stabilityCount}, noChangeCount=${noChangeCount}, finalLength=${lastText.length}`);
       clearInterval(pollingInterval);
       observer.disconnect();
       if (maxDurationTimer) clearTimeout(maxDurationTimer);
@@ -434,6 +466,7 @@ export async function scrapeResponse(taskId: string): Promise<void> {
 
   // Safety: Force completion if Gemini hangs (Extending for long responses)
   const maxDurationTimer = setTimeout(() => {
+    log('WARNING: Max response duration reached (4 minutes). Forcing finalization.');
     clearInterval(pollingInterval);
     observer.disconnect();
     streamChunk(lastText, true);
