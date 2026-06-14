@@ -351,6 +351,23 @@ export async function injectPrompt(prompt: string): Promise<void> {
 /**
  * Observes the response container and streams text chunks via messages.
  */
+function dumpElementTree(el: HTMLElement, maxDepth: number = 4): string {
+  const lines: string[] = [];
+  const walk = (node: Element, depth: number) => {
+    if (depth > maxDepth) return;
+    const text = (node.textContent || '').trim().replace(/\s+/g, ' ');
+    const textSnippet = text.length > 40 ? `${text.slice(0, 40)}...` : text;
+    const indent = '  '.repeat(depth);
+    lines.push(`${indent}${node.tagName}.${Array.from(node.classList).join('.')} [textLen=${text.length}, snippet="${textSnippet}"]`);
+    
+    for (const child of Array.from(node.children)) {
+      walk(child, depth + 1);
+    }
+  };
+  walk(el, 0);
+  return lines.join('\n');
+}
+
 export async function scrapeResponse(taskId: string): Promise<void> {
   const logId = `telemetry-scrape-${taskId}`;
   const telemetryLogs: string[] = [];
@@ -387,6 +404,7 @@ export async function scrapeResponse(taskId: string): Promise<void> {
         container = currentLast;
         container.dataset.icyTask = taskId;
         log(`Target response container selected: ${container.tagName}.${container.className}`);
+        log(`Container Tree:\n${dumpElementTree(container)}`);
       }
     }
     
