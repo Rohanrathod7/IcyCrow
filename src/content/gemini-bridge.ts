@@ -179,6 +179,10 @@ export async function injectPrompt(prompt: string): Promise<void> {
   const existing = querySelectorAllDeep(GEMINI_SELECTORS.responseContainer.join(', '));
   lastSeenContainer = existing.length > 0 ? (existing[existing.length - 1] as HTMLElement) : null;
   log(`Found ${existing.length} existing response containers.`);
+  existing.forEach((el, idx) => {
+    const text = getDeepText(el);
+    log(`Response Container #${idx}: tag=${el.tagName}, class=${el.className}, textLength=${text.length}, textPrefix="${text.slice(0, 40).replace(/\s+/g, ' ')}"`);
+  });
   
   // Find all matching inputs (both visible and hidden) for debugging
   const rawInputs = querySelectorAllDeep(GEMINI_SELECTORS.inputField.join(', '));
