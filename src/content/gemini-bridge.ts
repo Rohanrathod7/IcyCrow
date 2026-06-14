@@ -465,9 +465,11 @@ export async function scrapeResponse(taskId: string): Promise<void> {
     }
 
     if (noChangeCount % 5 === 0) {
-      log(`Polling state check: noChangeCount=${noChangeCount}, stabilityCount=${stabilityCount}, isUIFinished=${isUIFinished}, textLength=${currentText.length}`);
+      const nativeText = container!.textContent || '';
+      const rawText = getDeepText(container!);
+      log(`Polling state check: noChangeCount=${noChangeCount}, stabilityCount=${stabilityCount}, isUIFinished=${isUIFinished}, textLength=${currentText.length}, nativeTextLength=${nativeText.length}, rawTextLength=${rawText.length}`);
       try {
-        log(`Container: tag=${container!.tagName}, class="${container!.className}", htmlSnippet=${container!.outerHTML.slice(0, 150).replace(/\s+/g, ' ')}`);
+        log(`Container: tag=${container!.tagName}, class="${container!.className}", nativeTextPrefix="${nativeText.slice(0, 50).replace(/\s+/g, ' ')}"`);
       } catch (e) {}
     }
 
