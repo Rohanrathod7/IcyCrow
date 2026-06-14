@@ -384,45 +384,12 @@ export async function scrapeResponse(taskId: string): Promise<void> {
   log('Starting scrapeResponse listener...');
   log(`lastSeenContainer is: ${lastSeenContainer ? `${lastSeenContainer.tagName}.${lastSeenContainer.className}` : 'null'}`);
 
-  // Wait for a new response container to appear
   let container: HTMLElement | null = null;
-  let attempts = 0;
-  
-  while (!container && attempts < 40) { // 20s max wait
-    const candidates = querySelectorAllDeep(GEMINI_SELECTORS.responseContainer.join(', '));
-    const currentLast = candidates[candidates.length - 1] as HTMLElement;
-    
-    log(`Attempt #${attempts}: Found ${candidates.length} response container candidates.`);
-    if (currentLast) {
-      const isNewReference = currentLast !== lastSeenContainer;
-      const currentText = getDeepText(currentLast);
-      const isReused = currentLast === lastSeenContainer && currentLast.dataset.icyTask !== taskId && currentText.length < 20;
-      
-      log(`Candidate last: tag=${currentLast.tagName}, class=${currentLast.className}, isNew=${isNewReference}, isReused=${isReused}, textLength=${currentText.length}`);
-      
-      if (isNewReference || isReused) {
-        container = currentLast;
-        container.dataset.icyTask = taskId;
-        log(`Target response container selected: ${container.tagName}.${container.className}`);
-        log(`Container Tree:\n${dumpElementTree(container)}`);
-      }
-    }
-    
-    if (!container) {
-      await new Promise(r => setTimeout(r, 500));
-      attempts++;
-    }
-  }
-
-  if (!container) {
-    const errorDetails = `Gemini response container not found. Telemetry logs:\n${telemetryLogs.join('\n')}`;
-    log(`ERROR: ${errorDetails}`);
-    throw new Error(errorDetails);
-  }
-
+  let observer: MutationObserver | null = null;
   let lastText = '';
   let noChangeCount = 0;
-  let stabilityCount = 0; // Requires N consecutive confirmations of "Finished"
+  let stabilityCount = 0;
+  let attempts = 0;
 
   const streamChunk = (text: string, done = false) => {
     chrome.runtime.sendMessage({
@@ -431,83 +398,128 @@ export async function scrapeResponse(taskId: string): Promise<void> {
     });
   };
 
-  log('Registering MutationObserver on response container...');
-  const observer = new MutationObserver(() => {
-    const currentText = scrapeDeepText(container!);
-    
-    if (currentText !== lastText) {
-      log(`MutationObserver: text changed (length: ${currentText.length})`);
-      streamChunk(currentText, false);
-      lastText = currentText;
-      noChangeCount = 0;
-      stabilityCount = 0; // Reset stability on any change
-    }
-  });
+  const setupContainer = (newContainer: HTMLElement) => {
+    container = newContainer;
+    container.dataset.icyTask = taskId;
+    log(`Active response container selected/switched: ${container.tagName}.${container.className}`);
+    log(`Container Tree:\n${dumpElementTree(container)}`);
 
-  try {
-    observer.observe(container, {
-      childList: true,
-      subtree: true,
-      characterData: true
+    if (observer) {
+      observer.disconnect();
+    }
+
+    observer = new MutationObserver(() => {
+      if (!container) return;
+      const currentText = scrapeDeepText(container);
+      if (currentText !== lastText) {
+        log(`MutationObserver: text changed (length: ${currentText.length})`);
+        streamChunk(currentText, false);
+        lastText = currentText;
+        noChangeCount = 0;
+        stabilityCount = 0;
+      }
     });
-    log('MutationObserver registered successfully.');
-  } catch (err: any) {
-    log(`ERROR: Failed to register MutationObserver: ${err.message}`);
+
+    try {
+      observer.observe(container, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+      log('MutationObserver registered successfully.');
+    } catch (err: any) {
+      log(`ERROR: Failed to register MutationObserver: ${err.message}`);
+    }
+
+    noChangeCount = 0;
+    stabilityCount = 0;
+  };
+
+  // 1. Initial synchronous check to support mock test environments
+  const initCandidates = querySelectorAllDeep(GEMINI_SELECTORS.responseContainer.join(', '));
+  const initLast = initCandidates[initCandidates.length - 1] as HTMLElement;
+  if (initLast) {
+    const isNewReference = initLast !== lastSeenContainer;
+    const isReused = initLast === lastSeenContainer && initLast.dataset.icyTask !== taskId && getDeepText(initLast).length < 20;
+    if (isNewReference || isReused) {
+      setupContainer(initLast);
+    }
   }
 
-  // Polling fallback if MutationObserver misses things in frames
-  log('Starting polling fallback interval...');
+  // 2. High-frequency polling loop for dynamic container switching
+  log('Starting polling interval...');
   const pollingInterval = setInterval(() => {
-    const currentText = scrapeDeepText(container!);
-    if (currentText !== lastText) {
-      log(`Polling fallback: text changed (length: ${currentText.length})`);
-      streamChunk(currentText, false);
-      lastText = currentText;
-      noChangeCount = 0;
-      stabilityCount = 0;
+    const candidates = querySelectorAllDeep(GEMINI_SELECTORS.responseContainer.join(', '));
+    const currentLast = candidates[candidates.length - 1] as HTMLElement;
+
+    if (currentLast) {
+      const isNewReference = currentLast !== lastSeenContainer;
+      const isReused = currentLast === lastSeenContainer && currentLast.dataset.icyTask !== taskId && getDeepText(currentLast).length < 20;
+
+      // Automatically switch focus if a new element reference is detected
+      if ((isNewReference || isReused) && currentLast !== container) {
+        setupContainer(currentLast);
+      }
+    }
+
+    if (container) {
+      const currentText = scrapeDeepText(container);
+      if (currentText !== lastText) {
+        log(`Polling fallback: text changed (length: ${currentText.length})`);
+        streamChunk(currentText, false);
+        lastText = currentText;
+        noChangeCount = 0;
+        stabilityCount = 0;
+      } else {
+        noChangeCount++;
+      }
+
+      // Completion check
+      const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
+      const stopBtn = findSelector((GEMINI_SELECTORS as any).stopButton);
+      const isUIFinished = (sendBtn && !sendBtn.disabled) && !stopBtn;
+
+      if (isUIFinished) {
+        stabilityCount++;
+      } else {
+        stabilityCount = 0;
+      }
+
+      if (noChangeCount % 5 === 0) {
+        const nativeText = container.textContent || '';
+        const rawText = getDeepText(container);
+        log(`Polling state check: noChangeCount=${noChangeCount}, stabilityCount=${stabilityCount}, isUIFinished=${isUIFinished}, textLength=${currentText.length}, nativeTextLength=${nativeText.length}, rawTextLength=${rawText.length}`);
+        try {
+          log(`Container: tag=${container.tagName}, class="${container.className}", nativeTextPrefix="${nativeText.slice(0, 50).replace(/\s+/g, ' ')}"`);
+        } catch (e) {}
+      }
+
+      // stabilityCount >= 6 checks stability for 3 seconds at 500ms ticks
+      const shouldFinalize = (stabilityCount >= 6 && lastText.length > 0) || noChangeCount > 120;
+
+      if (shouldFinalize) {
+        log(`Finalizing scrape: stabilityCount=${stabilityCount}, noChangeCount=${noChangeCount}, final textLength=${lastText.length}`);
+        clearInterval(pollingInterval);
+        if (observer) observer.disconnect();
+        if (maxDurationTimer) clearTimeout(maxDurationTimer);
+        streamChunk(lastText, true);
+      }
     } else {
-      noChangeCount++;
+      attempts++;
+      if (attempts >= 40) { // 20s max wait
+        log('ERROR: Timeout waiting for response container to appear.');
+        clearInterval(pollingInterval);
+        if (maxDurationTimer) clearTimeout(maxDurationTimer);
+        throw new Error('Gemini response container not found. Try refreshing the page.');
+      }
     }
-
-    // 1. Completion Guard: Look for "Send" button and absence of "Stop" button
-    const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
-    const stopBtn = findSelector((GEMINI_SELECTORS as any).stopButton);
-    
-    // Logic: Finished if Send is enabled AND Stop is gone
-    const isUIFinished = (sendBtn && !sendBtn.disabled) && !stopBtn;
-    
-    if (isUIFinished) {
-      stabilityCount++;
-    } else {
-      stabilityCount = 0;
-    }
-
-    if (noChangeCount % 5 === 0) {
-      const nativeText = container!.textContent || '';
-      const rawText = getDeepText(container!);
-      log(`Polling state check: noChangeCount=${noChangeCount}, stabilityCount=${stabilityCount}, isUIFinished=${isUIFinished}, textLength=${currentText.length}, nativeTextLength=${nativeText.length}, rawTextLength=${rawText.length}`);
-      try {
-        log(`Container: tag=${container!.tagName}, class="${container!.className}", nativeTextPrefix="${nativeText.slice(0, 50).replace(/\s+/g, ' ')}"`);
-      } catch (e) {}
-    }
-
-    // 2. Finalization Trigger: Stability (3s) OR Timeout (60s)
-    const shouldFinalize = (stabilityCount >= 3 && lastText.length > 0) || noChangeCount > 60;
-
-    if (shouldFinalize) {
-      log(`Finalizing scrape: stabilityCount=${stabilityCount}, noChangeCount=${noChangeCount}, final textLength=${lastText.length}`);
-      clearInterval(pollingInterval);
-      observer.disconnect();
-      if (maxDurationTimer) clearTimeout(maxDurationTimer);
-      streamChunk(lastText, true);
-    }
-  }, 1000);
+  }, 500);
 
   // Safety: Force completion if Gemini hangs (Extending for long responses)
   const maxDurationTimer = setTimeout(() => {
     log('Max duration timer hit (4 minutes). Forcing completion...');
     clearInterval(pollingInterval);
-    observer.disconnect();
+    if (observer) observer.disconnect();
     streamChunk(lastText, true);
   }, 240000); // 4 minutes max
 }
