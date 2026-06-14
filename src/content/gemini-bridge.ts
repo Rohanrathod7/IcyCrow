@@ -155,13 +155,6 @@ export async function injectPrompt(prompt: string): Promise<void> {
   }
   log('Found input field.');
 
-  const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
-  if (!sendBtn) {
-    log('ERROR: Gemini send button not found.');
-    throw new Error('Gemini send button not found');
-  }
-  log('Found send button.');
-
   // 1. Force Tab Visibility/Focus to beat background throttling
   window.focus();
   input.focus();
@@ -225,6 +218,14 @@ export async function injectPrompt(prompt: string): Promise<void> {
   const syncWait = isBackground ? 100 : 200; 
   log(`Waiting ${syncWait}ms for state sync (isBackground=${isBackground})...`);
   await new Promise(r => setTimeout(r, syncWait));
+
+  // Query send button AFTER typing, when it should be rendered
+  const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
+  if (!sendBtn) {
+    log('ERROR: Gemini send button not found after typing.');
+    throw new Error('Gemini send button not found');
+  }
+  log('Found send button.');
 
   // 4. Dual-Submission Protocol (Synthetic Enter + Click)
   log('Triggering submission events...');
