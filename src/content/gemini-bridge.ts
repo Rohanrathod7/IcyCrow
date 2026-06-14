@@ -152,7 +152,9 @@ let lastSeenContainer: HTMLElement | null = null;
  */
 export async function injectPrompt(prompt: string): Promise<void> {
   const taskId = 'telemetry-inject';
+  const telemetryLogs: string[] = [];
   const log = (msg: string) => {
+    telemetryLogs.push(msg);
     try {
       chrome.runtime.sendMessage({
         type: 'AI_RESPONSE_STREAM',
@@ -279,8 +281,9 @@ export async function injectPrompt(prompt: string): Promise<void> {
   // 4. Query send button AFTER typing, when it should be rendered
   const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
   if (!sendBtn) {
-    log('ERROR: Gemini send button not found after typing.');
-    throw new Error('Gemini send button not found');
+    const errorDetails = `Gemini send button not found after typing. Telemetry logs:\n${telemetryLogs.join('\n')}`;
+    log(`ERROR: ${errorDetails}`);
+    throw new Error(errorDetails);
   }
   log(`Found send button: ${sendBtn.tagName}.${sendBtn.className}`);
 
