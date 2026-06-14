@@ -288,6 +288,20 @@ export async function injectPrompt(prompt: string): Promise<void> {
   // 4. Query send button AFTER typing, when it should be rendered
   const sendBtn = findLastSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
   if (!sendBtn) {
+    // DIAGNOSTIC: Query and log details of all buttons in the DOM
+    const allButtons = querySelectorAllDeep('button');
+    log(`DIAGNOSTIC: Total buttons found in DOM: ${allButtons.length}`);
+    allButtons.forEach((btn, idx) => {
+      // Print first 5 and last 10 buttons to avoid log bloat
+      if (idx < 5 || idx >= allButtons.length - 10) {
+        const style = window.getComputedStyle(btn);
+        const rect = btn.getBoundingClientRect();
+        const matIcon = btn.querySelector('mat-icon');
+        const svgIconAttr = matIcon ? matIcon.getAttribute('svgicon') || matIcon.getAttribute('svgIcon') : 'none';
+        log(`Button #${idx}: label="${btn.getAttribute('aria-label')}", class="${btn.className}", size=${rect.width}x${rect.height}, display=${style.display}, visibility=${style.visibility}, matIconSvg="${svgIconAttr}"`);
+      }
+    });
+
     const errorDetails = `Gemini send button not found after typing. Telemetry logs:\n${telemetryLogs.join('\n')}`;
     log(`ERROR: ${errorDetails}`);
     throw new Error(errorDetails);
