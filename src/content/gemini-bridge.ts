@@ -279,26 +279,54 @@ export async function injectPrompt(prompt: string): Promise<void> {
     log(`Current input text after manual assignment: "${currentVal.slice(0, 30)}..."`);
   }
 
-  // 3. Definitive Wait for State Sync (Critical for Gemini's dynamic send button)
+  // 3. Force state synchronization event dispatch
+  try {
+    input.dispatchEvent(new InputEvent('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'insertText',
+      data: prompt
+    }));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    const textEvent = new Event('textInput', { bubbles: true });
+    (textEvent as any).data = prompt;
+    input.dispatchEvent(textEvent);
+    
+    // Also dispatch keypress events to simulate typing and trigger ProseMirror/Angular state change
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keypress', { key: 'a', bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'a', bubbles: true }));
+    log('Framework sync events dispatched.');
+  } catch (err: any) {
+    log(`Failed to dispatch sync events: ${err.message}`);
+  }
+
+  // 4. Definitive Wait for State Sync (Critical for Gemini's dynamic send button)
   const isBackground = document.visibilityState === 'hidden';
-  const syncWait = isBackground ? 150 : 300; 
+  const syncWait = isBackground ? 200 : 400; 
   log(`Waiting ${syncWait}ms for state sync (isBackground=${isBackground})...`);
   await new Promise(r => setTimeout(r, syncWait));
 
-  // 4. Query send button AFTER typing, when it should be rendered
+  // 5. Query send button AFTER typing, when it should be rendered
   const sendBtn = findLastSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
   if (!sendBtn) {
     // DIAGNOSTIC: Query and log details of all buttons in the DOM
     const allButtons = querySelectorAllDeep('button');
     log(`DIAGNOSTIC: Total buttons found in DOM: ${allButtons.length}`);
     allButtons.forEach((btn, idx) => {
-      // Print first 5 and last 10 buttons to avoid log bloat
-      if (idx < 5 || idx >= allButtons.length - 10) {
-        const style = window.getComputedStyle(btn);
-        const rect = btn.getBoundingClientRect();
-        const matIcon = btn.querySelector('mat-icon');
-        const svgIconAttr = matIcon ? matIcon.getAttribute('svgicon') || matIcon.getAttribute('svgIcon') : 'none';
-        log(`Button #${idx}: label="${btn.getAttribute('aria-label')}", class="${btn.className}", size=${rect.width}x${rect.height}, display=${style.display}, visibility=${style.visibility}, matIconSvg="${svgIconAttr}"`);
+      const style = window.getComputedStyle(btn);
+      const rect = btn.getBoundingClientRect();
+      const label = btn.getAttribute('aria-label') || '';
+      const className = btn.className || '';
+      const matIcon = btn.querySelector('mat-icon');
+      const svgIconAttr = (matIcon ? matIcon.getAttribute('svgicon') || matIcon.getAttribute('svgIcon') : 'none') || 'none';
+      
+      const isPotentialSend = label.toLowerCase().includes('send') || className.toLowerCase().includes('send') || svgIconAttr.toLowerCase().includes('send');
+      
+      if (isPotentialSend || allButtons.length <= 40 || idx < 5 || idx >= allButtons.length - 10) {
+        log(`Button #${idx}: label="${label}", class="${className}", size=${rect.width}x${rect.height}, display=${style.display}, visibility=${style.visibility}, matIconSvg="${svgIconAttr}", isPotentialSend=${isPotentialSend}`);
       }
     });
 
