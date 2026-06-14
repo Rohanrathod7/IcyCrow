@@ -58,31 +58,7 @@ export const StandaloneTabsView = () => {
             <button className="btn-pill-compact" onClick={() => selectAllStandaloneTabs(tabs.map(t => t.id))}>Select All</button>
             <button className="btn-pill-compact" onClick={clearStandaloneTabSelection}>Clear</button>
           </div>
-          <div className="flex-row items-center gap-2">
-            <div className="action-menu-container">
-              <button className="btn-pill-compact flex-row items-center gap-1" onClick={() => setShowMoveDropdown(!showMoveDropdown)}>
-                Move to Space <ChevronDown size={12} />
-              </button>
-              {showMoveDropdown && (
-                <div className="dropdown-menu glass-card" style={{ right: 'auto', left: 0 }}>
-                  <div className="menu-header">Select Space</div>
-                  <div className="menu-list">
-                    {Object.values(spaces.value).length === 0 && (
-                      <div className="menu-item-dim">No spaces created</div>
-                    )}
-                    {Object.values(spaces.value).map(s => (
-                      <button key={s.id} onClick={() => { bulkMoveStandaloneTabsToSpace(s.id); setShowMoveDropdown(false); }} className="menu-item">
-                        <div className="space-dot" style={{ backgroundColor: s.color }} />
-                        <span>{s.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <button className="btn-pill-compact danger" onClick={bulkDeleteStandaloneTabs}>Delete Selected</button>
-            <button className="btn-pill-compact" onClick={() => { bulkSelectionMode.value = false; clearStandaloneTabSelection(); }}>Cancel</button>
-          </div>
+          <button className="btn-pill-compact" onClick={() => { bulkSelectionMode.value = false; clearStandaloneTabSelection(); }}>Cancel</button>
         </div>
       ) : (
         <div className="standalone-header flex-row items-center justify-between gap-2">
@@ -104,7 +80,7 @@ export const StandaloneTabsView = () => {
 
       <StandaloneTabSelectionModal />
 
-      <div className="standalone-content">
+      <div className="standalone-content" style={bulkSelectionMode.value ? { paddingBottom: '76px' } : undefined}>
         {tabs.length === 0 ? (
           <div className="standalone-empty animate-fade-in">
             <div className="empty-icon">🐦‍⬛</div>
@@ -125,6 +101,46 @@ export const StandaloneTabsView = () => {
           </div>
         )}
       </div>
+      {bulkSelectionMode.value && (
+        <div className="bulk-floating-toolbar glass-card flex-row items-center justify-between animate-slide-up-floating">
+          <span className="selected-count-badge">
+            {Object.values(selectedStandaloneTabIds.value).filter(Boolean).length} Selected
+          </span>
+          <div className="flex-row items-center gap-2">
+            <div className="action-menu-container">
+              <button 
+                className="btn-pill-compact flex-row items-center gap-1" 
+                onClick={() => setShowMoveDropdown(!showMoveDropdown)}
+              >
+                Move to Space <ChevronDown size={12} />
+              </button>
+              {showMoveDropdown && (
+                <div className="dropdown-menu-upward glass-card">
+                  <div className="menu-header">Select Space</div>
+                  <div className="menu-list">
+                    {Object.values(spaces.value).length === 0 && (
+                      <div className="menu-item-dim">No spaces created</div>
+                    )}
+                    {Object.values(spaces.value).map(s => (
+                      <button key={s.id} onClick={() => { bulkMoveStandaloneTabsToSpace(s.id); setShowMoveDropdown(false); }} className="menu-item">
+                        <div className="space-dot" style={{ backgroundColor: s.color }} />
+                        <span>{s.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <button 
+              className="btn-pill-compact danger" 
+              onClick={bulkDeleteStandaloneTabs}
+              disabled={Object.values(selectedStandaloneTabIds.value).filter(Boolean).length === 0}
+            >
+              Delete Selected
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

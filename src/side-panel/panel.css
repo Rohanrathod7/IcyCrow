@@ -2527,3 +2527,85 @@ button:active {
   border-color: rgba(14, 165, 233, 0.15) !important;
 }
 
+/* Floating Bulk selection actions bar styling */
+.bulk-floating-toolbar {
+  position: fixed;
+  bottom: 16px;
+  left: 12px;
+  right: 12px;
+  padding: 8px 12px;
+  background: rgba(18, 18, 22, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.selected-count-badge {
+  background: rgba(34, 211, 238, 0.1) !important;
+  border: 1px solid rgba(34, 211, 238, 0.25) !important;
+  color: var(--accent-icy);
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: var(--font-family);
+  letter-spacing: 0.02em;
+}
+
+/* Upward opening dropdown for space selector in bottom bar */
+.dropdown-menu-upward {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 160px;
+  z-index: 1001;
+  padding: 6px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
+  background: rgba(15, 15, 18, 0.98);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+/* Premium compact button adjustments */
+.btn-pill-compact.danger {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.2) !important;
+  color: #ef4444 !important;
+}
+
+.btn-pill-compact.danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  color: #fca5a5 !important;
+}
+
+.btn-pill-compact:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Micro-animations */
+.animate-slide-up-floating {
+  animation: slideUpFloating 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpFloating {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
