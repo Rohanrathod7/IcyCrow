@@ -286,7 +286,7 @@ export async function injectPrompt(prompt: string): Promise<void> {
   await new Promise(r => setTimeout(r, syncWait));
 
   // 4. Query send button AFTER typing, when it should be rendered
-  const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
+  const sendBtn = findLastSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
   if (!sendBtn) {
     const errorDetails = `Gemini send button not found after typing. Telemetry logs:\n${telemetryLogs.join('\n')}`;
     log(`ERROR: ${errorDetails}`);
@@ -440,8 +440,8 @@ export async function scrapeResponse(taskId: string): Promise<void> {
     }
 
     // 1. Completion Guard: Look for "Send" button and absence of "Stop" button
-    const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
-    const stopBtn = findSelector((GEMINI_SELECTORS as any).stopButton);
+    const sendBtn = findLastSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
+    const stopBtn = findLastSelector((GEMINI_SELECTORS as any).stopButton);
     
     // Logic: Finished if Send is enabled AND Stop is gone
     const isUIFinished = (sendBtn && !sendBtn.disabled) && !stopBtn;

@@ -12,13 +12,19 @@ export const GEMINI_SELECTORS = {
   ],
   sendButton: [
     'button[aria-label="Send message"]',
+    'button[aria-label*="Send"]',
+    'button[aria-label*="send"]',
     'button.send-button',
-    'button:has(mat-icon[svgicon="send"])'
+    'button[class*="send"]',
+    'button:has(mat-icon[svgicon*="send"])',
+    'button:has(mat-icon[svgicon*="Send"])'
   ],
   stopButton: [
     'button[aria-label="Stop generating"]',
     'button[aria-label="Stop"]',
-    'button:has(mat-icon[svgicon="stop"])',
+    'button[aria-label*="Stop"]',
+    'button[aria-label*="stop"]',
+    'button:has(mat-icon[svgicon*="stop"])',
     'button:has(div.stop-icon)'
   ],
   responseContainer: [
