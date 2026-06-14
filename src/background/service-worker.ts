@@ -542,6 +542,20 @@ async function handleAiMessage(
       }
       break;
     }
+    case 'AI_RESPONSE_STREAM': {
+      try {
+        const { taskId, chunk } = message.payload || {};
+        if (taskId && taskId.startsWith('telemetry')) {
+          console.log(`[IcyCrow Telemetry] ${chunk}`);
+        } else {
+          chrome.runtime.sendMessage(message);
+        }
+        sendResponse({ ok: true });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'FORWARD_FAILURE', message: err.message } });
+      }
+      break;
+    }
     case 'EXPLAIN_TEXT_REQUEST': {
       try {
         const { text, action, spaceId, pdfTitle } = message.payload;

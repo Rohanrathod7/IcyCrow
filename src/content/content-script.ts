@@ -177,8 +177,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     activeQueryTaskId = taskId;
     
     injectPrompt(prompt)
-      .then(() => scrapeResponse(taskId))
+      .then(() => {
+        sendResponse({ ok: true });
+        return scrapeResponse(taskId);
+      })
       .catch(err => {
+        sendResponse({ ok: false, error: err.message });
         chrome.runtime.sendMessage({
           type: 'AI_RESPONSE_STREAM',
           payload: { taskId, chunk: '', done: true, error: err.message }
@@ -187,7 +191,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .finally(() => {
         activeQueryTaskId = null;
       });
-    sendResponse({ ok: true });
+    return true; // Keep channel open for async response
   }
 });
 

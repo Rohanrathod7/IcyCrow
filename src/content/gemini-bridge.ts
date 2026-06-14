@@ -2,12 +2,41 @@ import { GEMINI_SELECTORS } from '../lib/gemini-selectors';
 // humanType is no longer used in the hardened injection protocol
 
 /**
+ * Recursively queries elements including shadow DOMs.
+ */
+export function querySelectorAllDeep(selector: string, root: Node = document): HTMLElement[] {
+  const results: HTMLElement[] = [];
+
+  const walk = (node: Node) => {
+    if (node.nodeType === 1) { // Element
+      const el = node as HTMLElement;
+      try {
+        if (el.matches(selector)) {
+          results.push(el);
+        }
+      } catch (e) {}
+      
+      if (el.shadowRoot) {
+        walk(el.shadowRoot);
+      }
+    }
+    
+    for (const child of Array.from(node.childNodes)) {
+      walk(child);
+    }
+  };
+
+  walk(root);
+  return results;
+}
+
+/**
  * Tries each selector in order, returns first matching element.
  */
 export function findSelector(selectors: string[]): HTMLElement | null {
   for (const s of selectors) {
-    const el = document.querySelector(s);
-    if (el) return el as HTMLElement;
+    const elements = querySelectorAllDeep(s);
+    if (elements.length > 0) return elements[0];
   }
   return null;
 }
@@ -87,8 +116,8 @@ function scrapeDeepText(container: HTMLElement): string {
  */
 export function findLastSelector(selectors: string[]): HTMLElement | null {
   for (const s of selectors) {
-    const elements = document.querySelectorAll(s);
-    if (elements.length > 0) return elements[elements.length - 1] as HTMLElement;
+    const elements = querySelectorAllDeep(s);
+    if (elements.length > 0) return elements[elements.length - 1];
   }
   return null;
 }
@@ -99,55 +128,118 @@ let lastSeenContainer: HTMLElement | null = null;
  * Injects prompt into Gemini UI and clicks send button.
  */
 export async function injectPrompt(prompt: string): Promise<void> {
+  const taskId = 'telemetry-inject';
+  const log = (msg: string) => {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'AI_RESPONSE_STREAM',
+        payload: { taskId, chunk: `[TELEMETRY] ${msg}`, done: false }
+      });
+    } catch (e) {}
+  };
+
+  log('Starting prompt injection...');
+
+  // Focus settlement delay
+  await new Promise(r => setTimeout(r, 50));
+
   // Capture state BEFORE injection
-  const existing = document.querySelectorAll(GEMINI_SELECTORS.responseContainer[0]);
+  const existing = querySelectorAllDeep(GEMINI_SELECTORS.responseContainer.join(', '));
   lastSeenContainer = existing.length > 0 ? (existing[existing.length - 1] as HTMLElement) : null;
+  log(`Found ${existing.length} existing response containers.`);
   
-  const input = findSelector(GEMINI_SELECTORS.inputField);
-  if (!input) throw new Error('Gemini input field not found');
+  const input = findLastSelector(GEMINI_SELECTORS.inputField);
+  if (!input) {
+    log('ERROR: Gemini input field not found.');
+    throw new Error('Gemini input field not found');
+  }
+  log('Found input field.');
 
   const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
-  if (!sendBtn) throw new Error('Gemini send button not found');
+  if (!sendBtn) {
+    log('ERROR: Gemini send button not found.');
+    throw new Error('Gemini send button not found');
+  }
+  log('Found send button.');
 
   // 1. Force Tab Visibility/Focus to beat background throttling
   window.focus();
   input.focus();
-  
+  log('Window and input focused.');
+
+  // Set selection explicitly to target the inner paragraph or the input itself
+  const selection = window.getSelection();
+  if (selection) {
+    selection.removeAllRanges();
+    const range = document.createRange();
+    const target = input.querySelector('p') || input.querySelector('div') || input;
+    range.selectNodeContents(target);
+    selection.addRange(range);
+    log('Selection range set on target block.');
+  } else {
+    log('Warning: window.getSelection() returned null.');
+  }
+
   // 2. Framework-Aware Injection
-  // We use execCommand('insertText') because it's natively handled by contenteditable 
-  // and modern frameworks (React/Angular) better than character-by-character JS events.
   try {
+    // Select all existing text inside the focused input area first
     document.execCommand('selectAll', false, undefined);
     
     // [HARDENING]: Some Gemini versions handle \n as "Send", so we ensure it's treated as data
     // using a more reliable insertText implementation for contenteditable.
     if (!document.execCommand('insertText', false, prompt)) {
        throw new Error('execCommand returned false');
-    }
-  } catch (err) {
+     }
+     log('Prompt text successfully inserted via execCommand.');
+  } catch (err: any) {
+    log(`execCommand failed, falling back to manual assignment: ${err.message}`);
     console.warn('[IcyCrow] execCommand failed, falling back to manual assignment:', err);
-    // [ROBUST FALLBACK]: Assignment + Manual Events
+    // [ROBUST FALLBACK]: Assignment + Manual Events with framework-aware inputType
+    const beforeInputEvent = new InputEvent('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'insertText',
+      data: prompt
+    });
+    input.dispatchEvent(beforeInputEvent);
+
     if (input instanceof HTMLTextAreaElement || input instanceof HTMLInputElement) {
       input.value = prompt;
     } else {
-      input.innerText = prompt;
+      // Find the inner editable block (Gemini uses <p> inside contenteditable) to preserve ProseMirror structures
+      const targetBlock = input.querySelector('p') || input.querySelector('div') || input;
+      targetBlock.innerText = prompt;
     }
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    input.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      inputType: 'insertText',
+      data: prompt
+    }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
+    log('Prompt text assigned via manual fallback.');
   }
 
   // 3. Definitive Wait for State Sync (Critical for Gemini's dynamic send button)
   const isBackground = document.visibilityState === 'hidden';
   const syncWait = isBackground ? 100 : 200; 
+  log(`Waiting ${syncWait}ms for state sync (isBackground=${isBackground})...`);
   await new Promise(r => setTimeout(r, syncWait));
 
   // 4. Dual-Submission Protocol (Synthetic Enter + Click)
+  log('Triggering submission events...');
   // Attempt 1: Enter Keypress
   const enterDown = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true });
   input.dispatchEvent(enterDown);
   
   // Attempt 2: Comprehensive Click Simulation
-  // We dispatch multiple events to ensure the framework picks up the interaction
+  const wasDisabled = sendBtn.disabled;
+  if (wasDisabled) {
+    log('Send button was disabled, temporarily enabling...');
+    sendBtn.removeAttribute('disabled');
+    sendBtn.disabled = false;
+  }
+
   const events = [
     new PointerEvent('pointerdown', { bubbles: true }),
     new MouseEvent('mousedown', { bubbles: true }),
@@ -157,9 +249,23 @@ export async function injectPrompt(prompt: string): Promise<void> {
   ];
   
   events.forEach(ev => sendBtn.dispatchEvent(ev));
+  log('Submission events dispatched.');
+
+  if (wasDisabled) {
+    setTimeout(() => {
+      try {
+        sendBtn.setAttribute('disabled', 'true');
+        sendBtn.disabled = true;
+        log('Send button restored to disabled state.');
+      } catch {}
+    }, 50);
+  }
   
   // Final delay to ensure injection was handled
-  await new Promise(r => setTimeout(r, isBackground ? 0 : 300));
+  const finalWait = isBackground ? 0 : 300;
+  log(`Waiting final ${finalWait}ms for DOM injection handling...`);
+  await new Promise(r => setTimeout(r, finalWait));
+  log('Prompt injection successfully finished.');
 }
 
 /**
@@ -171,7 +277,7 @@ export async function scrapeResponse(taskId: string): Promise<void> {
   let attempts = 0;
   
   while (!container && attempts < 40) { // 20s max wait
-    const candidates = document.querySelectorAll(GEMINI_SELECTORS.responseContainer[0]);
+    const candidates = querySelectorAllDeep(GEMINI_SELECTORS.responseContainer.join(', '));
     const currentLast = candidates[candidates.length - 1] as HTMLElement;
     
     if (currentLast) {
