@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/preact';
 import { SpaceCard } from './SpaceCard';
-import { expandedSpaceId, updateSpaceConfig } from '../store';
+import { expandedSpaceId, updateSpaceConfig, searchQuery, currentWindowId, activeWorkspaces } from '../store';
 import type { Space, UUID, ISOTimestamp } from '../../lib/types';
 
 // Mock store
@@ -13,6 +13,8 @@ vi.mock('../store', () => ({
   addActiveTabToSpace: vi.fn().mockResolvedValue({ success: true }),
   activeWorkspaces: { value: {} },
   spaces: { value: {} },
+  searchQuery: { value: '' },
+  currentWindowId: { value: null },
 }));
 
 // Mock icons
@@ -25,6 +27,37 @@ vi.mock('lucide-preact', () => ({
   X: () => <div data-testid="icon-x" />,
   Plus: () => <div data-testid="icon-plus" />,
   Check: () => <div data-testid="icon-check" />,
+  MoreVertical: () => <div data-testid="icon-options" />,
+  Save: () => <div data-testid="icon-save" />,
+  GripVertical: () => <div data-testid="icon-grip" />,
+  Globe: () => <div data-testid="icon-globe" />,
+}));
+
+vi.mock('@dnd-kit/core', () => ({
+  useDroppable: () => ({
+    setNodeRef: vi.fn(),
+  }),
+}));
+
+vi.mock('@dnd-kit/sortable', () => ({
+  SortableContext: ({ children }: any) => <>{children}</>,
+  verticalListSortingStrategy: {},
+  useSortable: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: vi.fn(),
+    transform: null,
+    transition: null,
+    isDragging: false,
+  }),
+}));
+
+vi.mock('@dnd-kit/utilities', () => ({
+  CSS: {
+    Translate: {
+      toString: vi.fn(),
+    },
+  },
 }));
 
 describe('SpaceCard Component', () => {
@@ -49,33 +82,30 @@ describe('SpaceCard Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     expandedSpaceId.value = null;
+    searchQuery.value = '';
+    currentWindowId.value = null;
+    activeWorkspaces.value = {};
   });
 
-  it('renders the header with stacked name and tab count', () => {
+  it('renders the header with space name and tab count', () => {
     render(<SpaceCard {...defaultProps} />);
     screen.getByText('Test Space');
-    screen.getByText('1 tabs');
-    
-    // Check if they are wrapped in an items-start container (flex-col)
-    const nameElement = screen.getByText('Test Space');
-    const columnContainer = nameElement.parentElement;
-    expect(columnContainer?.classList.contains('flex-col')).toBe(true);
-    expect(columnContainer?.classList.contains('items-start')).toBe(true);
-    expect(columnContainer?.classList.contains('leading-tight')).toBe(true);
-
-    const tabCount = screen.getByText('1 tabs');
-    expect(tabCount.classList.contains('text-gray-400')).toBe(true);
+    const countBadge = screen.getByText('1');
+    expect(countBadge.classList.contains('badge-pill-count')).toBe(true);
   });
 
   it('toggles expansion when the header is clicked', () => {
     render(<SpaceCard {...defaultProps} />);
-    const header = screen.getByTestId(`space-card-space-1`).querySelector('.header-row');
+    const header = screen.getByTestId(`space-card-space-1`).querySelector('.space-card-title-group');
     if (header) fireEvent.click(header);
     expect(expandedSpaceId.value).toBe('space-1');
   });
 
   it('enters editing mode when the edit icon is clicked', async () => {
     render(<SpaceCard {...defaultProps} />);
+    const optionsBtn = screen.getByTestId('icon-options').parentElement;
+    if (optionsBtn) fireEvent.click(optionsBtn);
+    
     const editBtn = screen.getByTestId('icon-edit').parentElement;
     if (editBtn) fireEvent.click(editBtn);
     
@@ -85,6 +115,9 @@ describe('SpaceCard Component', () => {
 
   it('saves the new name on Enter', async () => {
     render(<SpaceCard {...defaultProps} />);
+    const optionsBtn = screen.getByTestId('icon-options').parentElement;
+    if (optionsBtn) fireEvent.click(optionsBtn);
+    
     const editBtn = screen.getByTestId('icon-edit').parentElement;
     if (editBtn) fireEvent.click(editBtn);
     
@@ -95,9 +128,14 @@ describe('SpaceCard Component', () => {
     expect(updateSpaceConfig).toHaveBeenCalledWith('space-1', { name: 'New Space Name' });
   });
 
-  it('renders the action icons: Restore (ArrowUpRight), Edit, Delete', () => {
+  it('renders the action icons: Restore (ArrowUpRight), Options, and dropdown menu options', () => {
     render(<SpaceCard {...defaultProps} />);
     expect(screen.getByTestId('icon-restore')).toBeDefined();
+    expect(screen.getByTestId('icon-options')).toBeDefined();
+    
+    const optionsBtn = screen.getByTestId('icon-options').parentElement;
+    if (optionsBtn) fireEvent.click(optionsBtn);
+    
     expect(screen.getByTestId('icon-edit')).toBeDefined();
     expect(screen.getByTestId('icon-trash')).toBeDefined();
   });
@@ -124,6 +162,31 @@ describe('SpaceCard Component', () => {
     
     expect(addActiveTabToSpace).toHaveBeenCalledWith('space-1');
     // After click, it should show check icon (micro-interaction)
-    expect(screen.getByTestId('icon-check')).toBeDefined();
+    expect(await screen.findByTestId('icon-check')).toBeDefined();
+  });
+
+  it('renders Current badge when active in the current window', async () => {
+    currentWindowId.value = 10;
+    activeWorkspaces.value = { 10: 'space-1' as UUID };
+
+    render(<SpaceCard {...defaultProps} />);
+    
+    expect(screen.getByText('Current')).toBeDefined();
+    const card = screen.getByTestId('space-card-space-1');
+    expect(card.classList.contains('current-window-card')).toBe(true);
+  });
+
+  it('renders pulse dot when active in another window but not current window', async () => {
+    currentWindowId.value = 10;
+    activeWorkspaces.value = { 20: 'space-1' as UUID };
+
+    const { container } = render(<SpaceCard {...defaultProps} />);
+    
+    expect(screen.queryByText('Current')).toBeNull();
+    const pulseDot = container.querySelector('.pulse-dot-mini');
+    expect(pulseDot).toBeTruthy();
+    expect(pulseDot?.getAttribute('title')).toBe('Active in another window');
+    const card = screen.getByTestId('space-card-space-1');
+    expect(card.classList.contains('current-window-card')).toBe(false);
   });
 });

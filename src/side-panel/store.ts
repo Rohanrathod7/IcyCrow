@@ -53,6 +53,7 @@ export const activeDragTab = signal<SpaceTab | null>(null);
 export const draftSpaces = signal<SpacesStore | null>(null);
 export const manualBridgeTabId = signal<number | null>(null);
 export const searchQuery = signal('');
+export const currentWindowId = signal<number | null>(null);
 
 export const selectionModalState = signal({
   isOpen: false,
@@ -68,12 +69,13 @@ export const standaloneModalState = signal({ isOpen: false });
  */
 export async function hydrateStore() {
   try {
-    const [local, session, preferredView, storedStandalone, sessionStateRes] = await Promise.all([
+    const [local, session, preferredView, storedStandalone, sessionStateRes, currentWin] = await Promise.all([
       chrome.storage.local.get(['settings', 'activeWorkspaces']) as Promise<Record<string, any>>,
       chrome.storage.session.get('cryptoKeyUnlocked') as Promise<Record<string, any>>,
       getPreferredView(),
       getStandaloneTabs(),
-      chrome.storage.session.get('sessionState') as Promise<Record<string, any>>
+      chrome.storage.session.get('sessionState') as Promise<Record<string, any>>,
+      chrome.windows?.getCurrent ? chrome.windows.getCurrent().catch(() => null) : Promise.resolve(null)
     ]);
     if (local && local.settings) settings.value = local.settings as IcyCrowSettings;
     if (local && local.activeWorkspaces) activeWorkspaces.value = local.activeWorkspaces as ActiveWorkspaces;
@@ -85,6 +87,9 @@ export async function hydrateStore() {
       if (state.manualGeminiTabId !== undefined) {
         manualBridgeTabId.value = state.manualGeminiTabId;
       }
+    }
+    if (currentWin && currentWin.id !== undefined) {
+      currentWindowId.value = currentWin.id;
     }
     dashboardViewMode.value = preferredView;
     standaloneTabs.value = storedStandalone;

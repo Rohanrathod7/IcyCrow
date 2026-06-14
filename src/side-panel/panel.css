@@ -1384,6 +1384,40 @@ button:active {
   100% { transform: scale(0.9); opacity: 0.6; }
 }
 
+.badge-pill-current-window {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #34d399;
+  display: flex !important;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.05);
+  margin-left: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.current-window-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.06), inset 0 0 0 1px rgba(16, 185, 129, 0.12) !important;
+}
+
+.current-window-card.live-border {
+  border-left: 3px solid #10b981 !important;
+  animation: currentBorderPulse 3s infinite ease-in-out;
+}
+
+@keyframes currentBorderPulse {
+  0% { border-left-color: #10b981; border-left-width: 3px; }
+  50% { border-left-color: #34d399; border-left-width: 4px; }
+  100% { border-left-color: #10b981; border-left-width: 3px; }
+}
+
 .badge-pill-count {
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.15);

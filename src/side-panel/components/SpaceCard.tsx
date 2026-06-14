@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { memo } from 'preact/compat';
 import { Space, UUID } from '../../lib/types';
-import { expandedSpaceId, updateSpaceConfig, removeTabFromSpace, activeWorkspaces, triggerManualSync, addActiveTabToSpace, searchQuery } from '../store';
+import { expandedSpaceId, updateSpaceConfig, removeTabFromSpace, activeWorkspaces, triggerManualSync, addActiveTabToSpace, searchQuery, currentWindowId } from '../store';
 import { ChevronDown, ChevronUp, ArrowUpRight, Edit2, Trash2, Save, MoreVertical, Plus, Check } from 'lucide-preact';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
@@ -35,6 +35,7 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
   const tabCount = space.tabs?.length || 0;
   // Live means it's mapped to ANY window (for pulse), but we could refine to "current window"
   const isLive = Object.values(activeWorkspaces.value).includes(space.id);
+  const isActiveInCurrentWindow = currentWindowId.value !== null && activeWorkspaces.value[currentWindowId.value] === space.id;
 
   const { setNodeRef } = useDroppable({
     id: space.id,
@@ -154,8 +155,8 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
         setNodeRef(el);
         (cardRef as any).current = el;
       }}
-      className={`space-card ${isExpanded ? 'expanded' : ''} ${isLive ? 'live-border' : ''}`}
-      data-test-id={`space-card-${space.id}`}
+      className={`space-card ${isExpanded ? 'expanded' : ''} ${isLive ? 'live-border' : ''} ${isActiveInCurrentWindow ? 'current-window-card' : ''}`}
+      data-testid={`space-card-${space.id}`}
       style={{ 
         borderLeftColor: space.color || 'var(--accent-primary)',
         zIndex: showMenu ? 100 : undefined 
@@ -184,7 +185,14 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
                     {space.name}
                 </span>
               )}
-              {isLive && <div className="pulse-dot-mini" />}
+              {isActiveInCurrentWindow ? (
+                <div className="badge-pill-current-window">
+                  <div className="pulse-dot-mini" style={{ margin: 0 }} />
+                  <span>Current</span>
+                </div>
+              ) : isLive ? (
+                <div className="pulse-dot-mini" title="Active in another window" />
+              ) : null}
               <div className="badge-pill-count">
                   {tabCount}
               </div>

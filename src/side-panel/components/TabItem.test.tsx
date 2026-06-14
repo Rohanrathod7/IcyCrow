@@ -5,6 +5,34 @@ import { TabItem } from './TabItem';
 import { SpaceTab, UUID } from '../../lib/types';
 import { DndContext } from '@dnd-kit/core';
 
+vi.mock('@dnd-kit/core', () => ({
+  DndContext: ({ children }: any) => <>{children}</>,
+  useDroppable: () => ({
+    setNodeRef: vi.fn(),
+  }),
+}));
+
+vi.mock('@dnd-kit/sortable', () => ({
+  SortableContext: ({ children }: any) => <>{children}</>,
+  verticalListSortingStrategy: {},
+  useSortable: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: vi.fn(),
+    transform: null,
+    transition: null,
+    isDragging: false,
+  }),
+}));
+
+vi.mock('@dnd-kit/utilities', () => ({
+  CSS: {
+    Translate: {
+      toString: vi.fn(),
+    },
+  },
+}));
+
 describe('TabItem', () => {
   const mockTab: SpaceTab = {
     id: 't1' as UUID,
