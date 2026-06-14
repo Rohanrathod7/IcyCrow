@@ -215,25 +215,39 @@ export async function injectPrompt(prompt: string): Promise<void> {
   }
 
   // 2. Framework-Aware Injection Loop
-  // Option A: execCommand
+  const target = input.querySelector('p') || input.querySelector('div') || input;
+  let currentVal = '';
+
+  // Option A: Quill JS programmatic API injection
   try {
-    document.execCommand('selectAll', false, undefined);
-    if (!document.execCommand('insertText', false, prompt)) {
-      throw new Error('execCommand insertText returned false');
+    let parent: any = input;
+    let quillInstance: any = null;
+    while (parent) {
+      const keys = Object.keys(parent);
+      const quillKey = keys.find(k => k.includes('quill') || k === '__quill' || (parent[k] && typeof parent[k].setText === 'function'));
+      if (quillKey && parent[quillKey]) {
+        quillInstance = parent[quillKey];
+        break;
+      }
+      parent = parent.parentElement;
     }
-    log('Prompt text inserted via execCommand.');
+    
+    if (quillInstance && typeof quillInstance.setText === 'function') {
+      log(`Found Quill instance on ${parent.tagName}.${parent.className}. Injecting via setText()...`);
+      quillInstance.setText(prompt);
+      if (typeof quillInstance.update === 'function') {
+        quillInstance.update();
+      }
+      currentVal = target.textContent || '';
+      log(`Text after Quill setText: "${currentVal.slice(0, 30)}..."`);
+    }
   } catch (err: any) {
-    log(`execCommand failed: ${err.message}`);
+    log(`Quill API injection failed: ${err.message}`);
   }
 
-  // Check if text was inserted
-  const target = input.querySelector('p') || input.querySelector('div') || input;
-  let currentVal = target.textContent || '';
-  log(`Current input text after execCommand: "${currentVal.slice(0, 30)}..."`);
-
-  // Option B: ClipboardEvent paste fallback
+  // Option B: ClipboardEvent paste (primary fallback)
   if (!currentVal.trim()) {
-    log('execCommand was empty, attempting ClipboardEvent paste fallback...');
+    log('Attempting ClipboardEvent paste...');
     try {
       const dataTransfer = new DataTransfer();
       dataTransfer.setData('text/plain', prompt);
@@ -242,8 +256,11 @@ export async function injectPrompt(prompt: string): Promise<void> {
         cancelable: true,
         clipboardData: dataTransfer
       });
+      // Dispatch on the active target paragraph to let the editor's handler process it
+      target.dispatchEvent(pasteEvent);
+      // Also dispatch on input container for safety
       input.dispatchEvent(pasteEvent);
-      log('Paste event dispatched.');
+      log('Paste events dispatched.');
     } catch (err: any) {
       log(`Paste event failed: ${err.message}`);
     }
@@ -252,25 +269,29 @@ export async function injectPrompt(prompt: string): Promise<void> {
     log(`Current input text after paste event: "${currentVal.slice(0, 30)}..."`);
   }
 
-  // Option C: Manual innerText assignment fallback
+  // Option C: execCommand (secondary fallback)
   if (!currentVal.trim()) {
-    log('Paste event was empty, attempting manual innerText assignment...');
+    log('Attempting execCommand insertText...');
+    try {
+      document.execCommand('selectAll', false, undefined);
+      if (!document.execCommand('insertText', false, prompt)) {
+        throw new Error('execCommand insertText returned false');
+      }
+      log('Prompt text inserted via execCommand.');
+    } catch (err: any) {
+      log(`execCommand failed: ${err.message}`);
+    }
+
+    currentVal = target.textContent || '';
+    log(`Current input text after execCommand: "${currentVal.slice(0, 30)}..."`);
+  }
+
+  // Option D: Manual innerText assignment (last resort)
+  if (!currentVal.trim()) {
+    log('Attempting manual innerText assignment...');
     try {
       target.innerText = prompt;
-      
-      input.dispatchEvent(new InputEvent('beforeinput', {
-        bubbles: true,
-        cancelable: true,
-        inputType: 'insertText',
-        data: prompt
-      }));
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      
-      const textEvent = new Event('textInput', { bubbles: true });
-      (textEvent as any).data = prompt;
-      input.dispatchEvent(textEvent);
-      log('Manual innerText and events dispatched.');
+      log('Manual innerText assigned.');
     } catch (err: any) {
       log(`Manual assignment failed: ${err.message}`);
     }
