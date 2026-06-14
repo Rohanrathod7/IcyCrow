@@ -162,6 +162,8 @@ async function handleStorageChange(changes: { [key: string]: chrome.storage.Stor
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'COMMAND_HIGHLIGHT') {
     performHighlight();
+  } else if (message.type === 'PING_BRIDGE') {
+    sendResponse({ ok: true, pong: true });
   } else if (message.type === 'AI_QUERY' && window.location.href.includes('gemini.google.com')) {
     const { prompt, taskId } = message.payload;
     

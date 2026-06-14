@@ -46,6 +46,12 @@ vi.mock('@lib/url-utils', () => ({
   canonicalUrl: () => 'https://example.com'
 }));
 
+vi.mock('../../src/background/managers/sync-manager', () => ({
+  syncManager: {
+    init: vi.fn().mockResolvedValue(undefined)
+  }
+}));
+
 import { handleMessage } from '../../src/background/index';
 
 describe('Background Hardening', () => {

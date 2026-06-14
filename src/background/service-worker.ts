@@ -4,7 +4,7 @@ import { InboundMessageSchema, type ValidatedInboundMessage } from '@lib/zod-sch
 import { cryptoManager } from './crypto-manager';
 import { getHighlights, updateHighlights, getChatHistory } from '@lib/storage';
 import { taskQueue } from '@lib/task-queue';
-import { watchGeminiTab } from './gemini-detector';
+import { watchGeminiTab, verifyAndRecoverBridge, verifyBridgeHealth } from './gemini-detector';
 import { GEMINI_SELECTORS } from '@lib/gemini-selectors';
 import { offscreenManager } from './offscreen-manager';
 import { spaceManager } from './managers/space-manager';
@@ -146,6 +146,7 @@ export async function handleMessage(
       case 'AI_RESPONSE_STREAM':
       case 'EXPLAIN_TEXT_REQUEST':
       case 'AI_INFER_CATEGORY':
+      case 'MANUAL_REGISTER_BRIDGE':
         return await handleAiMessage(message, sendResponse, sender);
 
       case 'SPACE_CREATE':
@@ -466,21 +467,44 @@ async function handleAiMessage(
     case 'MANUAL_REGISTER_BRIDGE': {
       try {
         const { tabId } = message.payload;
+
+        // 1. Fetch and validate URL
+        const tab = await chrome.tabs.get(tabId);
+        if (!tab.url || !tab.url.startsWith('https://gemini.google.com/')) {
+          sendResponse({
+            ok: false,
+            error: {
+              code: 'INVALID_URL',
+              message: 'Target tab must be on https://gemini.google.com/'
+            }
+          });
+          break;
+        }
+
+        // 2. Health check & recovery injection
+        const healthy = await verifyAndRecoverBridge(tabId);
+        if (!healthy) {
+          sendResponse({
+            ok: false,
+            error: {
+              code: 'HANDSHAKE_FAILED',
+              message: 'Failed to verify active handshake with Gemini tab content script.'
+            }
+          });
+          break;
+        }
+
+        // 3. Register manual ID
         const result = await chrome.storage.session.get('sessionState');
         const state = result.sessionState || {};
         await chrome.storage.session.set({
-          sessionState: { ...state, manualGeminiTabId: tabId }
+          sessionState: {
+            ...state,
+            manualGeminiTabId: tabId,
+            geminiTabId: tabId
+          }
         });
-        
-        // Proactive injection
-        const manifest = chrome.runtime.getManifest();
-        const scriptPath = manifest.content_scripts?.[0]?.js?.[0];
-        if (scriptPath) {
-          await chrome.scripting.executeScript({
-            target: { tabId },
-            files: [scriptPath]
-          });
-        }
+
         sendResponse({ ok: true });
       } catch (err: any) {
         sendResponse({ ok: false, error: { code: 'REGISTRATION_FAILURE', message: err.message } });

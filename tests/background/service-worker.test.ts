@@ -24,6 +24,12 @@ vi.mock('../../src/background/offscreen-manager', () => ({
   }
 }));
 
+vi.mock('../../src/background/managers/sync-manager', () => ({
+  syncManager: {
+    init: vi.fn().mockResolvedValue(undefined)
+  }
+}));
+
 // Define global crypto
 vi.stubGlobal('crypto', {
   randomUUID: () => 'ca761232-0000-4000-8000-000000000000',
@@ -51,6 +57,10 @@ globalThis.chrome = {
         listeners.onMessage.push(cb);
       }),
     },
+    getURL: vi.fn((p) => `chrome-extension://mock-extension-id/${p}`),
+    getManifest: vi.fn(() => ({
+      content_scripts: [{ js: ['src/content/content-script.ts'] }]
+    })),
   },
   storage: {
     local: {
@@ -85,6 +95,7 @@ globalThis.chrome = {
   },
   tabs: {
     query: vi.fn(async () => [{ id: 123, url: 'https://test.com', title: 'Test' }]),
+    get: vi.fn(async (tabId) => ({ id: tabId, url: 'https://gemini.google.com/app', title: 'Google Gemini' })),
     sendMessage: vi.fn(async (tabId, message) => {
       if (message.type === 'SCRAPE_CONTENT') {
         return { ok: true, data: { url: 'https://test.com', title: 'Test', content: 'Clean Text', byteLength: 10 } };
@@ -93,6 +104,14 @@ globalThis.chrome = {
     }),
     onUpdated: { addListener: vi.fn() },
     onRemoved: { addListener: vi.fn() },
+    onCreated: { addListener: vi.fn() },
+  },
+  scripting: {
+    executeScript: vi.fn(async () => []),
+  },
+  declarativeNetRequest: {
+    updateDynamicRules: vi.fn(async () => {}),
+    getDynamicRules: vi.fn(async () => []),
   },
 } as any;
 
@@ -263,6 +282,7 @@ describe('Message Router', () => {
     const request = {
       type: 'AI_QUERY',
       payload: { 
+        taskId: 'ca761232-0000-4000-8000-000000000000',
         prompt: 'Test prompt', 
         contextTabs: [],
         spaceId: 'ca761232-0000-4000-8000-000000000000'
@@ -295,6 +315,60 @@ describe('Message Router', () => {
         selectors: expect.any(Object)
       })
     }));
+  });
+
+  it('rejects MANUAL_REGISTER_BRIDGE for non-Gemini URLs', async () => {
+    await import('../../src/background/index');
+    const onMessageCallback = listeners.onMessage[0];
+    const sendResponse = vi.fn();
+
+    vi.mocked(chrome.tabs.get).mockResolvedValueOnce({
+      id: 999,
+      url: 'https://malicious.com/attack',
+      title: 'Attack Site'
+    } as any);
+
+    await onMessageCallback(
+      { type: 'MANUAL_REGISTER_BRIDGE', payload: { tabId: 999 } },
+      { id: 'mock-extension-id' },
+      sendResponse
+    );
+    
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
+      ok: false,
+      error: expect.objectContaining({
+        code: 'INVALID_URL'
+      })
+    }));
+  });
+
+  it('accepts MANUAL_REGISTER_BRIDGE for valid Gemini URLs with healthy handshake', async () => {
+    await import('../../src/background/index');
+    const onMessageCallback = listeners.onMessage[0];
+    const sendResponse = vi.fn();
+
+    vi.mocked(chrome.tabs.get).mockResolvedValueOnce({
+      id: 101,
+      url: 'https://gemini.google.com/app',
+      title: 'Google Gemini'
+    } as any);
+
+    vi.mocked(chrome.tabs.sendMessage).mockResolvedValueOnce({ ok: true, pong: true });
+
+    await onMessageCallback(
+      { type: 'MANUAL_REGISTER_BRIDGE', payload: { tabId: 101 } },
+      { id: 'mock-extension-id' },
+      sendResponse
+    );
+    
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    expect(sendResponse).toHaveBeenCalledWith({ ok: true });
+    
+    const sessionRes = await chrome.storage.session.get('sessionState');
+    expect(sessionRes.sessionState.manualGeminiTabId).toBe(101);
   });
 
   it('routes ARTICLE_SAVE through scrape, idb, and offscreen', async () => {

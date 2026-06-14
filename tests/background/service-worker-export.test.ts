@@ -15,6 +15,12 @@ vi.stubGlobal('crypto', {
   randomUUID: () => 'new-uuid'
 });
 
+vi.mock('../../src/background/managers/sync-manager', () => ({
+  syncManager: {
+    init: vi.fn().mockResolvedValue(undefined)
+  }
+}));
+
 describe('Service Worker — Export/Import Routing', () => {
   beforeEach(() => {
     vi.resetModules();

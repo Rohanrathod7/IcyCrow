@@ -7,6 +7,53 @@ export async function findGeminiTab(urlPattern: string): Promise<number[]> {
 }
 
 /**
+ * Verifies if the target bridge tab is alive by executing a ping-pong handshake.
+ */
+export async function verifyBridgeHealth(tabId: number): Promise<boolean> {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.url || !tab.url.startsWith('https://gemini.google.com/')) {
+      return false;
+    }
+    const response = await chrome.tabs.sendMessage(tabId, { type: 'PING_BRIDGE' });
+    return !!(response && response.ok && response.pong);
+  } catch (err) {
+    console.warn(`[IcyCrow] Bridge health check failed for tab ${tabId}:`, err);
+    return false;
+  }
+}
+
+/**
+ * Verifies if the target bridge is healthy, and if not, attempts to re-inject content-script and verify again.
+ */
+export async function verifyAndRecoverBridge(tabId: number): Promise<boolean> {
+  let healthy = await verifyBridgeHealth(tabId);
+  if (healthy) return true;
+
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.url || !tab.url.startsWith('https://gemini.google.com/')) {
+      return false;
+    }
+    const manifest = chrome.runtime.getManifest();
+    const scriptPath = manifest.content_scripts?.[0]?.js?.[0];
+    if (scriptPath) {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: [scriptPath]
+      });
+      // Small delay to let script load
+      await new Promise(r => setTimeout(r, 300));
+      healthy = await verifyBridgeHealth(tabId);
+    }
+  } catch (err) {
+    console.warn(`[IcyCrow] Bridge recovery failed for tab ${tabId}:`, err);
+  }
+  return healthy;
+}
+
+
+/**
  * Monitors tabs to update sessionState.geminiTabId automatically.
  */
 export function watchGeminiTab(urlPattern: string) {
