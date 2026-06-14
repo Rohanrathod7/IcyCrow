@@ -2,7 +2,7 @@
 import { render, screen, fireEvent } from '@testing-library/preact';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StandaloneTabsView } from './StandaloneTabsView';
-import { standaloneTabs, currentWindowOpenTabs } from '../store';
+import { standaloneTabs, currentWindowOpenTabs, bulkSelectionMode, selectedStandaloneTabIds, spaces } from '../store';
 import type { SpaceTab, UUID } from '../../lib/types';
 
 const mockChrome = {
@@ -87,5 +87,79 @@ describe('StandaloneTabsView - Smart Focus', () => {
     
     expect(mockChrome.tabs.create).toHaveBeenCalledWith({ url: 'https://closed.com' });
     expect(mockChrome.tabs.update).not.toHaveBeenCalled();
+  });
+
+  describe('StandaloneTabsView - Bulk Selection UI', () => {
+    const mockTab1: SpaceTab = {
+      id: 'tab1' as UUID,
+      url: 'https://tab1.com',
+      title: 'Tab 1',
+      favicon: null,
+      scrollPosition: 0,
+      chromeTabId: null,
+    };
+
+    const mockTab2: SpaceTab = {
+      id: 'tab2' as UUID,
+      url: 'https://tab2.com',
+      title: 'Tab 2',
+      favicon: null,
+      scrollPosition: 0,
+      chromeTabId: null,
+    };
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+      standaloneTabs.value = [mockTab1, mockTab2];
+      currentWindowOpenTabs.value = [];
+      bulkSelectionMode.value = false;
+      selectedStandaloneTabIds.value = {};
+      spaces.value = {
+        'space-a': { id: 'space-a' as UUID, name: 'Space A', color: 'blue', tabs: [] } as any
+      };
+    });
+
+    it('renders select mode button and toggles selection mode on click', () => {
+      render(<StandaloneTabsView />);
+      
+      const selectBtn = screen.getByTitle('Select Mode');
+      expect(selectBtn).toBeTruthy();
+
+      expect(screen.queryByText('Cancel')).toBeNull();
+      expect(screen.queryByTestId('bulk-checkbox-tab1')).toBeNull();
+
+      fireEvent.click(selectBtn);
+      expect(bulkSelectionMode.value).toBe(true);
+    });
+
+    it('shows checkboxes and toggles item selection when in bulk selection mode', () => {
+      bulkSelectionMode.value = true;
+      render(<StandaloneTabsView />);
+
+      const checkbox1 = screen.getByTestId('bulk-checkbox-tab1') as HTMLInputElement;
+      expect(checkbox1).toBeTruthy();
+      expect(checkbox1.checked).toBe(false);
+
+      fireEvent.click(checkbox1);
+      expect(selectedStandaloneTabIds.value['tab1']).toBe(true);
+
+      const cancelBtn = screen.getByText('Cancel');
+      fireEvent.click(cancelBtn);
+      expect(bulkSelectionMode.value).toBe(false);
+      expect(selectedStandaloneTabIds.value).toEqual({});
+    });
+
+    it('performs select all and clear selection', () => {
+      bulkSelectionMode.value = true;
+      render(<StandaloneTabsView />);
+
+      const selectAllBtn = screen.getByText('Select All');
+      fireEvent.click(selectAllBtn);
+      expect(selectedStandaloneTabIds.value).toEqual({ tab1: true, tab2: true });
+
+      const clearBtn = screen.getByText('Clear');
+      fireEvent.click(clearBtn);
+      expect(selectedStandaloneTabIds.value).toEqual({});
+    });
   });
 });

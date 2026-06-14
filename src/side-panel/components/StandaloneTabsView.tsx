@@ -1,6 +1,22 @@
 import { useState } from 'preact/hooks';
-import { standaloneTabs, addActiveTabStandalone, deleteStandaloneTab, moveTabToSpace, spaces, standaloneModalState, searchQuery, currentWindowOpenTabs } from '../store';
-import { X, Globe, MoreVertical } from 'lucide-preact';
+import { 
+  standaloneTabs, 
+  addActiveTabStandalone, 
+  deleteStandaloneTab, 
+  moveTabToSpace, 
+  spaces, 
+  standaloneModalState, 
+  searchQuery, 
+  currentWindowOpenTabs,
+  bulkSelectionMode,
+  selectedStandaloneTabIds,
+  clearStandaloneTabSelection,
+  toggleStandaloneTabSelection,
+  selectAllStandaloneTabs,
+  bulkDeleteStandaloneTabs,
+  bulkMoveStandaloneTabsToSpace
+} from '../store';
+import { X, Globe, MoreVertical, CheckSquare, ChevronDown } from 'lucide-preact';
 import { SplitButton } from './SplitButton';
 import { StandaloneTabSelectionModal } from './StandaloneTabSelectionModal';
 import type { UUID, SpaceTab } from '../../lib/types';
@@ -20,13 +36,11 @@ const highlightMatch = (text: string, query: string) => {
 
 export const StandaloneTabsView = () => {
   const [isAdding, setIsAdding] = useState(false);
+  const [showMoveDropdown, setShowMoveDropdown] = useState(false);
+  
   const handleQuickAdd = async () => {
     setIsAdding(true);
     await addActiveTabStandalone();
-    
-    // We don't need to manually push status feedback to SplitButton
-    // as it relies on 'currentAppStatus'. Wait, does addActiveTabStandalone set currentAppStatus? 
-    // It doesn't, but that's fine, it returns fast. We'll just reset isAdding.
     setIsAdding(false);
   };
 
@@ -38,15 +52,55 @@ export const StandaloneTabsView = () => {
 
   return (
     <div className="view-container standalone-view">
-      {/* Aesthetic Add Button */}
-      <div className="standalone-header">
-        <SplitButton 
-          mainText="Save Current Tab"
-          onMainClick={handleQuickAdd}
-          onChevronClick={() => { standaloneModalState.value = { isOpen: true }; }}
-          disabled={isAdding}
-        />
-      </div>
+      {bulkSelectionMode.value ? (
+        <div className="standalone-header flex-row items-center justify-between gap-2">
+          <div className="flex-row items-center gap-2">
+            <button className="btn-pill-compact" onClick={() => selectAllStandaloneTabs(tabs.map(t => t.id))}>Select All</button>
+            <button className="btn-pill-compact" onClick={clearStandaloneTabSelection}>Clear</button>
+          </div>
+          <div className="flex-row items-center gap-2">
+            <div className="action-menu-container">
+              <button className="btn-pill-compact flex-row items-center gap-1" onClick={() => setShowMoveDropdown(!showMoveDropdown)}>
+                Move to Space <ChevronDown size={12} />
+              </button>
+              {showMoveDropdown && (
+                <div className="dropdown-menu glass-card" style={{ right: 'auto', left: 0 }}>
+                  <div className="menu-header">Select Space</div>
+                  <div className="menu-list">
+                    {Object.values(spaces.value).length === 0 && (
+                      <div className="menu-item-dim">No spaces created</div>
+                    )}
+                    {Object.values(spaces.value).map(s => (
+                      <button key={s.id} onClick={() => { bulkMoveStandaloneTabsToSpace(s.id); setShowMoveDropdown(false); }} className="menu-item">
+                        <div className="space-dot" style={{ backgroundColor: s.color }} />
+                        <span>{s.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className="btn-pill-compact danger" onClick={bulkDeleteStandaloneTabs}>Delete Selected</button>
+            <button className="btn-pill-compact" onClick={() => { bulkSelectionMode.value = false; clearStandaloneTabSelection(); }}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <div className="standalone-header flex-row items-center justify-between gap-2">
+          <SplitButton 
+            mainText="Save Current Tab"
+            onMainClick={handleQuickAdd}
+            onChevronClick={() => { standaloneModalState.value = { isOpen: true }; }}
+            disabled={isAdding}
+          />
+          <button 
+            className="btn-icon-sm" 
+            onClick={() => { bulkSelectionMode.value = true; }}
+            title="Select Mode"
+          >
+            <CheckSquare size={14} />
+          </button>
+        </div>
+      )}
 
       <StandaloneTabSelectionModal />
 
@@ -94,9 +148,28 @@ const StandaloneTabItem = ({ tab }: { tab: SpaceTab }) => {
     }
   };
 
+  const handleCardClick = () => {
+    if (bulkSelectionMode.value) {
+      toggleStandaloneTabSelection(tab.id);
+    } else {
+      handleClick();
+    }
+  };
+
+  const isChecked = !!selectedStandaloneTabIds.value[tab.id];
+
   return (
-    <div className="standalone-tab-card glass-card">
-      <div className="tab-main" onClick={handleClick}>
+    <div className={`standalone-tab-card glass-card ${isChecked ? 'selected' : ''}`}>
+      {bulkSelectionMode.value && (
+        <input 
+          type="checkbox" 
+          className="bulk-checkbox" 
+          checked={isChecked}
+          onChange={() => toggleStandaloneTabSelection(tab.id)}
+          data-testid={`bulk-checkbox-${tab.id}`}
+        />
+      )}
+      <div className="tab-main" onClick={handleCardClick}>
         <div className="tab-icon-wrapper">
           {tab.favicon ? (
             <img src={tab.favicon} alt="" className="tab-icon" onError={(e) => (e.currentTarget.style.display = 'none')} />
@@ -113,42 +186,44 @@ const StandaloneTabItem = ({ tab }: { tab: SpaceTab }) => {
         </div>
       </div>
 
-      <div className="tab-actions-group">
-        <div className="action-menu-container">
-          <button 
-            className="btn-icon-sm" 
-            onClick={() => setShowMenu(!showMenu)}
-            title="Move to Space"
-          >
-            <MoreVertical size={14} />
-          </button>
-          
-          {showMenu && (
-            <div className="dropdown-menu glass-card">
-              <div className="menu-header">Move to Space</div>
-              <div className="menu-list">
-                {Object.values(spaces.value).length === 0 && (
-                  <div className="menu-item-dim">No spaces created</div>
-                )}
-                {Object.values(spaces.value).map(s => (
-                  <button key={s.id} onClick={() => handleMove(s.id)} className="menu-item">
-                    <div className="space-dot" style={{ backgroundColor: s.color }} />
-                    <span>{s.name}</span>
-                  </button>
-                ))}
+      {!bulkSelectionMode.value && (
+        <div className="tab-actions-group">
+          <div className="action-menu-container">
+            <button 
+              className="btn-icon-sm" 
+              onClick={() => setShowMenu(!showMenu)}
+              title="Move to Space"
+            >
+              <MoreVertical size={14} />
+            </button>
+            
+            {showMenu && (
+              <div className="dropdown-menu glass-card">
+                <div className="menu-header">Move to Space</div>
+                <div className="menu-list">
+                  {Object.values(spaces.value).length === 0 && (
+                    <div className="menu-item-dim">No spaces created</div>
+                  )}
+                  {Object.values(spaces.value).map(s => (
+                    <button key={s.id} onClick={() => handleMove(s.id)} className="menu-item">
+                      <div className="space-dot" style={{ backgroundColor: s.color }} />
+                      <span>{s.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <button 
-          className="btn-icon-sm danger" 
-          onClick={() => deleteStandaloneTab(tab.id)}
-          title="Delete Tab"
-        >
-          <X size={14} />
-        </button>
-      </div>
+          <button 
+            className="btn-icon-sm danger" 
+            onClick={() => deleteStandaloneTab(tab.id)}
+            title="Delete Tab"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

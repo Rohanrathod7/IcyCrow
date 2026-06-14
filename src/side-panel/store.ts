@@ -55,6 +55,8 @@ export const manualBridgeTabId = signal<number | null>(null);
 export const searchQuery = signal('');
 export const currentWindowId = signal<number | null>(null);
 export const currentWindowOpenTabs = signal<chrome.tabs.Tab[]>([]);
+export const bulkSelectionMode = signal<boolean>(false);
+export const selectedStandaloneTabIds = signal<Record<UUID, boolean>>({});
 
 export const selectionModalState = signal({
   isOpen: false,
@@ -180,6 +182,67 @@ export const moveTabToSpace = async (tabId: UUID, spaceId: UUID) => {
     spaces.value = updatedSpaces;
     standaloneTabs.value = updatedStandalone;
   }
+};
+
+/**
+ * Toggles selection of a standalone tab.
+ */
+export const toggleStandaloneTabSelection = (tabId: UUID) => {
+  const current = { ...selectedStandaloneTabIds.value };
+  current[tabId] = !current[tabId];
+  selectedStandaloneTabIds.value = current;
+};
+
+/**
+ * Selects all standalone tabs.
+ */
+export const selectAllStandaloneTabs = (tabIds: UUID[]) => {
+  const next: Record<UUID, boolean> = {};
+  tabIds.forEach(id => {
+    next[id] = true;
+  });
+  selectedStandaloneTabIds.value = next;
+};
+
+/**
+ * Clears selection.
+ */
+export const clearStandaloneTabSelection = () => {
+  selectedStandaloneTabIds.value = {};
+};
+
+/**
+ * Deletes all selected standalone tabs.
+ */
+export const bulkDeleteStandaloneTabs = async () => {
+  const idsToDelete = Object.keys(selectedStandaloneTabIds.value).filter(
+    id => selectedStandaloneTabIds.value[id as UUID]
+  ) as UUID[];
+  
+  if (idsToDelete.length === 0) return;
+
+  // Run SW deletion requests in parallel
+  await Promise.all(idsToDelete.map(id => deleteStandaloneTab(id)));
+  
+  clearStandaloneTabSelection();
+  bulkSelectionMode.value = false;
+};
+
+/**
+ * Moves all selected standalone tabs to a space.
+ */
+export const bulkMoveStandaloneTabsToSpace = async (spaceId: UUID) => {
+  const idsToMove = Object.keys(selectedStandaloneTabIds.value).filter(
+    id => selectedStandaloneTabIds.value[id as UUID]
+  ) as UUID[];
+
+  if (idsToMove.length === 0) return;
+
+  // Run SW move requests in parallel
+  await Promise.all(idsToMove.map(id => moveTabToSpace(id, spaceId)));
+
+  clearStandaloneTabSelection();
+  bulkSelectionMode.value = false;
 };
 
 /**

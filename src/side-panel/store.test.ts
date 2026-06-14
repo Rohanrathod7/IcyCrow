@@ -9,7 +9,15 @@ import {
   triggerManualSync,
   currentWindowOpenTabs,
   currentWindowId,
-  hydrateStore
+  hydrateStore,
+  bulkSelectionMode,
+  selectedStandaloneTabIds,
+  toggleStandaloneTabSelection,
+  selectAllStandaloneTabs,
+  clearStandaloneTabSelection,
+  bulkDeleteStandaloneTabs,
+  bulkMoveStandaloneTabsToSpace,
+  standaloneTabs
 } from './store';
 import type { Space, UUID } from '../lib/types';
 
@@ -275,6 +283,87 @@ describe('side-panel/store', () => {
         const ids = currentWindowOpenTabs.value.map(t => t.id);
         expect(ids).not.toContain(4);
       }
+    });
+  });
+
+  describe('bulk selection actions', () => {
+    beforeEach(() => {
+      bulkSelectionMode.value = false;
+      selectedStandaloneTabIds.value = {};
+      standaloneTabs.value = [
+        { id: 'tab1' as UUID, url: 'https://tab1.com', title: 'Tab 1' },
+        { id: 'tab2' as UUID, url: 'https://tab2.com', title: 'Tab 2' },
+        { id: 'tab3' as UUID, url: 'https://tab3.com', title: 'Tab 3' }
+      ] as any;
+    });
+
+    it('should toggle selection of tab', () => {
+      toggleStandaloneTabSelection('tab1' as UUID);
+      expect(selectedStandaloneTabIds.value).toEqual({ tab1: true });
+
+      toggleStandaloneTabSelection('tab1' as UUID);
+      expect(selectedStandaloneTabIds.value).toEqual({ tab1: false });
+    });
+
+    it('should select all standalone tabs', () => {
+      selectAllStandaloneTabs(['tab1' as UUID, 'tab2' as UUID]);
+      expect(selectedStandaloneTabIds.value).toEqual({ tab1: true, tab2: true });
+    });
+
+    it('should clear selection', () => {
+      selectedStandaloneTabIds.value = { tab1: true, tab2: true };
+      clearStandaloneTabSelection();
+      expect(selectedStandaloneTabIds.value).toEqual({});
+    });
+
+    it('should bulk delete selected standalone tabs', async () => {
+      selectedStandaloneTabIds.value = { tab1: true, tab3: true };
+      bulkSelectionMode.value = true;
+      vi.mocked(sendToSW).mockResolvedValue({ ok: true, data: { deleted: true } });
+
+      await bulkDeleteStandaloneTabs();
+
+      expect(sendToSW).toHaveBeenCalledWith({
+        type: 'TAB_DELETE_STANDALONE',
+        payload: { tabId: 'tab1' }
+      });
+      expect(sendToSW).toHaveBeenCalledWith({
+        type: 'TAB_DELETE_STANDALONE',
+        payload: { tabId: 'tab3' }
+      });
+
+      expect(standaloneTabs.value).toHaveLength(1);
+      expect(standaloneTabs.value[0].id).toBe('tab2');
+      expect(bulkSelectionMode.value).toBe(false);
+      expect(selectedStandaloneTabIds.value).toEqual({});
+    });
+
+    it('should bulk move selected standalone tabs to space', async () => {
+      selectedStandaloneTabIds.value = { tab2: true };
+      bulkSelectionMode.value = true;
+      vi.mocked(sendToSW).mockResolvedValue({ ok: true, data: { moved: true } });
+      
+      mockChrome.storage.local.get.mockImplementation((key) => {
+        if (key === 'standaloneTabs' || (Array.isArray(key) && key.includes('standaloneTabs')) || (typeof key === 'object' && key !== null && 'standaloneTabs' in key)) {
+          return Promise.resolve({ standaloneTabs: [
+            { id: 'tab1' as UUID, url: 'https://tab1.com', title: 'Tab 1' },
+            { id: 'tab3' as UUID, url: 'https://tab3.com', title: 'Tab 3' }
+          ] });
+        }
+        return Promise.resolve({});
+      });
+
+      await bulkMoveStandaloneTabsToSpace('space1' as UUID);
+
+      expect(sendToSW).toHaveBeenCalledWith({
+        type: 'TAB_MOVE_TO_SPACE',
+        payload: { tabId: 'tab2', spaceId: 'space1' }
+      });
+
+      expect(standaloneTabs.value).toHaveLength(2);
+      expect(standaloneTabs.value.map(t => t.id)).not.toContain('tab2');
+      expect(bulkSelectionMode.value).toBe(false);
+      expect(selectedStandaloneTabIds.value).toEqual({});
     });
   });
 });
