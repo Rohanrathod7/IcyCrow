@@ -32,6 +32,9 @@ export function querySelectorAllDeep(selector: string, root: Node = document): H
 
 function isElementVisible(el: HTMLElement): boolean {
   try {
+    // Exclude Quill/ProseMirror clipboard or hidden helper elements
+    if (el.classList.contains('ql-clipboard') || el.classList.contains('ql-hidden')) return false;
+
     const style = window.getComputedStyle(el);
     if (style.display === 'none' || style.visibility === 'hidden') return false;
     
@@ -45,6 +48,10 @@ function isElementVisible(el: HTMLElement): boolean {
       // Allow background tabs to pass sizing check if they are not explicitly display:none
       return document.visibilityState === 'hidden';
     }
+    
+    // Check for tiny helper elements (like 1px clipboards)
+    if (rect.height < 10 || rect.width < 10) return false;
+
     return true;
   } catch (e) {
     return false;
