@@ -37,6 +37,47 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [isExporting, setIsExporting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [draftHighlightRects, setDraftHighlightRects] = useState<{ top: number; left: number; width: number; height: number }[]>([]);
+
+  useEffect(() => {
+    if (activeTool.value !== 'highlight') {
+      setDraftHighlightRects([]);
+      return;
+    }
+
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      const container = containerRef.current;
+      const mode = toolSettings.value.highlight?.mode || 'text';
+
+      if (mode !== 'text' || !selection || selection.isCollapsed || selection.rangeCount === 0 || !container) {
+        setDraftHighlightRects([]);
+        return;
+      }
+
+      if (!container.contains(selection.anchorNode)) {
+        setDraftHighlightRects([]);
+        return;
+      }
+
+      const containerBox = container.getBoundingClientRect();
+      const range = selection.getRangeAt(0);
+      const clientRects = Array.from(range.getClientRects());
+      const scale = viewerScale.value;
+
+      const normalizedRects = clientRects.map(rect => ({
+        top: (rect.top - containerBox.top) / scale,
+        left: (rect.left - containerBox.left) / scale,
+        width: rect.width / scale,
+        height: rect.height / scale
+      }));
+
+      setDraftHighlightRects(normalizedRects);
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [activeTool.value, viewerScale.value]);
 
   // Capture original PDF blob for export engine
   useEffect(() => {
@@ -121,6 +162,9 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
 
   const handlePointerUp = (e: PointerEvent) => {
     if (activeTool.value === 'highlight') {
+      const mode = toolSettings.value.highlight?.mode || 'text';
+      if (mode !== 'text') return;
+
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
 
@@ -141,16 +185,19 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
         height: rect.height / scale
       }));
 
+      const highlightSettings = toolSettings.value.highlight || { color: '#fef08a' };
+
       const newHighlight: Highlight = {
         id: crypto.randomUUID(),
         pageNumber,
         rects: normalizedRects,
-        color: 'rgba(255, 255, 0, 0.4)' // Default yellow
+        color: highlightSettings.color || '#fef08a'
       };
 
       highlights.value = [...highlights.value, newHighlight];
       persistAnnotations(url);
       selection.removeAllRanges();
+      setDraftHighlightRects([]); // Clear real-time draft
       return;
     }
 
@@ -194,7 +241,7 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
 
   return (
     <div 
-      className="pdf-page-container" 
+      className={`pdf-page-container ${activeTool.value === 'highlight' ? 'highlight-tool-active' : ''}`} 
       data-testid={`pdf-page-${pageNumber}`}
       data-url={url}
       ref={containerRef}
@@ -242,6 +289,24 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
           </button>
 
           <HighlightOverlay pageNumber={pageNumber} url={url} />
+          {draftHighlightRects.map((rect, index) => (
+            <div
+              key={`draft-${index}`}
+              style={{
+                position: 'absolute',
+                top: `${rect.top * viewerScale.value}px`,
+                left: `${rect.left * viewerScale.value}px`,
+                width: `${rect.width * viewerScale.value}px`,
+                height: `${rect.height * viewerScale.value}px`,
+                backgroundColor: toolSettings.value.highlight?.color || '#fef08a',
+                mixBlendMode: 'multiply',
+                opacity: 0.6,
+                borderRadius: '2px',
+                pointerEvents: 'none',
+                zIndex: 1
+              }}
+            />
+          ))}
           <InkCanvas pageNumber={pageNumber} url={url} />
           {stickyNotes.value
             .filter(n => n.pageNumber === pageNumber)

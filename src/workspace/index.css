@@ -322,3 +322,7 @@
   from { opacity: 0; transform: translate(-50%, 20px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
+
+.pdf-page-container.highlight-tool-active *::selection {
+  background: rgba(255, 255, 255, 0.1) !important;
+}

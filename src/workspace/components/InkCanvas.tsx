@@ -14,7 +14,8 @@ export const InkCanvas = ({ pageNumber, url }: InkCanvasProps) => {
   const currentStrokeId = useSignal<string | null>(null);
   const hoverPos = useSignal<Point | null>(null);
 
-  const isPenTool = ['draw', 'brush', 'eraser'].includes(activeTool.value);
+  const isPenTool = ['draw', 'brush', 'eraser'].includes(activeTool.value) || 
+    (activeTool.value === 'highlight' && (toolSettings.value.highlight?.mode === 'freehand'));
   const isEraser = activeTool.value === 'eraser';
 
   // Render Loop
@@ -51,6 +52,7 @@ export const InkCanvas = ({ pageNumber, url }: InkCanvasProps) => {
         
         ctx.beginPath();
         ctx.strokeStyle = stroke.color;
+        ctx.globalCompositeOperation = (stroke.opacity && stroke.opacity < 1.0) ? 'multiply' : 'source-over';
         ctx.globalAlpha = stroke.opacity ?? 1.0;
         ctx.lineWidth = stroke.width * scale;
         
@@ -69,6 +71,7 @@ export const InkCanvas = ({ pageNumber, url }: InkCanvasProps) => {
       });
 
       ctx.globalAlpha = 1.0; // Reset
+      ctx.globalCompositeOperation = 'source-over'; // Reset
 
       animationFrameId = requestAnimationFrame(render);
     };
@@ -139,13 +142,16 @@ export const InkCanvas = ({ pageNumber, url }: InkCanvasProps) => {
     currentStrokeId.value = newStrokeId;
     isDrawing.value = true;
 
+    const defaultColor = currentToolId === 'highlight' ? '#fef08a' : '#facc15';
+    const defaultOpacity = currentToolId === 'highlight' ? 0.4 : 1.0;
+
     const newStroke: Stroke = {
       id: newStrokeId,
       pageNumber,
       points: [{ x, y }],
-      color: settings.color || '#facc15',
+      color: settings.color || defaultColor,
       width: settings.size,
-      opacity: settings.opacity ?? 1.0
+      opacity: settings.opacity ?? defaultOpacity
     };
 
     strokes.value = [...strokes.value, newStroke];

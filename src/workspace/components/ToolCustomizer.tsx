@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'preact/hooks';
 import { activeCustomizationTool, toolSettings } from '../store/viewer-state';
 
 export const ToolCustomizer = () => {
@@ -9,6 +10,22 @@ export const ToolCustomizer = () => {
   const settings = toolSettings.value[toolId] || toolSettings.value[baseType];
   
   if (!settings) return null;
+
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        const target = e.target as HTMLElement;
+        if (target.closest('.tool-item') || target.closest('.dial-tool-button')) {
+          return;
+        }
+        activeCustomizationTool.value = null;
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSizeChange = (e: any) => {
     const newSize = parseInt(e.target.value, 10);
@@ -36,6 +53,7 @@ export const ToolCustomizer = () => {
 
   return (
     <div 
+      ref={modalRef}
       className="tool-customizer-modal"
       style={{
         position: 'fixed',
@@ -168,6 +186,59 @@ export const ToolCustomizer = () => {
                 onInput={handleOpacityChange}
                 className="premium-slider"
               />
+            </div>
+          </div>
+        )}
+
+        {/* Highlight Mode Toggle */}
+        {baseType === 'highlight' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontWeight: 600 }}>Highlight Mode</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => {
+                  toolSettings.value = {
+                    ...toolSettings.value,
+                    highlight: { ...settings, mode: 'text' }
+                  };
+                }}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  background: (settings.mode || 'text') === 'text' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  border: (settings.mode || 'text') === 'text' ? '2px solid #fff' : '1px solid rgba(255,255,255,0.1)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Text Selection
+              </button>
+              <button
+                onClick={() => {
+                  toolSettings.value = {
+                    ...toolSettings.value,
+                    highlight: { ...settings, mode: 'freehand' }
+                  };
+                }}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  background: settings.mode === 'freehand' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  border: settings.mode === 'freehand' ? '2px solid #fff' : '1px solid rgba(255,255,255,0.1)',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Freehand (Page)
+              </button>
             </div>
           </div>
         )}

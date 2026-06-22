@@ -6,6 +6,7 @@ export interface ToolSettings {
   size: number;
   color?: string;
   opacity?: number;
+  mode?: 'text' | 'freehand';
 }
 
 export const viewerScale = signal<number>(1.0);
@@ -16,7 +17,7 @@ export const toolSettings = signal<Record<string, ToolSettings>>({
   draw: { size: 4, color: '#facc15' },
   brush: { size: 8, color: '#fb923c' },
   eraser: { size: 20 },
-  highlight: { size: 20, color: '#fef08a', opacity: 0.8 },
+  highlight: { size: 20, color: '#fef08a', opacity: 0.4, mode: 'text' },
   sticky: { size: 24, color: '#fbbf24' },
   callout: { size: 2, color: '#3b82f6' }
 });
