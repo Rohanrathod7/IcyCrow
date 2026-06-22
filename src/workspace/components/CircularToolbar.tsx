@@ -13,7 +13,7 @@ import {
   verticalListSortingStrategy 
 } from '@dnd-kit/sortable';
 import { toolsOrder, toolMetadata } from '../store/toolbar-state';
-import { activeTool, activeCustomizationTool } from '../store/viewer-state';
+import { activeTool, activeCustomizationTool, toolSettings } from '../store/viewer-state';
 import { SortableToolItem } from './SortableToolItem';
 import { 
   Hand, 
@@ -181,7 +181,10 @@ export const CircularToolbar = () => {
         const label = baseType.charAt(0).toUpperCase() + baseType.slice(1);
         const titleLine = shortcut ? `${label} (${shortcut})` : label;
 
-        const iconColor = toolMeta?.color || (isActive ? '#818cf8' : 'rgba(255,255,255,0.7)');
+        const settings = toolSettings.value[id] || toolSettings.value[baseType];
+        const iconColor = isActive 
+          ? (settings?.color || toolMeta?.color || '#818cf8') 
+          : 'rgba(255,255,255,0.7)';
         const extraClass = (id === 'text' && isActive) ? 'highlight-green' : '';
 
         return (
@@ -219,7 +222,7 @@ export const CircularToolbar = () => {
                 width: '4px',
                 height: '4px',
                 borderRadius: '50%',
-                background: 'rgba(255,255,255,0.4)'
+                background: settings?.color || toolMeta?.color || 'rgba(255,255,255,0.4)'
               }} />
             )}
             {toolMeta?.badge && (

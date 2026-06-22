@@ -61,7 +61,9 @@ export const SortableToolItem = ({ id }: ToolItemProps) => {
   const settings = toolSettings.value[id] || toolSettings.value[baseType];
   const metadata = toolMetadata.value[id] || toolMetadata.value[baseType];
 
-  const iconColor = metadata?.color || (isActive ? '#818cf8' : 'rgba(255,255,255,0.7)');
+  const iconColor = isActive 
+    ? (settings?.color || metadata?.color || '#818cf8') 
+    : 'rgba(255,255,255,0.7)';
 
   return (
     <div
@@ -120,7 +122,7 @@ export const SortableToolItem = ({ id }: ToolItemProps) => {
           width: '4px',
           height: '4px',
           borderRadius: '50%',
-          background: 'rgba(255,255,255,0.4)'
+          background: settings?.color || metadata?.color || 'rgba(255,255,255,0.4)'
         }} />
       )}
     </div>
