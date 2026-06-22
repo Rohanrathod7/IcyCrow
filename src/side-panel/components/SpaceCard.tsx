@@ -155,7 +155,7 @@ export const SpaceCard = memo(({ space, onRestore, onDelete }: SpaceCardProps) =
         setNodeRef(el);
         (cardRef as any).current = el;
       }}
-      className={`space-card ${isExpanded ? 'expanded' : ''} ${isLive ? 'live-border' : ''} ${isActiveInCurrentWindow ? 'current-window-card' : ''}`}
+      className={`space-card animate-slide-up ${isExpanded ? 'expanded' : ''} ${isLive ? 'live-border' : ''} ${isActiveInCurrentWindow ? 'current-window-card' : ''}`}
       data-testid={`space-card-${space.id}`}
       style={{ 
         borderLeftColor: space.color || 'var(--accent-primary)',

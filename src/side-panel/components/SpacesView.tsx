@@ -120,16 +120,12 @@ export const SpacesView = () => {
 
       <div className="spaces-list">
         {filteredSpaces.map((s) => (
-          <div 
-            key={s.id} 
-            className="animate-slide-up" 
-          >
-            <SpaceCard 
-              space={s} 
-              onRestore={handleRestore}
-              onDelete={handleDelete}
-            />
-          </div>
+          <SpaceCard 
+            key={s.id}
+            space={s} 
+            onRestore={handleRestore}
+            onDelete={handleDelete}
+          />
         ))}
 
         {Object.keys(spaces.value).length === 0 && !isLoading.value && (

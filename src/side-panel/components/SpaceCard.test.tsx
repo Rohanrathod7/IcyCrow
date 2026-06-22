@@ -189,4 +189,10 @@ describe('SpaceCard Component', () => {
     const card = screen.getByTestId('space-card-space-1');
     expect(card.classList.contains('current-window-card')).toBe(false);
   });
+
+  it('has the animate-slide-up class on the outer container', () => {
+    render(<SpaceCard {...defaultProps} />);
+    const card = screen.getByTestId('space-card-space-1');
+    expect(card.classList.contains('animate-slide-up')).toBe(true);
+  });
 });
