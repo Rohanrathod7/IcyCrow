@@ -3,7 +3,7 @@ import { Page, pdfjs } from 'react-pdf';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { HighlightOverlay } from './HighlightOverlay';
 import { InkCanvas } from './InkCanvas';
-import { viewerScale, activeTool, toolSettings, originalPdfBlob, pdfUrl } from '../store/viewer-state';
+import { viewerScale, activeTool, toolSettings, originalPdfBlob, pdfUrl, pdfRotation } from '../store/viewer-state';
 import { 
   highlights, 
   Highlight, 
@@ -28,6 +28,18 @@ import 'react-pdf/dist/Page/TextLayer.css';
 // Configure the worker explicitly for Vite/MV3
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
+function getHighlighterCursor(color: string, mode: 'text' | 'freehand') {
+  if (mode === 'freehand') {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none"><path d="M0 0 L6 6 L2 10 L0 8 Z" fill="${color}" stroke="black" stroke-width="1" stroke-linejoin="round"/><path d="M6 6 L12 12 L8 16 L2 10 Z" fill="#e2e8f0" stroke="black" stroke-width="1" stroke-linejoin="round"/><path d="M12 12 L15 15 L11 19 L8 16 Z" fill="${color}" stroke="black" stroke-width="1" stroke-linejoin="round"/><path d="M15 15 L24 24 L20 28 L11 19 Z" fill="#475569" stroke="black" stroke-width="1" stroke-linejoin="round"/></svg>`;
+    const base64 = btoa(svg);
+    return `url("data:image/svg+xml;base64,${base64}") 0 0, auto`;
+  } else {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="13" y="8" width="6" height="16" rx="1" fill="none" stroke="white" stroke-width="2" stroke-dasharray="2,2" /><rect x="13" y="8" width="6" height="16" rx="1" fill="none" stroke="${color}" stroke-width="1" stroke-dasharray="2,2" /></svg>`;
+    const base64 = btoa(svg);
+    return `url("data:image/svg+xml;base64,${base64}") 16 16, auto`;
+  }
+}
+
 interface PdfPageProps {
   url: string; // Renamed from fileUrl to match usual usage or test
   pageNumber: number;
@@ -38,6 +50,89 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
   const [isExporting, setIsExporting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [draftHighlightRects, setDraftHighlightRects] = useState<{ top: number; left: number; width: number; height: number }[]>([]);
+
+  const highlightSettings = toolSettings.value.highlight || { color: '#fef08a', mode: 'text' };
+  const cursorStyle = activeTool.value === 'highlight'
+    ? getHighlighterCursor(highlightSettings.color || '#fef08a', highlightSettings.mode || 'text')
+    : undefined;
+
+  const [isInView, setIsInView] = useState(false);
+  const [hasRenderedOnce, setHasRenderedOnce] = useState(false);
+  const [observedHeight, setObservedHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting);
+        if (entry.isIntersecting) {
+          setHasRenderedOnce(true);
+        }
+      },
+      {
+        rootMargin: '800px 0px 800px 0px', // Preload buffer
+        threshold: 0.01
+      }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      if (containerRef.current) {
+        observer.unobserve(containerRef.current);
+      }
+    };
+  }, []);
+
+  const defaultHeight = 800 * viewerScale.value;
+  const defaultWidth = 600 * viewerScale.value;
+
+  const scale = viewerScale.value;
+  const isSideways = pdfRotation.value % 180 !== 0;
+
+  const adjustedDefaultHeight = isSideways ? defaultWidth : defaultHeight;
+  const adjustedDefaultWidth = isSideways ? defaultHeight : defaultWidth;
+
+  const finalHeight = (hasRenderedOnce && observedHeight && dimensions.width) 
+    ? (isSideways ? dimensions.width : observedHeight) * scale 
+    : adjustedDefaultHeight;
+  const finalWidth = (hasRenderedOnce && dimensions.width && observedHeight)
+    ? (isSideways ? observedHeight : dimensions.width) * scale
+    : adjustedDefaultWidth;
+
+  if (!isInView) {
+    return (
+      <div 
+        ref={containerRef}
+        data-testid={`pdf-page-${pageNumber}`}
+        style={{ 
+          width: `${finalWidth}px`,
+          height: `${finalHeight}px`,
+          position: 'relative',
+          display: 'inline-block',
+          background: '#202023',
+          borderRadius: '4px',
+          boxShadow: '0 12px 30px rgba(0, 0, 0, 0.6)',
+          margin: '0 auto'
+        }}
+        className="pdf-page-placeholder"
+      >
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: 'rgba(255,255,255,0.15)',
+          fontSize: '14px',
+          fontWeight: 600,
+          fontFamily: 'system-ui, sans-serif'
+        }}>
+          {hasRenderedOnce ? `Page ${pageNumber}` : `Loading Page ${pageNumber}...`}
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (activeTool.value !== 'highlight') {
@@ -85,6 +180,9 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
       .then(res => res.blob())
       .then(blob => {
         originalPdfBlob.value = blob;
+      })
+      .catch(err => {
+        console.warn('Failed to pre-fetch PDF blob:', err);
       });
   }, [url]);
 
@@ -115,8 +213,9 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
     initializeAnnotations(url);
   }, [url]);
 
-  const onRenderSuccess = (page: { width: number; height: number }) => {
-    setDimensions({ width: page.width, height: page.height });
+  const onRenderSuccess = (page: any) => {
+    setDimensions({ width: page.originalWidth, height: page.originalHeight });
+    setObservedHeight(page.originalHeight);
   };
 
   const handlePointerDown = (e: PointerEvent) => {
@@ -191,7 +290,8 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
         id: crypto.randomUUID(),
         pageNumber,
         rects: normalizedRects,
-        color: highlightSettings.color || '#fef08a'
+        color: highlightSettings.color || '#fef08a',
+        opacity: highlightSettings.opacity ?? 0.4
       };
 
       highlights.value = [...highlights.value, newHighlight];
@@ -251,7 +351,10 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
       onClick={handlePageClick}
       style={{ 
         position: 'relative', 
-        display: 'inline-block'
+        display: 'inline-block',
+        cursor: cursorStyle,
+        width: `${finalWidth}px`,
+        height: `${finalHeight}px`
       }}
     >
       <Page 
@@ -262,6 +365,7 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
         onRenderSuccess={onRenderSuccess}
         className="pdf-artboard"
         scale={viewerScale.value}
+        rotate={pdfRotation.value}
       />
       {dimensions.width > 0 && (
         <>
@@ -300,7 +404,7 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
                 height: `${rect.height * viewerScale.value}px`,
                 backgroundColor: toolSettings.value.highlight?.color || '#fef08a',
                 mixBlendMode: 'multiply',
-                opacity: 0.6,
+                opacity: toolSettings.value.highlight?.opacity ?? 0.4,
                 borderRadius: '2px',
                 pointerEvents: 'none',
                 zIndex: 1
