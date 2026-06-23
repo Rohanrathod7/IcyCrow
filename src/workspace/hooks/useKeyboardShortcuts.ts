@@ -1,7 +1,5 @@
 import { useEffect } from 'preact/hooks';
-import { activeTool } from '../store/viewer-state';
-import { exportWorkspace } from '../services/StateSyncService';
-import { pdfUrl } from '../store/viewer-state';
+import { activeTool, isSearchOpen } from '../store/viewer-state';
 
 export const useKeyboardShortcuts = () => {
   useEffect(() => {
@@ -13,19 +11,38 @@ export const useKeyboardShortcuts = () => {
         active?.tagName === 'TEXTAREA' || 
         (active as HTMLElement)?.isContentEditable;
       
-      if (isTyping) return;
+      if (isTyping) {
+        // If typing in search input, allow Esc to close search
+        if (e.key === 'Escape' && isSearchOpen.value) {
+          isSearchOpen.value = false;
+          (active as HTMLElement).blur();
+        }
+        return;
+      }
 
       const key = e.key.toLowerCase();
 
-      // 2. Save Override (Ctrl/Cmd + S)
-      if ((e.ctrlKey || e.metaKey) && key === 's') {
-        e.preventDefault();
-        if (pdfUrl.value) {
-          // Assuming pages count and filename are available or defaults are used
-          // In a real scenario, we might want to store pageCount in store
-          exportWorkspace(pdfUrl.value, 0, 'notes'); 
+      // 2. Control Key Combinations
+      if (e.ctrlKey || e.metaKey) {
+        if (key === 's') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            window.dispatchEvent(new CustomEvent('workspace-save-as'));
+          } else {
+            window.dispatchEvent(new CustomEvent('workspace-save'));
+          }
+          return;
         }
-        return;
+        if (key === 'p') {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('workspace-print'));
+          return;
+        }
+        if (key === 'f') {
+          e.preventDefault();
+          isSearchOpen.value = !isSearchOpen.value;
+          return;
+        }
       }
 
       // 3. Tool Switching

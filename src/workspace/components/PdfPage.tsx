@@ -13,10 +13,8 @@ import {
   addSticky,
   callouts,
   draftCallout,
-  addCallout,
-  strokes
+  addCallout
 } from '../store/annotation-state';
-import { exportAnnotatedPdf, downloadBlob } from '../services/PdfExportService';
 import { StickyNote } from './StickyNote';
 import { CalloutLayer } from './CalloutLayer';
 import { CalloutBox } from './CalloutBox';
@@ -47,7 +45,6 @@ interface PdfPageProps {
 
 export function PdfPage({ url, pageNumber }: PdfPageProps) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [isExporting, setIsExporting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [draftHighlightRects, setDraftHighlightRects] = useState<{ top: number; left: number; width: number; height: number }[]>([]);
 
@@ -318,27 +315,6 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
     }
   };
 
-  const handleExport = async () => {
-    if (!originalPdfBlob.value || isExporting) return;
-    
-    setIsExporting(true);
-    try {
-      const annotations = {
-        highlights: highlights.value,
-        strokes: strokes.value,
-        stickyNotes: stickyNotes.value,
-        callouts: callouts.value
-      };
-      
-      const exportedBlob = await exportAnnotatedPdf(originalPdfBlob.value, annotations);
-      downloadBlob(exportedBlob, 'Annotated_IcyCrow_Document.pdf');
-    } catch (err) {
-      console.error('Export failed:', err);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   return (
     <div 
       className={`pdf-page-container ${activeTool.value === 'highlight' ? 'highlight-tool-active' : ''}`} 
@@ -369,29 +345,6 @@ export function PdfPage({ url, pageNumber }: PdfPageProps) {
       />
       {dimensions.width > 0 && (
         <>
-          {/* Export FAB Service (S27) */}
-          <button 
-            className="export-fab" 
-            onClick={handleExport}
-            disabled={isExporting}
-          >
-            <svg 
-              className={`export-icon ${isExporting ? 'exporting-spinner' : ''}`} 
-              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            >
-              {isExporting ? (
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              ) : (
-                <>
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </>
-              )}
-            </svg>
-            {isExporting ? 'Generating...' : 'Export PDF'}
-          </button>
-
           <HighlightOverlay pageNumber={pageNumber} url={url} />
           {draftHighlightRects.map((rect, index) => (
             <div

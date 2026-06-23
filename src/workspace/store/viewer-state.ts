@@ -26,3 +26,12 @@ export const originalPdfBlob = signal<Blob | null>(null);
 export const pdfUrl = signal<string>('');
 export const autoSaveFileHandle = signal<any | null>(null); // FileSystemFileHandle
 export const isAutoSaveEnabled = signal<boolean>(false);
+
+export const pdfRotation = signal<number>(0);
+export const pageLayoutMode = signal<'single' | 'double'>('single');
+export const currentPage = signal<number>(1);
+
+export const isSearchOpen = signal<boolean>(false);
+export const searchQuery = signal<string>('');
+export const searchResults = signal<number[]>([]);
+export const searchIndex = signal<number>(-1);
