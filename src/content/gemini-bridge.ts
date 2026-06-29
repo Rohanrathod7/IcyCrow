@@ -506,8 +506,8 @@ export async function scrapeResponse(taskId: string): Promise<void> {
         } catch (e) {}
       }
 
-      // stabilityCount >= 6 checks stability for 3 seconds at 500ms ticks
-      const shouldFinalize = (stabilityCount >= 6 && lastText.length > 0) || noChangeCount > 120;
+      // stabilityCount >= 2 checks stability for 1 second at 500ms ticks
+      const shouldFinalize = (stabilityCount >= 2 && lastText.length > 0) || noChangeCount > 120;
 
       if (shouldFinalize) {
         log(`Finalizing scrape: stabilityCount=${stabilityCount}, noChangeCount=${noChangeCount}, final textLength=${lastText.length}`);
