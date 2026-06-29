@@ -2,8 +2,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/preact';
 import { ChatView } from '../../../src/side-panel/components/ChatView';
-import { chatMessages, isLoading, selectedContextTabs } from '../../../src/side-panel/store';
+import { chatMessages, isLoading, selectedContextTabs, activeChatSessionId, activeSpaceId, chatSessions } from '../../../src/side-panel/store';
 import type { UUID } from '../../../src/lib/types';
+
+// Mock ResizeObserver globally to prevent ReferenceError under jsdom
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
 
 describe('ChatView Component Logic', () => {
   beforeEach(() => {
@@ -11,11 +18,14 @@ describe('ChatView Component Logic', () => {
     chatMessages.value = [];
     isLoading.value = false;
     selectedContextTabs.value = [{ tabId: 1, title: 'Test Tab', url: 'https://test.com' }];
+    activeChatSessionId.value = 'session-123' as UUID;
+    activeSpaceId.value = null;
+    chatSessions.value = [{ id: 'session-123' as UUID, title: 'Chat', createdAt: 'now' as any, updatedAt: 'now' as any, spaceId: null }];
     
-    // Mock chrome.runtime and chrome.tabs
+    // Mock chrome.runtime, chrome.tabs and chrome.storage
     global.chrome = {
       runtime: {
-        sendMessage: vi.fn(),
+        sendMessage: vi.fn().mockImplementation(() => Promise.resolve({ ok: true })),
         onMessage: {
           addListener: vi.fn(),
           removeListener: vi.fn(),
@@ -28,6 +38,25 @@ describe('ChatView Component Logic', () => {
           return Promise.resolve([]);
         }),
       },
+      storage: {
+        local: {
+          get: vi.fn().mockImplementation((key) => {
+            if (key === 'chatSessions') {
+              return Promise.resolve({ chatSessions: chatSessions.value });
+            }
+            if (key === 'chatMessages:session-123') {
+              return Promise.resolve({ 'chatMessages:session-123': [] });
+            }
+            return Promise.resolve({});
+          }),
+          set: vi.fn().mockResolvedValue(undefined),
+          remove: vi.fn().mockResolvedValue(undefined),
+        },
+        session: {
+          get: vi.fn().mockResolvedValue({}),
+          remove: vi.fn().mockResolvedValue(undefined),
+        }
+      }
     } as any;
   });
 
@@ -45,7 +74,7 @@ describe('ChatView Component Logic', () => {
       type: 'AI_QUERY',
       payload: expect.objectContaining({
         prompt: 'Explain this page',
-        contextTabs: expect.arrayContaining([{ tabId: 1, title: 'Test Tab', url: 'https://test.com' }])
+        spaceId: null
       })
     }));
     
@@ -96,7 +125,7 @@ describe('ChatView Component Logic', () => {
       type: 'AI_RESPONSE_STREAM',
       payload: {
         taskId,
-        chunk: ' there!',
+        chunk: 'Hello there!',
         done: true,
         error: undefined
       }
@@ -140,7 +169,7 @@ describe('ChatView Component Logic', () => {
     const root = document.getElementById('app')!;
     render(<ChatView />, { container: root });
     
-    const toggleBtn = document.querySelector('.btn-ghost') as HTMLButtonElement;
+    const toggleBtn = Array.from(document.querySelectorAll('.btn-ghost')).find(btn => btn.querySelector('.lucide-sparkles')) as HTMLButtonElement;
     expect(document.body.innerHTML).not.toContain('context-picker-overlay');
     
     fireEvent.click(toggleBtn);

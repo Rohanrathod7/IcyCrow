@@ -361,6 +361,10 @@ async function handleAiMessage(
                 
                 // Synchronous Wakeup Protocol (Focus only for Bridge)
                 const [currentView] = await chrome.tabs.query({ active: true, currentWindow: true });
+                const currentWindow = await chrome.windows.getLastFocused().catch(() => null);
+
+                // Focus target window and make tab active
+                await chrome.windows.update(tab.windowId, { focused: true }).catch(() => null);
                 await chrome.tabs.update(tabId, { active: true });
                 
                 chrome.runtime.sendMessage({
@@ -374,6 +378,9 @@ async function handleAiMessage(
                 ]);
                 
                 // Restore focus immediately
+                if (currentWindow?.id) {
+                  await chrome.windows.update(currentWindow.id, { focused: true }).catch(() => null);
+                }
                 if (currentView?.id && currentView.id !== tabId) {
                   await chrome.tabs.update(currentView.id, { active: true });
                 }
