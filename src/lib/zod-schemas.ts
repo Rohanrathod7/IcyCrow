@@ -81,6 +81,7 @@ export const AiQuerySchema = z.object({
     prompt: z.string(),
     spaceId: UUIDSchema.nullable(),
     taskId: UUIDSchema,
+    skipPromptInjection: z.boolean().optional(),
   }),
   _meta: MetaSchema,
 });

@@ -165,7 +165,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   } else if (message.type === 'PING_BRIDGE') {
     sendResponse({ ok: true, pong: true });
   } else if (message.type === 'AI_QUERY' && window.location.href.includes('gemini.google.com')) {
-    const { prompt, taskId } = message.payload;
+    const { prompt, taskId, skipPromptInjection } = message.payload;
     
     // Concurrency guard: Ignore if we're already processing this exact task or a different one
     if (activeQueryTaskId) {
@@ -176,7 +176,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     
     activeQueryTaskId = taskId;
     
-    injectPrompt(prompt)
+    const runSequence = skipPromptInjection
+      ? Promise.resolve()
+      : injectPrompt(prompt);
+
+    runSequence
       .then(() => {
         sendResponse({ ok: true });
         return scrapeResponse(taskId);

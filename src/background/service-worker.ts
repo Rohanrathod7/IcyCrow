@@ -304,6 +304,112 @@ async function handleCryptoMessage(message: ValidatedInboundMessage, sendRespons
   }
 }
 
+async function executeBackgroundInjection(tabId: number, prompt: string): Promise<boolean> {
+  if (typeof chrome.scripting === 'undefined') {
+    console.warn('[IcyCrow] chrome.scripting API is not available (mocked/test environment)');
+    return false;
+  }
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: (promptText) => {
+        try {
+          const el = document.querySelector('rich-textarea div[contenteditable="true"]');
+          const richTextarea = document.querySelector('rich-textarea');
+          
+          let view = null;
+          if (richTextarea) {
+            for (const key in richTextarea) {
+              try {
+                const val = (richTextarea as any)[key];
+                if (val && typeof val.dispatch === 'function' && val.state) {
+                  view = val;
+                  break;
+                }
+              } catch (e) {}
+            }
+          }
+          
+          if (!view && el) {
+            for (const key in el) {
+              try {
+                const val = (el as any)[key];
+                if (val && typeof val.dispatch === 'function' && val.state) {
+                  view = val;
+                  break;
+                }
+              } catch (e) {}
+            }
+          }
+          
+          if (!view && el) {
+            view = (el as any).editorView || (el as any).pmView || (el as any).pmEditor || (el as any).editor || (el as any)._editor;
+          }
+          if (!view && richTextarea) {
+            view = (richTextarea as any).editorView || (richTextarea as any).editor || (richTextarea as any).pmView || (richTextarea as any).view || (richTextarea as any)._view;
+          }
+
+          if (view && typeof view.dispatch === 'function' && view.state && view.state.tr) {
+            const tr = view.state.tr;
+            tr.delete(0, view.state.doc.content.size);
+            tr.insertText(promptText);
+            view.dispatch(tr);
+            
+            // Find send button inside rich-textarea or globally (including shadow root search)
+            let sendBtn: HTMLElement | null = null;
+            const walk = (node: Node) => {
+              if (node.nodeType === 1) {
+                const element = node as HTMLElement;
+                if (element.tagName === 'BUTTON' && (
+                  element.getAttribute('aria-label') === 'Send message' ||
+                  element.classList.contains('send-button') ||
+                  element.querySelector('mat-icon[svgicon="send"]')
+                )) {
+                  sendBtn = element;
+                  return;
+                }
+                if (element.shadowRoot) {
+                  walk(element.shadowRoot);
+                }
+              }
+              for (const child of Array.from(node.childNodes)) {
+                if (sendBtn) return;
+                walk(child);
+              }
+            };
+            walk(document);
+
+            if (sendBtn) {
+              (sendBtn as HTMLButtonElement).removeAttribute('disabled');
+              (sendBtn as HTMLButtonElement).disabled = false;
+              
+              const events = [
+                new PointerEvent('pointerdown', { bubbles: true }),
+                new MouseEvent('mousedown', { bubbles: true }),
+                new MouseEvent('pointerup', { bubbles: true }),
+                new MouseEvent('mouseup', { bubbles: true }),
+                new MouseEvent('click', { bubbles: true })
+              ];
+              events.forEach(ev => sendBtn!.dispatchEvent(ev));
+              return { success: true };
+            }
+            return { success: false, error: 'Send button not found' };
+          }
+          return { success: false, error: 'ProseMirror view not found' };
+        } catch (e: any) {
+          return { success: false, error: e.message };
+        }
+      },
+      args: [prompt]
+    });
+    return !!(result?.result && (result.result as any).success);
+  } catch (e) {
+    console.error('[IcyCrow] executeBackgroundInjection failed:', e);
+    return false;
+  }
+}
+
 async function handleAiMessage(
   message: ValidatedInboundMessage, 
   sendResponse: (r: any) => void,
@@ -359,7 +465,22 @@ async function handleAiMessage(
               try {
                 const tab = await chrome.tabs.get(tabId);
                 
-                // Synchronous Wakeup Protocol (Focus only for Bridge)
+                // 1. Try silent background injection first
+                const injectedBackground = await executeBackgroundInjection(tabId, prompt);
+                if (injectedBackground) {
+                  chrome.runtime.sendMessage({
+                    type: 'AI_RESPONSE_STREAM', 
+                    payload: { taskId, chunk: '', done: false, tabInfo: { title: tab.title, url: tab.url, id: tabId } }
+                  });
+                  
+                  const bridgeResponse = await Promise.race([
+                    chrome.tabs.sendMessage(tabId, { type: 'AI_QUERY', payload: { prompt, taskId, skipPromptInjection: true } }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('BRIDGE_TIMEOUT')), 15000))
+                  ]);
+                  return bridgeResponse;
+                }
+
+                // 2. Fallback: Synchronous Wakeup Protocol (Visible tab activation and focus)
                 const [currentView] = await chrome.tabs.query({ active: true, currentWindow: true });
                 const currentWindow = await chrome.windows.getLastFocused().catch(() => null);
 
