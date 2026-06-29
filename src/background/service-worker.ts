@@ -11,7 +11,7 @@ import { spaceManager } from './managers/space-manager';
 import { saveArticle, saveEmbedding, getAllEmbeddings, saveBackupManifest } from '@lib/idb-store';
 import { validateExportPassword } from '@lib/export-worker';
 import { aiManager } from './managers/ai-manager';
-import { setupPdfInterceptor } from './managers/pdf-interceptor';
+import { setupPdfInterceptor, registerTabPdfInterceptor } from './managers/pdf-interceptor';
 import { syncManager } from './managers/sync-manager';
 import type { IDBArticle, UUID, ISOTimestamp, SpaceRestoreMsg } from '@lib/types';
 
@@ -39,11 +39,14 @@ chrome.runtime?.onInstalled?.addListener(async (details) => {
   }
   if (details.reason === 'install') {
     const existing = await chrome.storage?.local?.get('settings');
+    let enabled = true;
     if (existing && !existing.settings) {
       await chrome.storage?.local?.set({ settings: DEFAULT_SETTINGS });
       console.log('Initialized default settings.');
+    } else if (existing?.settings) {
+      enabled = (existing.settings as any).enablePdfInterceptor !== false;
     }
-    await setupPdfInterceptor();
+    await setupPdfInterceptor(enabled);
   }
 });
 
@@ -85,6 +88,11 @@ export async function boot() {
     
     chrome.alarms?.create('keepalive', { periodInMinutes: 0.4 });
     chrome.alarms?.create('crypto-autolock', { periodInMinutes: 1.0 });
+
+    // Setup PDF Interceptor on boot
+    const localData = await chrome.storage?.local?.get('settings');
+    const enabled = (localData?.settings as any)?.enablePdfInterceptor !== false;
+    await setupPdfInterceptor(enabled);
   } catch (err) {
     console.error('[IcyCrow] SW Boot failed:', err);
   }
@@ -343,40 +351,48 @@ async function handleAiMessage(
         }
         
         const { position } = taskQueue.enqueue(async () => {
-          if (geminiIds.length === 0) throw new Error('GEMINI_TAB_NOT_FOUND: Built-in AI is unavailable and no Gemini tabs are open.');
-          
+          try {
+            if (geminiIds.length === 0) throw new Error('GEMINI_TAB_NOT_FOUND: Built-in AI is unavailable and no Gemini tabs are open.');
+            
 
-          for (const tabId of geminiIds) {
-            try {
-              const tab = await chrome.tabs.get(tabId);
-              
-              // Synchronous Wakeup Protocol (Focus only for Bridge)
-              const [currentView] = await chrome.tabs.query({ active: true, currentWindow: true });
-              await chrome.tabs.update(tabId, { active: true });
-              
-              chrome.runtime.sendMessage({
-                type: 'AI_RESPONSE_STREAM', 
-                payload: { taskId, chunk: '', done: false, tabInfo: { title: tab.title, url: tab.url, id: tabId } }
-              });
-              
-              const bridgeResponse = await Promise.race([
-                chrome.tabs.sendMessage(tabId, { type: 'AI_QUERY', payload: { prompt, taskId } }),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('BRIDGE_TIMEOUT')), 15000))
-              ]);
-              
-              // Restore focus immediately
-              if (currentView?.id && currentView.id !== tabId) {
-                await chrome.tabs.update(currentView.id, { active: true });
+            for (const tabId of geminiIds) {
+              try {
+                const tab = await chrome.tabs.get(tabId);
+                
+                // Synchronous Wakeup Protocol (Focus only for Bridge)
+                const [currentView] = await chrome.tabs.query({ active: true, currentWindow: true });
+                await chrome.tabs.update(tabId, { active: true });
+                
+                chrome.runtime.sendMessage({
+                  type: 'AI_RESPONSE_STREAM', 
+                  payload: { taskId, chunk: '', done: false, tabInfo: { title: tab.title, url: tab.url, id: tabId } }
+                });
+                
+                const bridgeResponse = await Promise.race([
+                  chrome.tabs.sendMessage(tabId, { type: 'AI_QUERY', payload: { prompt, taskId } }),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('BRIDGE_TIMEOUT')), 15000))
+                ]);
+                
+                // Restore focus immediately
+                if (currentView?.id && currentView.id !== tabId) {
+                  await chrome.tabs.update(currentView.id, { active: true });
+                }
+                
+                return bridgeResponse;
+              } catch (err: any) {
+                console.warn(`[IcyCrow] Fallback Bridge failed for tab ${tabId}:`, err.message);
+
+                continue;
               }
-              
-              return bridgeResponse;
-            } catch (err: any) {
-              console.warn(`[IcyCrow] Fallback Bridge failed for tab ${tabId}:`, err.message);
-
-              continue;
             }
+            throw new Error('BRIDGE_OFFLINE: Built-in AI is unavailable. Please refresh your Gemini tab.');
+          } catch (err: any) {
+            chrome.runtime.sendMessage({
+              type: 'AI_RESPONSE_STREAM',
+              payload: { taskId, chunk: '', done: true, error: err.message }
+            });
+            throw err;
           }
-          throw new Error('BRIDGE_OFFLINE: Built-in AI is unavailable. Please refresh your Gemini tab.');
         });
         
         sendResponse({ ok: true, data: { taskId, position, engine: 'bridge' } });
@@ -558,10 +574,10 @@ async function handleAiMessage(
     }
     case 'EXPLAIN_TEXT_REQUEST': {
       try {
-        const { text, action, spaceId, pdfTitle } = message.payload;
+        const { text, action, spaceId, pdfTitle, requestId } = message.payload;
         
         // [BUFFERING]: Store for the side panel to consume on mount
-        await chrome.storage.session.set({ pendingPrompt: { text, action, spaceId, pdfTitle } });
+        await chrome.storage.session.set({ pendingPrompt: { text, action, spaceId, pdfTitle, requestId } });
         
         // [ERROR HANDLING]: Protected side panel open
         if (sender?.tab?.windowId) {
@@ -708,4 +724,16 @@ async function handleSpaceMessage(message: ValidatedInboundMessage, sendResponse
 
 watchGeminiTab('https://gemini.google.com/*');
 
+chrome.storage.onChanged.addListener(async (changes, areaName) => {
+  if (areaName === 'local' && changes.settings) {
+    const oldVal = changes.settings.oldValue as any;
+    const newVal = changes.settings.newValue as any;
+    if (newVal && oldVal?.enablePdfInterceptor !== newVal.enablePdfInterceptor) {
+      await setupPdfInterceptor(newVal.enablePdfInterceptor !== false);
+    }
+  }
+});
+
+registerTabPdfInterceptor();
 boot().catch(console.error);
+

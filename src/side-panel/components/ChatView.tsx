@@ -1,18 +1,36 @@
-import { Cloud, Cpu, Sparkles, ChevronDown } from 'lucide-preact';
+import { Cloud, Cpu, Sparkles, ChevronDown, Menu, Plus, Trash2, History } from 'lucide-preact';
 import { useRef, useState, useEffect } from 'preact/hooks';
 import { aiManager } from '@bg/managers/ai-manager';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ContextPicker } from './ContextPicker';
 import { BridgeSelector } from './BridgeSelector';
-import { chatMessages, isLoading, selectedContextTabs, chatEngine, activeSpaceId, currentAppStatus } from '../store';
-import { appendChatMessage } from '@lib/storage';
+import { 
+  chatMessages, 
+  isLoading, 
+  selectedContextTabs, 
+  chatEngine, 
+  activeSpaceId, 
+  currentAppStatus,
+  chatSessions,
+  activeChatSessionId,
+  createNewChatSession,
+  loadChatSession,
+  deleteChatSessionAndHistory,
+  initializeChatForSpace,
+  saveActiveSessionMessages
+} from '../store';
 import type { UUID, ISOTimestamp, InboundMessage } from '@lib/types';
 
 
 export const ChatView = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    initializeChatForSpace(activeSpaceId.value);
+  }, [activeSpaceId.value]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -26,7 +44,16 @@ export const ChatView = () => {
   }, []);
   const [showPicker, setShowPicker] = useState(false);
 
-  const handleIncomingPrompt = async (payload: { text: string; action: string; pdfTitle?: string }) => {
+  const processedRequests = useRef<Set<string>>(new Set());
+
+  const handleIncomingPrompt = async (payload: { text: string; action: string; pdfTitle?: string; requestId?: string }) => {
+    if (payload.requestId) {
+      if (processedRequests.current.has(payload.requestId)) {
+        console.log('[IcyCrow] Request already processed, skipping:', payload.requestId);
+        return;
+      }
+      processedRequests.current.add(payload.requestId);
+    }
     // [PROMPT ROUTING]: Format based on action type
     const prefix = payload.action === 'explain' 
       ? 'Explain this concept from my reading: \n\n' 
@@ -43,7 +70,7 @@ export const ChatView = () => {
     const consumeBuffer = async () => {
       const res = await chrome.storage.session.get('pendingPrompt');
       if (res.pendingPrompt) {
-        const payload = res.pendingPrompt as { text: string; action: 'explain' | 'summarize'; pdfTitle?: string };
+        const payload = res.pendingPrompt as { text: string; action: 'explain' | 'summarize'; pdfTitle?: string; requestId?: string };
         // [PREVENT DOUBLE-FIRE]: Clear immediately
         await chrome.storage.session.remove('pendingPrompt');
         handleIncomingPrompt(payload);
@@ -58,11 +85,6 @@ export const ChatView = () => {
   }, []);
 
   useEffect(() => {
-    const fetchInitialStatus = async () => {
-      // Logic moved to BridgeSelector
-    };
-    fetchInitialStatus();
-
     const handleMessage = (message: InboundMessage, sender: chrome.runtime.MessageSender) => {
       // Security: Validate sender
       if (sender.id !== chrome.runtime.id) return;
@@ -103,6 +125,7 @@ export const ChatView = () => {
           isLoading.value = false;
           currentAppStatus.value = 'idle';
           if (error) console.error('AI Stream Error:', error);
+          saveActiveSessionMessages(chatMessages.value);
         }
       } else if (message.type === 'EXPLAIN_TEXT_REQUEST') {
         const payload = message.payload as any;
@@ -134,10 +157,7 @@ export const ChatView = () => {
     currentAppStatus.value = 'thinking';
     setShowPicker(false);
 
-    // Persist to local storage ONLY if space is active
-    if (activeSpaceId.value) {
-      appendChatMessage(activeSpaceId.value, newMessage);
-    }
+    saveActiveSessionMessages(chatMessages.value);
 
     if (chatEngine.value === 'window.ai') {
       aiManager.queryBuiltIn(content, (chunk) => {
@@ -165,10 +185,12 @@ export const ChatView = () => {
       }).then(() => {
         isLoading.value = false;
         currentAppStatus.value = 'idle';
+        saveActiveSessionMessages(chatMessages.value);
       }).catch(err => {
         isLoading.value = false;
         currentAppStatus.value = 'idle';
         console.error('Local AI Error:', err);
+        saveActiveSessionMessages(chatMessages.value);
       });
     } else {
       chrome.runtime.sendMessage({
@@ -203,6 +225,70 @@ export const ChatView = () => {
 
   return (
     <div className="chat-view" ref={containerRef}>
+      {/* Slide-over Drawer Backdrop */}
+      {drawerOpen && (
+        <div 
+          className="drawer-backdrop" 
+          onClick={() => setDrawerOpen(false)}
+        />
+      )}
+
+      {/* Slide-over Drawer Content */}
+      <div className={`chat-history-drawer ${drawerOpen ? 'open' : ''}`}>
+        <div className="drawer-header">
+          <h3>Chat History</h3>
+          <button 
+            className="btn-new-chat" 
+            onClick={() => {
+              createNewChatSession();
+              setDrawerOpen(false);
+            }}
+          >
+            <Plus size={14} />
+            <span>New Chat</span>
+          </button>
+        </div>
+
+        <div className="drawer-body">
+          {chatSessions.value.length === 0 ? (
+            <div className="drawer-empty text-dim">
+              <History size={24} style={{ opacity: 0.3, marginBottom: '8px' }} />
+              <span>No past chats</span>
+            </div>
+          ) : (
+            chatSessions.value.map((session) => {
+              const isActive = activeChatSessionId.value === session.id;
+              return (
+                <div 
+                  key={session.id} 
+                  className={`drawer-item ${isActive ? 'active' : ''}`}
+                  onClick={() => {
+                    loadChatSession(session.id);
+                    setDrawerOpen(false);
+                  }}
+                >
+                  <div className="drawer-item-title" title={session.title}>
+                    {session.title}
+                  </div>
+                  <button 
+                    className="btn-delete-session"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm('Delete this chat thread?')) {
+                        deleteChatSessionAndHistory(session.id);
+                      }
+                    }}
+                    title="Delete chat"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
       <div className="chat-header glass-card" style={{ 
         position: 'relative',
         display: 'flex', 
@@ -212,6 +298,22 @@ export const ChatView = () => {
         borderRadius: '12px',
         gap: '8px' /* Reduced gap for compact header */
       }}>
+        {/* Menu toggle button */}
+        <button 
+          className="btn-ghost" 
+          onClick={() => setDrawerOpen(!drawerOpen)}
+          style={{
+            padding: '6px',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}
+          title="Chat History"
+        >
+          <Menu size={16} />
+        </button>
         {/* 1. Engine Selector (Fixed Width) */}
         <div className="engine-selector-pill" style={{
           display: 'flex',

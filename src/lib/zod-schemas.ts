@@ -272,6 +272,7 @@ export const ExplainTextRequestSchema = z.object({
     action: z.enum(['explain', 'summarize']),
     spaceId: UUIDSchema.nullable().optional(),
     pdfTitle: z.string().optional(),
+    requestId: z.string().optional(),
   }),
   _meta: MetaSchema,
 });

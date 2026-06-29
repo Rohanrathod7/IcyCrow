@@ -1,5 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { chatMessages, chatEngine, loadChatHistory, activeSpaceId } from '../../src/side-panel/store';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { 
+  chatMessages, 
+  chatEngine, 
+  activeSpaceId, 
+  chatSessions,
+  activeChatSessionId,
+  createNewChatSession,
+  loadChatSession,
+  saveActiveSessionMessages,
+  deleteChatSessionAndHistory,
+  initializeChatForSpace 
+} from '../../src/side-panel/store';
 import type { ChatMessage, UUID, ISOTimestamp } from '../../src/lib/types';
 
 // Mock chrome APIs
@@ -8,6 +19,7 @@ global.chrome = {
     local: {
       get: vi.fn(),
       set: vi.fn(),
+      remove: vi.fn(),
     },
     onChanged: {
       addListener: vi.fn(),
@@ -24,57 +36,91 @@ describe('Store: Chat History Logic', () => {
     chatMessages.value = [];
     chatEngine.value = 'gemini';
     activeSpaceId.value = null;
+    chatSessions.value = [];
+    activeChatSessionId.value = null;
   });
 
   it('defaults chatEngine to "gemini"', () => {
     expect(chatEngine.value).toBe('gemini');
   });
 
-  it('loadChatHistory retrieves messages from storage for the given space', async () => {
-    const spaceId = 'space-123' as UUID;
+  it('createNewChatSession should clear messages and reset active session ID', () => {
+    chatMessages.value = [{ id: 'msg-1' as UUID, role: 'user' as const, content: 'Hello', timestamp: '2026-03-23T12:00:00Z' as ISOTimestamp, contextTabIds: [], taskId: null }];
+    activeChatSessionId.value = 'session-123' as UUID;
+
+    createNewChatSession();
+
+    expect(chatMessages.value).toEqual([]);
+    expect(activeChatSessionId.value).toBeNull();
+  });
+
+  it('loadChatSession should fetch messages and set active session ID', async () => {
     const mockHistory: ChatMessage[] = [
-      {
-        id: 'msg-1' as UUID,
-        role: 'user',
-        content: 'Hello',
-        timestamp: '2026-03-23T12:00:00Z' as ISOTimestamp,
-        contextTabIds: [],
-        taskId: null
-      }
+      { id: 'msg-1' as UUID, role: 'user' as const, content: 'Hello', timestamp: '2026-03-23T12:00:00Z' as ISOTimestamp, contextTabIds: [], taskId: null }
     ];
 
-    vi.mocked(chrome.storage.local.get).mockResolvedValue({
-      [`chatHistories:${spaceId}`]: mockHistory
+    vi.mocked(chrome.storage.local.get).mockImplementation(async (key) => {
+      if (key === 'chatMessages:session-123') {
+        return { 'chatMessages:session-123': mockHistory };
+      }
+      return {};
     });
 
-    await loadChatHistory(spaceId);
+    await loadChatSession('session-123' as UUID);
 
-    expect(chrome.storage.local.get).toHaveBeenCalledWith(`chatHistories:${spaceId}`);
+    expect(activeChatSessionId.value).toBe('session-123');
     expect(chatMessages.value).toEqual(mockHistory);
   });
 
-  it('hydration guard prevents stale history from overwriting the latest space', async () => {
-    const space1 = 'space-1' as UUID;
-    const space2 = 'space-2' as UUID;
+  it('saveActiveSessionMessages should update existing session and save history', async () => {
+    activeChatSessionId.value = 'session-123' as UUID;
+    const initialSessions = [{ id: 'session-123' as UUID, title: 'Chat', createdAt: 'now' as any, updatedAt: 'now' as any, spaceId: null }];
 
-    const history1: ChatMessage[] = [{ id: 'm1' as UUID, role: 'user', content: 'Msg 1', timestamp: '...', contextTabIds: [], taskId: null }];
-    const history2: ChatMessage[] = [{ id: 'm2' as UUID, role: 'user', content: 'Msg 2', timestamp: '...', contextTabIds: [], taskId: null }];
-
-    // Simulate space 1 query taking longer
     vi.mocked(chrome.storage.local.get).mockImplementation(async (key) => {
-      if (key === `chatHistories:${space1}`) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-        return { [key as string]: history1 };
+      if (key === 'chatSessions') {
+        return { chatSessions: initialSessions };
       }
-      return { [key as string]: history2 };
+      return {};
     });
 
-    // Start loading space 1, then immediately switch and load space 2
-    const p1 = loadChatHistory(space1);
-    await loadChatHistory(space2); // Space 2 finishes first (no delay)
-    await p1; // Space 1 finishes last
+    const messages = [{ id: 'msg-1' as UUID, role: 'user' as const, content: 'Hello', timestamp: 'now' as any, contextTabIds: [], taskId: null }];
+    await saveActiveSessionMessages(messages);
 
-    // Should still be space 2's history
-    expect(chatMessages.value).toEqual(history2);
+    expect(chrome.storage.local.set).toHaveBeenCalled();
+  });
+
+  it('deleteChatSessionAndHistory should remove session and reset if active', async () => {
+    activeChatSessionId.value = 'session-123' as UUID;
+    const initialSessions = [{ id: 'session-123' as UUID, title: 'Chat', createdAt: 'now' as any, updatedAt: 'now' as any, spaceId: null }];
+
+    vi.mocked(chrome.storage.local.get).mockImplementation(async (key) => {
+      if (key === 'chatSessions') {
+        return { chatSessions: initialSessions };
+      }
+      return {};
+    });
+
+    await deleteChatSessionAndHistory('session-123' as UUID);
+
+    expect(chatMessages.value).toEqual([]);
+    expect(activeChatSessionId.value).toBeNull();
+  });
+
+  it('initializeChatForSpace should load chat session or create new one', async () => {
+    const initialSessions = [{ id: 'session-123' as UUID, title: 'Chat', createdAt: 'now' as any, updatedAt: 'now' as any, spaceId: 'space-123' as UUID }];
+
+    vi.mocked(chrome.storage.local.get).mockImplementation(async (key) => {
+      if (key === 'chatSessions') {
+        return { chatSessions: initialSessions };
+      }
+      if (key === 'chatMessages:session-123') {
+        return { 'chatMessages:session-123': [] };
+      }
+      return {};
+    });
+
+    await initializeChatForSpace('space-123' as UUID);
+
+    expect(activeChatSessionId.value).toBe('session-123');
   });
 });

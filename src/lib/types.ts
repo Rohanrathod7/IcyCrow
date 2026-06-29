@@ -199,6 +199,9 @@ export interface IcyCrowSettings {
   };
   theme: 'light' | 'dark' | 'system';
   aiEngine?: ChatEngine;
+  apiKey?: string;
+  apiModel?: string;
+  enablePdfInterceptor?: boolean;
 }
 
 // chrome.storage.local: Spaces
@@ -265,7 +268,7 @@ export interface Highlight {
 export type HighlightsStore = Highlight[];
 
 // chrome.storage.local: Chat Histories
-export type ChatEngine = 'gemini' | 'window.ai';
+export type ChatEngine = 'gemini' | 'window.ai' | 'api';
 export type ChatRole = 'user' | 'assistant' | 'system';
 
 export interface ChatMessage {
@@ -278,6 +281,14 @@ export interface ChatMessage {
 }
 
 export type ChatHistoryStore = ChatMessage[];
+
+export interface ChatSession {
+  id: UUID;
+  title: string;
+  createdAt: ISOTimestamp;
+  updatedAt: ISOTimestamp;
+  spaceId: UUID | null;
+}
 
 export interface WorkspaceBundle {
   articles: IDBArticle[];
@@ -518,6 +529,7 @@ export type ExplainTextRequestMsg = BaseMessage<'EXPLAIN_TEXT_REQUEST', {
   action: 'explain' | 'summarize';
   spaceId?: UUID | null;
   pdfTitle?: string;
+  requestId?: string;
 }>;
 
 export type InboundMessage =

@@ -20,13 +20,15 @@ export const AiActionBar = () => {
     await new Promise(resolve => setTimeout(resolve, 300));
     
     try {
+      const requestId = crypto.randomUUID();
       // [PROMPT ROUTING]: Send the request to the background script
       chrome.runtime.sendMessage({
         type: 'EXPLAIN_TEXT_REQUEST',
         payload: {
           text: selectedPdfText.value,
           action: type,
-          pdfTitle: document.title || 'PDF Document'
+          pdfTitle: document.title || 'PDF Document',
+          requestId
         }
       });
 
