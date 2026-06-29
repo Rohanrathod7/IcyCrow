@@ -409,8 +409,12 @@ export const ChatView = () => {
           ))
         )}
         {isLoading.value && (
-          <div className="chat-message assistant loading" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            <span className="dot-flashing">...</span>
+          <div className="chat-message assistant loading">
+            <div className="thinking-bubble">
+              <div className="thinking-dot"></div>
+              <div className="thinking-dot"></div>
+              <div className="thinking-dot"></div>
+            </div>
           </div>
         )}
       </div>

@@ -435,6 +435,19 @@ export async function scrapeResponse(taskId: string): Promise<void> {
     stabilityCount = 0;
   };
 
+  // Resolve lastSeenContainer if marked by background injection
+  const markedLasts = querySelectorAllDeep('[data-icy-last-seen="true"]');
+  if (markedLasts.length > 0) {
+    const markedLast = markedLasts[0];
+    lastSeenContainer = markedLast;
+    markedLast.removeAttribute('data-icy-last-seen');
+    log('Statically resolved lastSeenContainer from data-icy-last-seen attribute.');
+  } else if (!lastSeenContainer) {
+    const existing = querySelectorAllDeep(GEMINI_SELECTORS.responseContainer.join(', '));
+    lastSeenContainer = existing.length > 0 ? (existing[existing.length - 1] as HTMLElement) : null;
+    log('Fallback resolved lastSeenContainer to current last container in DOM.');
+  }
+
   // 1. Initial synchronous check to support mock test environments
   const initCandidates = querySelectorAllDeep(GEMINI_SELECTORS.responseContainer.join(', '));
   const initLast = initCandidates[initCandidates.length - 1] as HTMLElement;
@@ -474,10 +487,9 @@ export async function scrapeResponse(taskId: string): Promise<void> {
         noChangeCount++;
       }
 
-      // Completion check: Finished if the send button is back in the DOM and the stop button is absent
-      const sendBtn = findSelector(GEMINI_SELECTORS.sendButton) as HTMLButtonElement;
+      // Completion check: Finished if the stop button is absent (more resilient to send button updates)
       const stopBtn = findSelector((GEMINI_SELECTORS as any).stopButton);
-      const isUIFinished = !!(sendBtn && !stopBtn);
+      const isUIFinished = !stopBtn;
 
       if (isUIFinished) {
         stabilityCount++;

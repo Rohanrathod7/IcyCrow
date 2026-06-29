@@ -473,6 +473,12 @@ async function executeBackgroundInjection(tabId: number, prompt: string): Promis
           }
 
           if (sendBtn) {
+            // Mark the last response container as last-seen before clicking to let content scraper ignore it
+            const containers = querySelectorAllDeep('message-content, model-response, .response-container');
+            if (containers.length > 0) {
+              containers[containers.length - 1].setAttribute('data-icy-last-seen', 'true');
+            }
+
             sendBtn.removeAttribute('disabled');
             (sendBtn as HTMLButtonElement).disabled = false;
             
