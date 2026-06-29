@@ -432,70 +432,110 @@ async function executeBackgroundInjection(tabId: number, prompt: string): Promis
             }
           }
 
-          // Wait 150ms for Angular/Lit change detection to run and update Send button
-          await new Promise((resolve) => setTimeout(resolve, 150));
-
-          // Deep search all buttons in the DOM (including shadow DOMs) and check for send attributes/icons
-          let sendBtn: HTMLElement | null = null;
-          const buttons = querySelectorAllDeep('button');
-          for (const btn of buttons) {
-            const label = btn.getAttribute('aria-label') || '';
-            const html = btn.innerHTML || '';
-            if (
-              label.toLowerCase().includes('send') ||
-              btn.classList.contains('send-button') ||
-              btn.querySelector('mat-icon[svgicon="send"]') ||
-              btn.querySelector('.send-icon') ||
-              html.includes('svgicon="send"') ||
-              html.includes('send-icon')
-            ) {
-              sendBtn = btn;
-              break;
+          // Helper to check if editor is empty
+          const isEditorEmpty = () => {
+            if (view && view.state) {
+              return view.state.doc.textContent.trim().length === 0;
             }
-          }
+            const val = (richTextarea && richTextarea.value) || (el && ('value' in el ? (el as any).value : el.innerText));
+            return !val || val.trim().length === 0;
+          };
 
-          // Fallback to selectors if deep button search did not yield one
-          if (!sendBtn) {
-            const sendSelectors = [
-              'button[aria-label="Send message"]',
-              'button.send-button',
-              'button:has(mat-icon[svgicon="send"])',
-              'button:has(div.send-icon)',
-              'button[aria-disabled="false"]'
-            ];
-            for (const selector of sendSelectors) {
-              const matches = querySelectorAllDeep(selector);
-              if (matches.length > 0) {
-                sendBtn = matches[0];
+          // Function to attempt click and enter
+          const attemptSubmit = () => {
+            // Find/refresh send button
+            let currentBtn: HTMLElement | null = null;
+            const btns = querySelectorAllDeep('button');
+            for (const btn of btns) {
+              const label = btn.getAttribute('aria-label') || '';
+              const html = btn.innerHTML || '';
+              if (
+                label.toLowerCase().includes('send') ||
+                btn.classList.contains('send-button') ||
+                btn.querySelector('mat-icon[svgicon="send"]') ||
+                btn.querySelector('.send-icon') ||
+                html.includes('svgicon="send"') ||
+                html.includes('send-icon')
+              ) {
+                currentBtn = btn;
                 break;
               }
             }
-          }
 
-          if (sendBtn) {
-            // Mark the last response container as last-seen before clicking to let content scraper ignore it
-            const containers = querySelectorAllDeep('message-content, model-response, .response-container');
-            if (containers.length > 0) {
-              containers[containers.length - 1].setAttribute('data-icy-last-seen', 'true');
+            if (!currentBtn) {
+              const sendSelectors = [
+                'button[aria-label="Send message"]',
+                'button.send-button',
+                'button:has(mat-icon[svgicon="send"])',
+                'button:has(div.send-icon)',
+                'button[aria-disabled="false"]'
+              ];
+              for (const selector of sendSelectors) {
+                const matches = querySelectorAllDeep(selector);
+                if (matches.length > 0) {
+                  currentBtn = matches[0];
+                  break;
+                }
+              }
             }
 
-            sendBtn.removeAttribute('disabled');
-            (sendBtn as HTMLButtonElement).disabled = false;
-            
-            // Dispatch pointer/mouse down and up events
-            const events = [
-              new PointerEvent('pointerdown', { bubbles: true }),
-              new MouseEvent('mousedown', { bubbles: true }),
-              new PointerEvent('pointerup', { bubbles: true }),
-              new MouseEvent('mouseup', { bubbles: true })
-            ];
-            events.forEach(ev => sendBtn!.dispatchEvent(ev));
-            
-            // Call programmatic click method to execute the submit action
-            sendBtn.click();
+            if (currentBtn) {
+              // Mark the last response container as last-seen before clicking to let content scraper ignore it
+              const containers = querySelectorAllDeep('message-content, model-response, .response-container');
+              if (containers.length > 0) {
+                containers[containers.length - 1].setAttribute('data-icy-last-seen', 'true');
+              }
+
+              currentBtn.removeAttribute('disabled');
+              (currentBtn as HTMLButtonElement).disabled = false;
+              
+              const events = [
+                new PointerEvent('pointerdown', { bubbles: true }),
+                new MouseEvent('mousedown', { bubbles: true }),
+                new PointerEvent('pointerup', { bubbles: true }),
+                new MouseEvent('mouseup', { bubbles: true })
+              ];
+              events.forEach(ev => currentBtn!.dispatchEvent(ev));
+              currentBtn.click();
+            }
+
+            // Also dispatch Enter key on the contenteditable editor as fallback
+            const enterDown = new KeyboardEvent('keydown', {
+              key: 'Enter',
+              code: 'Enter',
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true
+            });
+            const enterUp = new KeyboardEvent('keyup', {
+              key: 'Enter',
+              code: 'Enter',
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true
+            });
+            el.dispatchEvent(enterDown);
+            el.dispatchEvent(enterUp);
+          };
+
+          // Initial submit attempt
+          attemptSubmit();
+
+          // Self-healing retry loop: wait for background throttling/change detection up to 6 times
+          for (let i = 0; i < 6; i++) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            if (isEditorEmpty()) {
+              return { success: true };
+            }
+            attemptSubmit();
+          }
+
+          if (isEditorEmpty()) {
             return { success: true };
           }
-          return { success: false, error: 'Send button not found in DOM after input' };
+          return { success: false, error: 'Input field was not cleared after multiple submit attempts' };
         } catch (e: any) {
           return { success: false, error: e.message };
         }
