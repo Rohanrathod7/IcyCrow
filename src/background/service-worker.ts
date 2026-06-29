@@ -315,8 +315,32 @@ async function executeBackgroundInjection(tabId: number, prompt: string): Promis
       world: 'MAIN',
       func: (promptText) => {
         try {
-          const el = document.querySelector('rich-textarea div[contenteditable="true"]');
-          const richTextarea = document.querySelector('rich-textarea');
+          const querySelectorAllDeep = (selector: string, root: Node = document): HTMLElement[] => {
+            const results: HTMLElement[] = [];
+            const walk = (node: Node) => {
+              if (node.nodeType === 1) {
+                const el = node as HTMLElement;
+                try {
+                  if (el.matches(selector)) {
+                    results.push(el);
+                  }
+                } catch (e) {}
+                if (el.shadowRoot) {
+                  walk(el.shadowRoot);
+                }
+              }
+              for (const child of Array.from(node.childNodes)) {
+                walk(child);
+              }
+            };
+            walk(root);
+            return results;
+          };
+
+          const inputs = querySelectorAllDeep('rich-textarea div[contenteditable="true"]');
+          const el = inputs[inputs.length - 1];
+          const richTextareas = querySelectorAllDeep('rich-textarea');
+          const richTextarea = richTextareas[richTextareas.length - 1];
           
           let view = null;
           if (richTextarea) {
@@ -356,29 +380,22 @@ async function executeBackgroundInjection(tabId: number, prompt: string): Promis
             tr.insertText(promptText);
             view.dispatch(tr);
             
-            // Find send button inside rich-textarea or globally (including shadow root search)
+            // Find send button inside shadow DOMs using querySelectorAllDeep and standard selectors
+            const sendSelectors = [
+              'button[aria-label="Send message"]',
+              'button.send-button',
+              'button:has(mat-icon[svgicon="send"])',
+              'button:has(div.send-icon)'
+            ];
+            
             let sendBtn: HTMLElement | null = null;
-            const walk = (node: Node) => {
-              if (node.nodeType === 1) {
-                const element = node as HTMLElement;
-                if (element.tagName === 'BUTTON' && (
-                  element.getAttribute('aria-label') === 'Send message' ||
-                  element.classList.contains('send-button') ||
-                  element.querySelector('mat-icon[svgicon="send"]')
-                )) {
-                  sendBtn = element;
-                  return;
-                }
-                if (element.shadowRoot) {
-                  walk(element.shadowRoot);
-                }
+            for (const selector of sendSelectors) {
+              const buttons = querySelectorAllDeep(selector);
+              if (buttons.length > 0) {
+                sendBtn = buttons[0];
+                break;
               }
-              for (const child of Array.from(node.childNodes)) {
-                if (sendBtn) return;
-                walk(child);
-              }
-            };
-            walk(document);
+            }
 
             if (sendBtn) {
               (sendBtn as HTMLButtonElement).removeAttribute('disabled');
