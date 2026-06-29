@@ -408,7 +408,7 @@ export const ChatView = () => {
             <ChatMessage key={msg.id} message={msg} />
           ))
         )}
-        {isLoading.value && (
+        {isLoading.value && !(chatMessages.value.length > 0 && chatMessages.value[chatMessages.value.length - 1].role === 'assistant' && chatMessages.value[chatMessages.value.length - 1].content.trim().length > 0) && (
           <div className="chat-message assistant loading">
             <div className="thinking-bubble">
               <div className="thinking-dot"></div>
