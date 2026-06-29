@@ -389,17 +389,33 @@ async function executeBackgroundInjection(tabId: number, prompt: string): Promis
             current = current.parentElement || (current.getRootNode && (current.getRootNode() as any).host);
           }
 
+          const richTextarea = el.closest('rich-textarea') as any;
+
           if (view && typeof view.dispatch === 'function' && view.state && view.state.tr) {
             const tr = view.state.tr;
             tr.delete(0, view.state.doc.content.size);
             tr.insertText(promptText);
             view.dispatch(tr);
+            
+            // Sync Angular wrapper value property
+            if (richTextarea && 'value' in richTextarea) {
+              richTextarea.value = promptText;
+            }
+            
+            // Dispatch input and change events on the contenteditable div
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            
+            // Dispatch events on the parent wrapper too to trigger change observers
+            if (richTextarea) {
+              richTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+              richTextarea.dispatchEvent(new Event('change', { bubbles: true }));
+            }
           } else {
             // Fallback to direct innerText / value modification
             let setProp = false;
-            let parentRich = el.closest('rich-textarea') as any;
-            if (parentRich && 'value' in parentRich) {
-              parentRich.value = promptText;
+            if (richTextarea && 'value' in richTextarea) {
+              richTextarea.value = promptText;
               setProp = true;
             } else if ('value' in el) {
               (el as any).value = promptText;
@@ -410,26 +426,49 @@ async function executeBackgroundInjection(tabId: number, prompt: string): Promis
             }
             el.dispatchEvent(new Event('input', { bubbles: true }));
             el.dispatchEvent(new Event('change', { bubbles: true }));
+            if (richTextarea) {
+              richTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+              richTextarea.dispatchEvent(new Event('change', { bubbles: true }));
+            }
           }
 
           // Wait 150ms for Angular/Lit change detection to run and update Send button
           await new Promise((resolve) => setTimeout(resolve, 150));
 
-          // Find send button inside shadow DOMs using querySelectorAllDeep and standard selectors
-          const sendSelectors = [
-            'button[aria-label="Send message"]',
-            'button.send-button',
-            'button:has(mat-icon[svgicon="send"])',
-            'button:has(div.send-icon)',
-            'button[aria-disabled="false"]'
-          ];
-          
+          // Deep search all buttons in the DOM (including shadow DOMs) and check for send attributes/icons
           let sendBtn: HTMLElement | null = null;
-          for (const selector of sendSelectors) {
-            const buttons = querySelectorAllDeep(selector);
-            if (buttons.length > 0) {
-              sendBtn = buttons[0];
+          const buttons = querySelectorAllDeep('button');
+          for (const btn of buttons) {
+            const label = btn.getAttribute('aria-label') || '';
+            const html = btn.innerHTML || '';
+            if (
+              label.toLowerCase().includes('send') ||
+              btn.classList.contains('send-button') ||
+              btn.querySelector('mat-icon[svgicon="send"]') ||
+              btn.querySelector('.send-icon') ||
+              html.includes('svgicon="send"') ||
+              html.includes('send-icon')
+            ) {
+              sendBtn = btn;
               break;
+            }
+          }
+
+          // Fallback to selectors if deep button search did not yield one
+          if (!sendBtn) {
+            const sendSelectors = [
+              'button[aria-label="Send message"]',
+              'button.send-button',
+              'button:has(mat-icon[svgicon="send"])',
+              'button:has(div.send-icon)',
+              'button[aria-disabled="false"]'
+            ];
+            for (const selector of sendSelectors) {
+              const matches = querySelectorAllDeep(selector);
+              if (matches.length > 0) {
+                sendBtn = matches[0];
+                break;
+              }
             }
           }
 
@@ -437,14 +476,17 @@ async function executeBackgroundInjection(tabId: number, prompt: string): Promis
             sendBtn.removeAttribute('disabled');
             (sendBtn as HTMLButtonElement).disabled = false;
             
+            // Dispatch pointer/mouse down and up events
             const events = [
               new PointerEvent('pointerdown', { bubbles: true }),
               new MouseEvent('mousedown', { bubbles: true }),
-              new MouseEvent('pointerup', { bubbles: true }),
-              new MouseEvent('mouseup', { bubbles: true }),
-              new MouseEvent('click', { bubbles: true })
+              new PointerEvent('pointerup', { bubbles: true }),
+              new MouseEvent('mouseup', { bubbles: true })
             ];
             events.forEach(ev => sendBtn!.dispatchEvent(ev));
+            
+            // Call programmatic click method to execute the submit action
+            sendBtn.click();
             return { success: true };
           }
           return { success: false, error: 'Send button not found in DOM after input' };
