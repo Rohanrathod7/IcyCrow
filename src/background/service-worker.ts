@@ -304,16 +304,16 @@ async function handleCryptoMessage(message: ValidatedInboundMessage, sendRespons
   }
 }
 
-async function executeBackgroundInjection(tabId: number, prompt: string): Promise<boolean> {
+async function executeBackgroundInjection(tabId: number, prompt: string): Promise<{ success: boolean; error?: string }> {
   if (typeof chrome.scripting === 'undefined') {
     console.warn('[IcyCrow] chrome.scripting API is not available (mocked/test environment)');
-    return false;
+    return { success: false, error: 'chrome.scripting API is not available' };
   }
   try {
     const [result] = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: (promptText) => {
+      func: async (promptText) => {
         try {
           const querySelectorAllDeep = (selector: string, root: Node = document): HTMLElement[] => {
             const results: HTMLElement[] = [];
@@ -337,41 +337,56 @@ async function executeBackgroundInjection(tabId: number, prompt: string): Promis
             return results;
           };
 
-          const inputs = querySelectorAllDeep('rich-textarea div[contenteditable="true"]');
-          const el = inputs[inputs.length - 1];
-          const richTextareas = querySelectorAllDeep('rich-textarea');
-          const richTextarea = richTextareas[richTextareas.length - 1];
+          const inputSelectors = [
+            'rich-textarea div[contenteditable="true"]:not(.ql-clipboard):not(.ql-hidden)',
+            'rich-textarea p',
+            'rich-textarea textarea',
+            'div[contenteditable="true"]:not(.ql-clipboard):not(.ql-hidden)',
+            '.ql-editor:not(.ql-clipboard):not(.ql-hidden)'
+          ];
           
-          let view = null;
-          if (richTextarea) {
-            for (const key in richTextarea) {
+          let el: HTMLElement | null = null;
+          for (const selector of inputSelectors) {
+            const matches = querySelectorAllDeep(selector);
+            if (matches.length > 0) {
+              el = matches[matches.length - 1];
+              break;
+            }
+          }
+
+          if (!el) {
+            return { success: false, error: 'Input editor element not found in DOM' };
+          }
+
+          // Traverse ancestors and shadow hosts to find the ProseMirror EditorView
+          let view: any = null;
+          let current: any = el;
+          while (current && current !== document.body) {
+            for (const key in current) {
               try {
-                const val = (richTextarea as any)[key];
+                const val = current[key];
                 if (val && typeof val.dispatch === 'function' && val.state) {
                   view = val;
                   break;
                 }
               } catch (e) {}
             }
-          }
-          
-          if (!view && el) {
-            for (const key in el) {
-              try {
-                const val = (el as any)[key];
-                if (val && typeof val.dispatch === 'function' && val.state) {
-                  view = val;
-                  break;
-                }
-              } catch (e) {}
+            if (view) break;
+            
+            if (current.editorView && typeof current.editorView.dispatch === 'function') {
+              view = current.editorView;
+              break;
             }
-          }
-          
-          if (!view && el) {
-            view = (el as any).editorView || (el as any).pmView || (el as any).pmEditor || (el as any).editor || (el as any)._editor;
-          }
-          if (!view && richTextarea) {
-            view = (richTextarea as any).editorView || (richTextarea as any).editor || (richTextarea as any).pmView || (richTextarea as any).view || (richTextarea as any)._view;
+            if (current.editor && typeof current.editor.dispatch === 'function') {
+              view = current.editor;
+              break;
+            }
+            if (current.pmView && typeof current.pmView.dispatch === 'function') {
+              view = current.pmView;
+              break;
+            }
+            
+            current = current.parentElement || (current.getRootNode && (current.getRootNode() as any).host);
           }
 
           if (view && typeof view.dispatch === 'function' && view.state && view.state.tr) {
@@ -379,51 +394,74 @@ async function executeBackgroundInjection(tabId: number, prompt: string): Promis
             tr.delete(0, view.state.doc.content.size);
             tr.insertText(promptText);
             view.dispatch(tr);
-            
-            // Find send button inside shadow DOMs using querySelectorAllDeep and standard selectors
-            const sendSelectors = [
-              'button[aria-label="Send message"]',
-              'button.send-button',
-              'button:has(mat-icon[svgicon="send"])',
-              'button:has(div.send-icon)'
-            ];
-            
-            let sendBtn: HTMLElement | null = null;
-            for (const selector of sendSelectors) {
-              const buttons = querySelectorAllDeep(selector);
-              if (buttons.length > 0) {
-                sendBtn = buttons[0];
-                break;
-              }
+          } else {
+            // Fallback to direct innerText / value modification
+            let setProp = false;
+            let parentRich = el.closest('rich-textarea') as any;
+            if (parentRich && 'value' in parentRich) {
+              parentRich.value = promptText;
+              setProp = true;
+            } else if ('value' in el) {
+              (el as any).value = promptText;
+              setProp = true;
             }
-
-            if (sendBtn) {
-              (sendBtn as HTMLButtonElement).removeAttribute('disabled');
-              (sendBtn as HTMLButtonElement).disabled = false;
-              
-              const events = [
-                new PointerEvent('pointerdown', { bubbles: true }),
-                new MouseEvent('mousedown', { bubbles: true }),
-                new MouseEvent('pointerup', { bubbles: true }),
-                new MouseEvent('mouseup', { bubbles: true }),
-                new MouseEvent('click', { bubbles: true })
-              ];
-              events.forEach(ev => sendBtn!.dispatchEvent(ev));
-              return { success: true };
+            if (!setProp) {
+              el.innerText = promptText;
             }
-            return { success: false, error: 'Send button not found' };
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
           }
-          return { success: false, error: 'ProseMirror view not found' };
+
+          // Wait 150ms for Angular/Lit change detection to run and update Send button
+          await new Promise((resolve) => setTimeout(resolve, 150));
+
+          // Find send button inside shadow DOMs using querySelectorAllDeep and standard selectors
+          const sendSelectors = [
+            'button[aria-label="Send message"]',
+            'button.send-button',
+            'button:has(mat-icon[svgicon="send"])',
+            'button:has(div.send-icon)',
+            'button[aria-disabled="false"]'
+          ];
+          
+          let sendBtn: HTMLElement | null = null;
+          for (const selector of sendSelectors) {
+            const buttons = querySelectorAllDeep(selector);
+            if (buttons.length > 0) {
+              sendBtn = buttons[0];
+              break;
+            }
+          }
+
+          if (sendBtn) {
+            sendBtn.removeAttribute('disabled');
+            (sendBtn as HTMLButtonElement).disabled = false;
+            
+            const events = [
+              new PointerEvent('pointerdown', { bubbles: true }),
+              new MouseEvent('mousedown', { bubbles: true }),
+              new MouseEvent('pointerup', { bubbles: true }),
+              new MouseEvent('mouseup', { bubbles: true }),
+              new MouseEvent('click', { bubbles: true })
+            ];
+            events.forEach(ev => sendBtn!.dispatchEvent(ev));
+            return { success: true };
+          }
+          return { success: false, error: 'Send button not found in DOM after input' };
         } catch (e: any) {
           return { success: false, error: e.message };
         }
       },
       args: [prompt]
     });
-    return !!(result?.result && (result.result as any).success);
-  } catch (e) {
+    
+    if (result && result.result) {
+      return result.result as { success: boolean; error?: string };
+    }
+    return { success: false, error: 'Execution returned empty response' };
+  } catch (e: any) {
     console.error('[IcyCrow] executeBackgroundInjection failed:', e);
-    return false;
+    return { success: false, error: e.message };
   }
 }
 
@@ -484,7 +522,7 @@ async function handleAiMessage(
                 
                 // 1. Try silent background injection first
                 const injectedBackground = await executeBackgroundInjection(tabId, prompt);
-                if (injectedBackground) {
+                if (injectedBackground.success) {
                   chrome.runtime.sendMessage({
                     type: 'AI_RESPONSE_STREAM', 
                     payload: { taskId, chunk: '', done: false, tabInfo: { title: tab.title, url: tab.url, id: tabId } }
@@ -495,6 +533,17 @@ async function handleAiMessage(
                     new Promise((_, reject) => setTimeout(() => reject(new Error('BRIDGE_TIMEOUT')), 15000))
                   ]);
                   return bridgeResponse;
+                } else {
+                  console.warn(`[IcyCrow] Silent background injection failed for tab ${tabId}:`, injectedBackground.error);
+                  // Send telemetry log to side panel stream so developer/user knows what failed
+                  chrome.runtime.sendMessage({
+                    type: 'AI_RESPONSE_STREAM',
+                    payload: { 
+                      taskId, 
+                      chunk: `[TELEMETRY] Silent background injection failed: ${injectedBackground.error}. Falling back to visible focus...`, 
+                      done: false 
+                    }
+                  });
                 }
 
                 // 2. Fallback: Synchronous Wakeup Protocol (Visible tab activation and focus)
