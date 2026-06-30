@@ -13,6 +13,7 @@ export type ToolId =
   | 'text' 
   | 'sticky'
   | 'callout'
+  | 'flashcard'
   | 'more'
   | 'zoomReset';
 
@@ -29,8 +30,7 @@ export const toolsOrder = signal<ToolId[]>([
   'highlight', 
   'draw', 
   'brush',
-  'eraser',
-  'text'
+  'eraser'
 ]);
 
 export const toolbarIsDragging = signal<boolean>(false);
@@ -43,7 +43,8 @@ export const toolMetadata = signal<Record<string, { badge?: string | number; col
   select: { badge: 2 },
   eraser: { color: '#f87171' },
   sticky: { color: '#fbbf24' },
-  callout: { color: '#3b82f6' }
+  callout: { color: '#3b82f6' },
+  flashcard: { color: '#a855f7' }
 });
 
 export const isToolPickerOpen = signal<boolean>(false);
@@ -69,6 +70,7 @@ export const TOOL_LIBRARY = [
   { id: 'text-caption', type: 'text', label: 'Caption Tool', color: '#f59e0b' },
   { id: 'sticky-note', type: 'sticky', label: 'Sticky Note', color: '#fbbf24' },
   { id: 'callout-blue', type: 'callout', label: 'Blue Callout', color: '#3b82f6' },
+  { id: 'flashcard-deck', type: 'flashcard', label: 'Flashcard', color: '#a855f7' }
 ];
 
 import { toolSettings } from './viewer-state';

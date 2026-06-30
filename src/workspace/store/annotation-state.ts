@@ -13,6 +13,7 @@ export interface Highlight {
   pageNumber: number;
   rects: HighlightRect[];
   color: string;
+  opacity?: number;
 }
 
 export interface Point {
@@ -27,6 +28,7 @@ export interface Stroke {
   color: string;
   width: number;
   opacity?: number;
+  isHighlight?: boolean;
 }
 
 export interface StickyNote {

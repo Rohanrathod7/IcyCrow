@@ -1,10 +1,29 @@
 import { settings, isLocked } from '../store';
 import { setSettings } from '../../lib/storage';
 import { useState, useEffect } from 'preact/hooks';
+import { 
+  Sun, 
+  Moon, 
+  Monitor, 
+  Cloud, 
+  Cpu, 
+  Key, 
+  Lock, 
+  Download, 
+  Upload, 
+  Database, 
+  Settings, 
+  ShieldAlert, 
+  Eye, 
+  EyeOff 
+} from 'lucide-preact';
 
 export const SettingsView = () => {
   const currentSettings = settings.value;
   const [storageUsage, setStorageUsage] = useState<number>(0);
+  const [apiKey, setApiKey] = useState(currentSettings.apiKey || '');
+  const [apiModel, setApiModel] = useState(currentSettings.apiModel || 'gemini-1.5-flash');
+  const [showApiKey, setShowApiKey] = useState(false);
 
   useEffect(() => {
     const fetchStorage = async () => {
@@ -34,8 +53,14 @@ export const SettingsView = () => {
     await setSettings(updated);
   };
 
-  const updateEngine = async (aiEngine: 'gemini' | 'window.ai') => {
+  const updateEngine = async (aiEngine: 'gemini' | 'window.ai' | 'api') => {
     const updated = { ...settings.value, aiEngine };
+    settings.value = updated;
+    await setSettings(updated);
+  };
+
+  const handleSaveApiSettings = async (newKey: string, newModel: string) => {
+    const updated = { ...settings.value, apiKey: newKey, apiModel: newModel };
     settings.value = updated;
     await setSettings(updated);
   };
@@ -84,15 +109,23 @@ export const SettingsView = () => {
   const [session, setSession] = useState<{ manualGeminiTabId?: number | null, geminiTabIds: number[] }>({ geminiTabIds: [] });
 
   const fetchSession = async () => {
-    const res = await chrome.storage.session.get('sessionState');
-    if (res.sessionState) setSession(res.sessionState as any);
+    try {
+      const res = await chrome.storage.session.get('sessionState');
+      if (res && res.sessionState) setSession(res.sessionState as any);
+    } catch (e) {
+      console.warn('[SettingsView] Failed to fetch session state:', e);
+    }
   };
 
   useEffect(() => {
     fetchSession();
     const fetchTabs = async () => {
-      const allTabs = await chrome.tabs.query({});
-      setTabs(allTabs);
+      try {
+        const allTabs = await chrome.tabs.query({});
+        setTabs(allTabs || []);
+      } catch (e) {
+        console.warn('[SettingsView] Failed to query tabs:', e);
+      }
     };
     fetchTabs();
   }, []);
@@ -117,95 +150,232 @@ export const SettingsView = () => {
 
   return (
     <div className="view-container settings-view">
-      <h3 className="section-title">Common Settings</h3>
-      
-      <div className="setting-group">
-        <label htmlFor="theme-select">Theme</label>
-        <select 
-          id="theme-select"
-          value={currentSettings.theme} 
-          onChange={(e) => updateTheme((e.target as HTMLSelectElement).value as any)}
-        >
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="system">System</option>
-        </select>
+      <div className="settings-header-banner">
+        <Settings size={20} style={{ color: 'var(--accent-primary)' }} />
+        <h2>Settings</h2>
       </div>
 
-      <div className="setting-group">
-        <label htmlFor="engine-select">AI Engine</label>
-        <select 
-          id="engine-select"
-          value={currentSettings.aiEngine || 'gemini'} 
-          onChange={(e) => updateEngine((e.target as HTMLSelectElement).value as any)}
-        >
-          <option value="gemini">Gemini (Cloud Bridge)</option>
-          <option value="window.ai">Gemini Nano (Local)</option>
-        </select>
+      {/* 1. Theme Configuration */}
+      <div className="settings-card glass-card">
+        <div className="settings-card-title">
+          <Sun size={15} />
+          <span>Appearance Theme</span>
+        </div>
+        <div className="segmented-control">
+          <button 
+            type="button"
+            className={currentSettings.theme === 'light' ? 'active' : ''} 
+            onClick={() => updateTheme('light')}
+          >
+            <Sun size={13} />
+            <span>Light</span>
+          </button>
+          <button 
+            type="button"
+            className={currentSettings.theme === 'dark' ? 'active' : ''} 
+            onClick={() => updateTheme('dark')}
+          >
+            <Moon size={13} />
+            <span>Dark</span>
+          </button>
+          <button 
+            type="button"
+            className={currentSettings.theme === 'system' ? 'active' : ''} 
+            onClick={() => updateTheme('system')}
+          >
+            <Monitor size={13} />
+            <span>System</span>
+          </button>
+        </div>
       </div>
 
-      <hr />
+      {/* 2. AI Engine Configuration */}
+      <div className="settings-card glass-card">
+        <div className="settings-card-title">
+          <Cloud size={15} />
+          <span>AI Engine Provider</span>
+        </div>
+        
+        <div className="settings-option-grid">
+          <div 
+            className={`settings-option-card ${currentSettings.aiEngine === 'gemini' ? 'active' : ''}`}
+            onClick={() => updateEngine('gemini')}
+          >
+            <Cloud size={16} className="option-icon" />
+            <span className="option-label">Tab Bridge</span>
+          </div>
+          
+          <div 
+            className={`settings-option-card ${currentSettings.aiEngine === 'window.ai' ? 'active' : ''}`}
+            onClick={() => updateEngine('window.ai')}
+          >
+            <Cpu size={16} className="option-icon" />
+            <span className="option-label">Gemini Nano</span>
+          </div>
 
-      <h3 className="section-title">Workspace Security</h3>
-      <div className="glass-card" style={{ padding: '16px' }}>
-        <div className="flex-row items-center" style={{ marginBottom: '12px' }}>
+          <div 
+            className={`settings-option-card ${currentSettings.aiEngine === 'api' ? 'active' : ''}`}
+            onClick={() => updateEngine('api')}
+          >
+            <Key size={16} className="option-icon" />
+            <span className="option-label">API Gateway</span>
+          </div>
+        </div>
+
+        {currentSettings.aiEngine === 'api' && (
+          <div className="settings-input-container" style={{ marginTop: '4px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+            <label className="label-saas" style={{ fontSize: '9px' }}>API key (Gemini / OpenAI compatible)</label>
+            <div className="settings-input-wrapper">
+              <input 
+                type={showApiKey ? 'text' : 'password'} 
+                value={apiKey} 
+                onInput={(e) => {
+                  const val = (e.target as HTMLInputElement).value;
+                  setApiKey(val);
+                  handleSaveApiSettings(val, apiModel);
+                }}
+                className="settings-input" 
+                placeholder="AIzaSy..." 
+                style={{ paddingRight: '40px' }}
+              />
+              <button 
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="btn-ghost" 
+                style={{ 
+                  position: 'absolute', 
+                  right: '6px', 
+                  border: 'none', 
+                  background: 'transparent',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-dim)',
+                  height: 'auto'
+                }}
+              >
+                {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+
+            <label className="label-saas" style={{ fontSize: '9px', marginTop: '8px' }}>Select Model</label>
+            <select 
+              value={apiModel} 
+              onChange={(e) => {
+                const val = (e.target as HTMLSelectElement).value;
+                setApiModel(val);
+                handleSaveApiSettings(apiKey, val);
+              }}
+              className="settings-select"
+            >
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+              <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash</option>
+              <option value="gpt-4o-mini">GPT-4o Mini</option>
+              <option value="claude-3-5-haiku">Claude 3.5 Haiku</option>
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* 2.5. PDF Interceptor */}
+      <div className="settings-card glass-card">
+        <div className="settings-card-title">
+          <Database size={15} />
+          <span>PDF Interceptor</span>
+        </div>
+        <div className="settings-row" style={{ marginTop: '2px' }}>
+          <span className="text-dim" style={{ fontSize: '0.8rem', maxWidth: '80%' }}>Intercept web PDF links and open in IcyCrow Workspace</span>
+          <label className="checkbox-label" style={{ padding: '0', display: 'flex', alignItems: 'center', margin: '0' }}>
+            <input 
+              type="checkbox" 
+              checked={currentSettings.enablePdfInterceptor !== false} 
+              onChange={async (e) => {
+                const enabled = (e.target as HTMLInputElement).checked;
+                const updated = { ...settings.value, enablePdfInterceptor: enabled };
+                settings.value = updated;
+                await setSettings(updated);
+              }}
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* 3. Security */}
+      <div className="settings-card glass-card">
+        <div className="settings-card-title">
+          <Lock size={15} />
+          <span>Workspace Security</span>
+        </div>
+        <div className="settings-row">
           <span className={`status-pill ${isLocked.value ? 'locked' : 'unlocked'}`} style={{ 
             padding: '4px 12px', 
             borderRadius: '20px', 
-            fontSize: '0.8rem',
-            background: isLocked.value ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-            color: isLocked.value ? '#ef4444' : '#22c55e'
+            fontSize: '0.75rem',
+            background: isLocked.value ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+            color: isLocked.value ? '#ef4444' : '#22c55e',
+            fontWeight: 600
           }}>
             {isLocked.value ? '🔒 Locked' : '🔓 Unlocked'}
           </span>
-          <div className="btn-group">
-            {isLocked.value ? (
-              <button onClick={handleUnlock} className="btn-primary small">Unlock</button>
-            ) : (
-              <button onClick={handleLock} className="btn-ghost small">Lock</button>
-            )}
+          {isLocked.value ? (
+            <button onClick={handleUnlock} className="btn-primary small">Unlock Workspace</button>
+          ) : (
+            <button onClick={handleLock} className="btn-ghost small" style={{ padding: '4px 12px' }}>Lock Workspace</button>
+          )}
+        </div>
+      </div>
+
+      {/* 4. Backup & Restore */}
+      <div className="settings-card glass-card">
+        <div className="settings-card-title">
+          <Database size={15} />
+          <span>Backup & Diagnostics</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <button onClick={handleExport} className="btn-ghost" style={{ width: '100%', justifyContent: 'center', padding: '10px' }}>
+            <Download size={13} />
+            <span>Generate Encrypted Backup</span>
+          </button>
+          <button onClick={handleImport} className="btn-ghost" style={{ width: '100%', justifyContent: 'center', padding: '10px' }}>
+            <Upload size={13} />
+            <span>Restore Workspace Backup</span>
+          </button>
+        </div>
+        
+        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px', marginTop: '4px' }}>
+          <div className="settings-row" style={{ fontSize: '0.8rem', marginBottom: '6px' }}>
+            <span className="text-dim">Local Storage Used:</span>
+            <span data-testid="storage-usage" style={{ fontWeight: 600 }}>{formatBytes(storageUsage)}</span>
           </div>
+          <div className="progress-bar-container" style={{ height: '6px', background: 'rgba(255,255,255,0.06)', borderRadius: '3px', overflow: 'hidden' }}>
+            <div className="progress-bar" style={{ width: '2%', height: '100%', background: 'var(--accent-primary)' }}></div>
+          </div>
+          <button onClick={handleDebugExport} className="btn-ghost" style={{ width: '100%', marginTop: '10px', justifyContent: 'center' }}>
+            <span>Download Debug Logs</span>
+          </button>
         </div>
       </div>
 
-      <h3 className="section-title" style={{ marginTop: '16px' }}>Backup & Restore</h3>
-      <div className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <button onClick={handleExport} className="btn-ghost" style={{ width: '100%', justifyContent: 'center' }}>
-          📦 Generate Encrypted Backup
-        </button>
-        <button onClick={handleImport} className="btn-ghost" style={{ width: '100%', justifyContent: 'center' }}>
-          📥 Restore from Backup
-        </button>
-        <p className="text-dim" style={{ fontSize: '0.75rem' }}>Backups are encrypted using your chosen password.</p>
-      </div>
-
-      <h3 className="section-title" style={{ marginTop: '16px' }}>Storage & Diagnostics</h3>
-      <div className="glass-card" style={{ padding: '16px', marginBottom: '16px' }}>
-        <div className="flex-row">
-          <span className="text-dim">Local Storage Used</span>
-          <span data-testid="storage-usage" style={{ fontWeight: 600 }}>{formatBytes(storageUsage)}</span>
+      {/* 5. Gemini Bridge Diagnostics */}
+      <div className="settings-card glass-card">
+        <div className="settings-card-title">
+          <Cloud size={15} />
+          <span>Bridge Connectivity</span>
         </div>
-        <div className="progress-bar-container" style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden', marginTop: '8px' }}>
-          <div className="progress-bar" style={{ width: '2%', height: '100%', background: 'var(--accent-primary)' }}></div>
-        </div>
-        <button onClick={handleDebugExport} className="btn-ghost" style={{ width: '100%', marginTop: '16px' }}>
-          🔍 Download Diagnostics
-        </button>
-      </div>
-
-      <h3 className="section-title" style={{ marginTop: '16px' }}>Gemini Bridge Diagnostics</h3>
-      <div className="glass-card" style={{ padding: '16px' }}>
-        <div className="flex-row items-center" style={{ marginBottom: '12px' }}>
+        <div className="settings-row">
           <span className="text-dim">Status:</span>
           <span style={{ 
             color: (session.manualGeminiTabId || session.geminiTabIds.length > 0) ? '#22c55e' : '#ef4444',
-            fontWeight: 600
+            fontWeight: 600,
+            fontSize: '0.85rem'
           }}>
             {(session.manualGeminiTabId || session.geminiTabIds.length > 0) ? '📡 Connected' : '❌ Disconnected'}
           </span>
         </div>
         
-        <div className="tab-list" style={{ maxHeight: '150px', overflowY: 'auto', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '8px' }}>
+        <div className="tab-list" style={{ maxHeight: '130px', overflowY: 'auto', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', padding: '4px' }}>
           {tabs.map(tab => {
             const isManual = session.manualGeminiTabId === tab.id;
             const isAuto = session.geminiTabIds.includes(tab.id as number);
@@ -215,8 +385,8 @@ export const SettingsView = () => {
                 justifyContent: 'space-between', 
                 alignItems: 'center',
                 padding: '6px 8px',
-                fontSize: '0.8rem',
-                borderBottom: '1px solid rgba(255,255,255,0.05)'
+                fontSize: '0.75rem',
+                borderBottom: '1px solid var(--border-color)'
               }}>
                 <span className="truncate" style={{ 
                   flex: 1, 
@@ -226,13 +396,13 @@ export const SettingsView = () => {
                 }}>
                   {tab.title}
                 </span>
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   {(isManual || isAuto) && (
                     <span style={{ 
-                      fontSize: '9px', 
-                      background: isManual ? 'var(--accent-primary)' : 'rgba(255,255,255,0.1)',
-                      color: isManual ? '#000' : '#888',
-                      padding: '1px 6px',
+                      fontSize: '8px', 
+                      background: isManual ? 'var(--accent-primary)' : 'rgba(255,255,255,0.08)',
+                      color: isManual ? '#000' : '#aaa',
+                      padding: '1px 5px',
                       borderRadius: '4px',
                       fontWeight: 'bold'
                     }}>
@@ -243,36 +413,36 @@ export const SettingsView = () => {
                     onClick={() => tab.id && handleRegisterBridge(tab.id)}
                     className="btn-ghost small"
                     style={{ 
-                      padding: '2px 8px', 
-                      fontSize: '10px',
-                      background: isManual ? 'rgba(var(--accent-rgb), 0.1)' : 'transparent',
-                      border: isManual ? '1px solid var(--accent-primary)' : '1px solid rgba(255,255,255,0.1)'
+                      padding: '2px 6px', 
+                      fontSize: '9px',
+                      background: isManual ? 'rgba(14, 165, 233, 0.08)' : 'transparent',
+                      border: isManual ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)'
                     }}
                   >
-                    {isManual ? 'Current Bridge' : 'Connect'}
+                    {isManual ? 'Current' : 'Connect'}
                   </button>
                 </div>
               </div>
             );
           })}
-          {tabs.length === 0 && <div className="text-dim center">No open tabs found</div>}
+          {tabs.length === 0 && <div className="text-dim center" style={{ padding: '8px', fontSize: '0.75rem' }}>No open tabs found</div>}
         </div>
-        <p className="text-dim" style={{ fontSize: '0.7rem', marginTop: '8px' }}>
-          Select a Gemini tab to force connectivity if automatic detection fails.
-        </p>
       </div>
 
-      <div className="danger-zone" style={{ marginTop: 'auto', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-        <h4 style={{ color: 'var(--danger)', marginBottom: '8px' }}>Danger Zone</h4>
+      {/* 6. Danger Zone */}
+      <div className="settings-card glass-card" style={{ border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.02)', marginBottom: '16px' }}>
+        <div className="settings-card-title" style={{ borderBottomColor: 'rgba(239, 68, 68, 0.1)' }}>
+          <ShieldAlert size={15} style={{ color: 'var(--danger)' }} />
+          <span style={{ color: 'var(--danger)' }}>Danger Zone</span>
+        </div>
         <button 
           onClick={handleNukeData}
           data-testid="nuke-button"
           className="btn-primary"
-          style={{ width: '100%', padding: '10px', background: 'var(--danger)' }}
+          style={{ width: '100%', padding: '10px', background: 'var(--danger)', color: 'white' }}
         >
           Clear All Local Data
         </button>
-        <p className="text-dim" style={{ fontSize: '0.75rem', marginTop: '8px' }}>Requires text confirmation to wipe all data.</p>
       </div>
     </div>
   );

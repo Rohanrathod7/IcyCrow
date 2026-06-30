@@ -7,10 +7,39 @@ import { activeTool } from '../../../src/workspace/store/viewer-state';
 
 // @vitest-environment jsdom
 
+// Mock global fetch
+global.fetch = vi.fn().mockResolvedValue({
+  blob: () => Promise.resolve(new Blob(['mock pdf content'], { type: 'application/pdf' }))
+});
+
+// Mock IntersectionObserver
+global.IntersectionObserver = vi.fn().mockImplementation((callback) => ({
+  observe: vi.fn((el) => {
+    callback([{ isIntersecting: true, target: el }]);
+  }),
+  unobserve: vi.fn(),
+  disconnect: vi.fn()
+}));
+
 vi.mock('react-pdf', () => ({
   Page: () => <div />,
   pdfjs: { GlobalWorkerOptions: {} }
 }));
+
+vi.mock('../../../src/workspace/store/annotation-state', () => {
+  const mockHighlights = { value: [] as any[] };
+  return {
+    highlights: mockHighlights,
+    strokes: { value: [] },
+    stickyNotes: { value: [] },
+    callouts: { value: [] },
+    draftCallout: { value: null },
+    initializeAnnotations: vi.fn().mockResolvedValue(undefined),
+    persistAnnotations: vi.fn().mockResolvedValue(undefined),
+    addSticky: vi.fn(),
+    addCallout: vi.fn()
+  };
+});
 
 describe('Highlight Capture Engine', () => {
   beforeEach(() => {

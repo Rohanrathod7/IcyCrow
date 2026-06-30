@@ -12,7 +12,8 @@ import {
   MoreHorizontal, 
   RotateCcw,
   StickyNote,
-  ArrowUpRight
+  ArrowUpRight,
+  Brain
 } from 'lucide-preact';
 import { ToolId, toolMetadata } from '../store/toolbar-state';
 import { activeTool, activeCustomizationTool, toolSettings } from '../store/viewer-state';
@@ -28,6 +29,7 @@ const ICONS: Record<ToolId, any> = {
   text: Type,
   sticky: StickyNote,
   callout: ArrowUpRight,
+  flashcard: Brain,
   more: MoreHorizontal,
   zoomReset: RotateCcw
 };
@@ -90,21 +92,21 @@ export const SortableToolItem = ({ id }: ToolItemProps) => {
       data-testid={`tool-${id}`}
       title={(() => {
         const shortcutMap: Record<string, string> = {
-          pan: 'H',
           select: 'V',
-          highlight: 'M',
+          highlight: 'H',
           draw: 'P',
           eraser: 'E',
           text: 'T',
           sticky: 'S',
-          callout: 'C'
+          callout: 'C',
+          flashcard: 'F'
         };
         const shortcut = shortcutMap[baseType as string] || '';
         const label = (baseType as string).charAt(0).toUpperCase() + (baseType as string).slice(1);
         return shortcut ? `${label} (${shortcut})` : label;
       })()}
     >
-      <Icon size={20} color={iconColor} />
+      <Icon size={18} color={iconColor} />
       
       {/* Size Badge */}
       {isCustomizable && settings && (

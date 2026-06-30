@@ -12,7 +12,8 @@ import type {
   SpatialData,
   ActiveWorkspaces,
   StandaloneTabsStore,
-  UUID
+  UUID,
+  ChatSession
 } from './types';
 
 const mutex = new StorageMutex();
@@ -100,6 +101,54 @@ export async function appendChatMessage(spaceId: string | null, msg: ChatMessage
     const pruned = history.slice(-50);
     await chrome.storage.local.set({ [key]: pruned });
   });
+}
+
+// Chat Sessions Storage Helpers
+export async function getChatSessions(): Promise<ChatSession[]> {
+  try {
+    const result = await chrome.storage.local.get('chatSessions');
+    return (result.chatSessions as ChatSession[]) || [];
+  } catch (err) {
+    console.error('[IcyCrow] getChatSessions error:', err);
+    return [];
+  }
+}
+
+export async function setChatSessions(sessions: ChatSession[]): Promise<void> {
+  try {
+    await chrome.storage.local.set({ chatSessions: sessions });
+  } catch (err) {
+    console.error('[IcyCrow] setChatSessions error:', err);
+    throw err;
+  }
+}
+
+export async function getChatHistoryBySession(sessionId: string): Promise<ChatHistoryStore> {
+  try {
+    const key = `chatMessages:${sessionId}`;
+    const result = await chrome.storage.local.get(key);
+    return (result[key] as ChatHistoryStore) || [];
+  } catch (err) {
+    console.error('[IcyCrow] getChatHistoryBySession error:', err);
+    return [];
+  }
+}
+
+export async function saveChatHistoryBySession(sessionId: string, messages: ChatHistoryStore): Promise<void> {
+  const key = `chatMessages:${sessionId}`;
+  return mutex.withLock(key, async () => {
+    const pruned = messages.slice(-50);
+    await chrome.storage.local.set({ [key]: pruned });
+  });
+}
+
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  const sessions = await getChatSessions();
+  const filtered = sessions.filter(s => s.id !== sessionId);
+  await setChatSessions(filtered);
+
+  const key = `chatMessages:${sessionId}`;
+  await chrome.storage.local.remove(key);
 }
 
 // Spaces

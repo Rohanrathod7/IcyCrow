@@ -13,7 +13,7 @@ import { CircularToolbar } from './CircularToolbar';
 import { WorkspaceImportModal } from './WorkspaceImportModal';
 import { ToolbarSettingsModal } from './ToolbarSettingsModal';
 import { WorkspaceRecommendation } from './WorkspaceRecommendation';
-import { SyncToast, showSyncToast } from './SyncToast';
+import { showSyncToast } from './SyncToast';
 import { getWorkspaceHandle } from '../../lib/idb-store';
 import { isSidebarOpen } from '../store/ui-state';
 import { PanelRight, X } from 'lucide-preact';
@@ -161,7 +161,7 @@ export const ToolbarManager = () => {
   
   const rootStyle: any = {
     position: 'fixed',
-    zIndex: 10000,
+    zIndex: 10100,
     top: 0,
     left: 0,
     width: '100vw',
@@ -191,7 +191,6 @@ export const ToolbarManager = () => {
       </div>
       <ToolbarSettingsModal />
       <WorkspaceImportModal />
-      <SyncToast />
       <WorkspaceRecommendation />
       
       {/* Sidebar Toggle Button */}
@@ -201,7 +200,10 @@ export const ToolbarManager = () => {
         style={{
           position: 'fixed',
           top: '90px', /* Below Export FAB */
-          right: isSidebarOpen.value ? '340px' : '30px', /* Move with sidebar if open */
+          right: `${
+            (isSidebarOpen.value ? 320 : 0) + 
+            (toolbarPosition.value === 'right' ? 110 : 30)
+          }px`, /* Move with sidebar/toolbar if open/docked */
           zIndex: 10002,
           background: 'rgba(28, 28, 30, 0.8)',
           backdropFilter: 'blur(12px)',

@@ -45,32 +45,42 @@ export const useKeyboardShortcuts = () => {
         }
       }
 
-      // 3. Tool Switching
-      switch (key) {
-        case 'v':
-          activeTool.value = 'select';
-          break;
-        case 'h':
-          activeTool.value = 'pan';
-          break;
-        case 'm':
-          activeTool.value = 'highlight';
-          break;
-        case 'p':
-          activeTool.value = 'draw';
-          break;
-        case 'e':
-          activeTool.value = 'eraser';
-          break;
-        case 't':
-          activeTool.value = 'text';
-          break;
-        case 's':
-          activeTool.value = 'sticky';
-          break;
-        case 'c':
-          activeTool.value = 'callout';
-          break;
+      // 3. Tool Switching (Single letter shortcuts)
+      if (!e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        switch (key) {
+          case 'v':
+            e.preventDefault();
+            activeTool.value = 'select';
+            break;
+          case 'h': // H for highlight
+            e.preventDefault();
+            activeTool.value = 'highlight';
+            break;
+          case 'p':
+            e.preventDefault();
+            activeTool.value = 'draw';
+            break;
+          case 's': // Sticky note
+            e.preventDefault();
+            activeTool.value = 'sticky';
+            break;
+          case 'e':
+            e.preventDefault();
+            activeTool.value = 'eraser';
+            break;
+          case 't':
+            e.preventDefault();
+            activeTool.value = 'text';
+            break;
+          case 'c':
+            e.preventDefault();
+            activeTool.value = 'callout';
+            break;
+          case 'f':
+            e.preventDefault();
+            activeTool.value = 'flashcard';
+            break;
+        }
       }
     };
 

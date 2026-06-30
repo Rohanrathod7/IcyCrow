@@ -22,7 +22,24 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
   const [connectingId, setConnectingId] = useState<number | null>(null);
   const [successId, setSuccessId] = useState<number | null>(null);
   const [failedId, setFailedId] = useState<number | null>(null);
+  const [healthState, setHealthState] = useState<{
+    tabFound: boolean;
+    healthy: boolean;
+    manualGeminiTabId: number | null;
+    tabInfo: { id: number; title: string; url: string } | null;
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const checkHealth = async () => {
+    try {
+      const response = await sendToSW({ type: 'GEMINI_HEALTH_CHECK' } as any);
+      if (response && response.ok && response.data) {
+        setHealthState(response.data as any);
+      }
+    } catch (err) {
+      console.error('[IcyCrow] Failed to verify bridge health:', err);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
@@ -52,6 +69,7 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
         }));
         setTabs(formattedTabs);
       }
+      await checkHealth();
     } catch (err) {
       console.error('[IcyCrow] Failed to refresh Gemini tabs:', err);
     } finally {
@@ -82,6 +100,7 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
         console.error('[IcyCrow] Bridge registration failed:', result.error);
         setFailedId(tabId);
         setTimeout(() => setFailedId(null), 3000);
+        await fetchTabs(); // Refresh state
       }
     } catch (err) {
       console.error('[IcyCrow] Connection error:', err);
@@ -112,31 +131,55 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
 
   const currentTab = tabs.find(t => t.id === manualBridgeTabId.value) || tabs[0];
 
+  // Visual status indicators
+  let dotColor = '#ef4444'; // Red (disconnected)
+  let dotAnimation = 'none';
+  let dotTitle = 'No active Gemini connection';
+
+  if (healthState) {
+    if (healthState.tabFound) {
+      if (healthState.healthy) {
+        dotColor = '#22c55e'; // Green (healthy verified)
+        dotAnimation = 'pulse 2s infinite';
+        dotTitle = 'Connected & Healthy';
+      } else {
+        dotColor = '#f59e0b'; // Orange (unresponsive / reload needed)
+        dotAnimation = 'pulse 1.5s infinite';
+        dotTitle = 'Unresponsive. Please reload the Gemini tab.';
+      }
+    }
+  } else if (currentTab && tabs.length > 0) {
+    dotColor = '#22c55e';
+    dotAnimation = 'pulse 2s infinite';
+    dotTitle = 'Checking Connection...';
+  }
+
   return (
-    <div className="bridge-selector" ref={containerRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+    <div className="bridge-selector" ref={containerRef} style={{ display: 'flex', alignItems: 'center' }}>
       <div 
         className="bridge-status-container"
         style={{
           display: 'flex',
           alignItems: 'center',
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: '20px',
-          padding: '1px',
-          gap: '1px'
+          background: 'rgba(255, 255, 255, 0.04)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '12px',
+          padding: '2px',
+          gap: '2px',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
         {/* Main Focus Button */}
         <button 
           className="bridge-focus-trigger" 
           onClick={() => currentTab && handleFocus(currentTab.id)}
-          title={currentTab ? `Focus: ${currentTab.title}` : 'No Bridge'}
+          title={currentTab ? `Focus: ${currentTab.title} (${dotTitle})` : 'No Bridge'}
           style={{ 
             fontSize: width < 300 ? '9px' : '10px', 
             display: 'flex', 
             alignItems: 'center', 
-            gap: width < 300 ? '2px' : '4px', /* Tighter gap */
-            padding: width < 300 ? '2px 4px' : '2px 6px', /* Reduced horizontal padding */
+            gap: width < 300 ? '4px' : '6px',
+            padding: width < 300 ? '4px 6px' : '4px 8px',
             borderRadius: '8px',
             cursor: 'pointer',
             color: 'var(--text-main)',
@@ -144,17 +187,17 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
             background: 'transparent',
             transition: 'all 0.2s ease',
             whiteSpace: 'nowrap',
-            flexShrink: 1, // Allow button itself to shrink
+            flexShrink: 1,
             minWidth: 0,
             overflow: 'hidden'
           }}
         >
           <Circle 
             size={width < 300 ? 6 : 8} 
-            fill={currentTab && tabs.length > 0 ? '#22c55e' : '#ef4444'} 
+            fill={dotColor} 
             style={{ 
-              color: (currentTab && (tabs.length > 0)) ? '#22c55e' : '#ef4444', 
-              animation: (currentTab && tabs.length > 0) ? 'pulse 2s infinite' : 'none',
+              color: dotColor, 
+              animation: dotAnimation,
               flexShrink: 0
             }} 
           />
@@ -166,7 +209,7 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
               whiteSpace: 'nowrap',
               flex: 1,
               minWidth: 0,
-              maxWidth: width < 280 ? '30px' : width < 320 ? '55px' : '85px' // Ultra-strict maxWidth
+              maxWidth: width < 280 ? '30px' : width < 320 ? '55px' : '85px'
             }}>
               {currentTab ? cleanTitle(currentTab.title) : 'Bridge'}
             </span>
@@ -178,21 +221,27 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setIsOpen(!isOpen);
+            const nextOpen = !isOpen;
+            setIsOpen(nextOpen);
+            if (nextOpen) {
+              checkHealth();
+            }
           }}
           style={{
-            background: 'rgba(255,255,255,0.08)',
+            background: 'rgba(255, 255, 255, 0.04)',
             border: 'none',
-            borderLeft: '1px solid rgba(255,255,255,0.1)',
-            padding: '2px 6px',
-            borderRadius: '0 8px 8px 0',
+            padding: '4px 6px',
+            borderRadius: '8px',
             cursor: 'pointer',
-            color: 'rgba(255,255,255,0.6)',
+            color: 'rgba(255, 255, 255, 0.6)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexShrink: 0
+            flexShrink: 0,
+            transition: 'all 0.2s ease',
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)')}
         >
           {isOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </button>
@@ -201,10 +250,10 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
       {isOpen && (
         <div className="glass-card dropdown-menu" style={{ 
           position: 'absolute', 
-          top: '32px', 
-          right: 0, 
+          top: '42px', 
+          left: '16px',
+          right: '16px',
           zIndex: 1000, 
-          width: '280px',
           padding: '10px',
           boxShadow: 'var(--shadow-premium)',
           background: 'rgba(18, 18, 24, 0.98)',
@@ -231,97 +280,142 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
                 <a href="https://gemini.google.com" target="_blank" style={{ color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 600 }}>Open Gemini.com</a>
               </div>
             ) : (
-              tabs.map(tab => (
-                <div
-                  key={tab.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '8px',
-                    borderRadius: '10px',
-                    background: manualBridgeTabId.value === tab.id ? 'rgba(14, 165, 233, 0.08)' : 'transparent',
-                    border: '1px solid',
-                    borderColor: manualBridgeTabId.value === tab.id ? 'rgba(14, 165, 233, 0.3)' : 'rgba(255,255,255,0.03)',
-                    gap: '10px',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                  className="bridge-tab-item-card"
-                >
-                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ 
-                      fontSize: '11px', 
-                      fontWeight: 600, 
-                      color: manualBridgeTabId.value === tab.id ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.9)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {tab.title}
-                    </div>
-                    <div style={{ 
-                      fontSize: '9px', 
-                      opacity: 0.3, 
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      marginTop: '2px'
-                    }}>
-                      {tab.url}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                    {manualBridgeTabId.value === tab.id ? (
+              tabs.map(tab => {
+                const isSelected = manualBridgeTabId.value === tab.id;
+                const isTargetTab = healthState?.tabInfo?.id === tab.id;
+                
+                let tabStatusBadge = null;
+                if (isSelected) {
+                  if (healthState && isTargetTab) {
+                    if (healthState.healthy) {
+                      tabStatusBadge = (
+                        <span style={{ 
+                          fontSize: '8px', 
+                          fontWeight: 800, 
+                          color: '#22c55e', 
+                          background: 'rgba(34, 197, 94, 0.15)',
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(34, 197, 94, 0.25)'
+                        }}>
+                          ACTIVE
+                        </span>
+                      );
+                    } else {
+                      tabStatusBadge = (
+                        <span style={{ 
+                          fontSize: '8px', 
+                          fontWeight: 800, 
+                          color: '#f59e0b', 
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          padding: '2px 5px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(245, 158, 11, 0.25)'
+                        }} title="Content script unresponsive. Try reloading the tab.">
+                          STALE
+                        </span>
+                      );
+                    }
+                  } else {
+                    tabStatusBadge = (
                       <span style={{ 
-                        fontSize: '9px', 
+                        fontSize: '8px', 
                         fontWeight: 800, 
                         color: 'var(--accent-primary)', 
-                        background: 'rgba(14, 165, 233, 0.2)',
-                        padding: '2px 6px',
-                        borderRadius: '4px'
+                        background: 'rgba(14, 165, 233, 0.15)',
+                        padding: '2px 5px',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(14, 165, 233, 0.25)'
                       }}>
-                        CONNECTED
+                        LOCKED
                       </span>
-                    ) : (
+                    );
+                  }
+                }
+
+                return (
+                  <div
+                    key={tab.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '8px',
+                      borderRadius: '10px',
+                      background: isSelected ? 'rgba(14, 165, 233, 0.05)' : 'transparent',
+                      border: '1px solid',
+                      borderColor: isSelected ? 'rgba(14, 165, 233, 0.2)' : 'rgba(255,255,255,0.03)',
+                      gap: '10px',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    }}
+                    className="bridge-tab-item-card"
+                  >
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ 
+                        fontSize: '11px', 
+                        fontWeight: 600, 
+                        color: isSelected ? 'var(--accent-primary)' : 'rgba(255, 255, 255, 0.9)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        {tab.title}
+                      </div>
+                      <div style={{ 
+                        fontSize: '9px', 
+                        opacity: 0.3, 
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        marginTop: '2px'
+                      }}>
+                        {tab.url}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                      {tabStatusBadge ? (
+                        tabStatusBadge
+                      ) : (
+                        <button
+                          onClick={() => handleSelect(tab.id)}
+                          disabled={connectingId === tab.id}
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            padding: '4px 8px',
+                            borderRadius: '6px',
+                            background: failedId === tab.id ? 'var(--error)' : (successId === tab.id ? 'var(--success)' : (connectingId === tab.id ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)')),
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            cursor: connectingId === tab.id ? 'wait' : 'pointer',
+                            color: (successId === tab.id || failedId === tab.id) ? 'white' : 'rgba(255,255,255,0.7)',
+                            minWidth: '60px'
+                          }}
+                        >
+                          {failedId === tab.id ? 'FAILED' : (successId === tab.id ? '✓ SAVED' : (connectingId === tab.id ? '...' : 'CONNECT'))}
+                        </button>
+                      )}
+                      
                       <button
-                        onClick={() => handleSelect(tab.id)}
-                        disabled={connectingId === tab.id}
-                        style={{
-                          fontSize: '9px',
-                          fontWeight: 700,
-                          padding: '4px 8px',
+                        className="btn-ghost"
+                        onClick={(e) => { e.stopPropagation(); handleFocus(tab.id); }}
+                        title="Navigate to this tab"
+                        style={{ 
+                          padding: '0', 
+                          width: '24px', 
+                          height: '24px', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
                           borderRadius: '6px',
-                          background: failedId === tab.id ? 'var(--error)' : (successId === tab.id ? 'var(--success)' : (connectingId === tab.id ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)')),
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          cursor: connectingId === tab.id ? 'wait' : 'pointer',
-                          color: (successId === tab.id || failedId === tab.id) ? 'white' : 'rgba(255,255,255,0.7)',
-                          minWidth: '60px'
+                          background: 'rgba(255,255,255,0.03)'
                         }}
                       >
-                        {failedId === tab.id ? 'FAILED' : (successId === tab.id ? '✓ SAVED' : (connectingId === tab.id ? '...' : 'CONNECT'))}
+                        <Target size={14} />
                       </button>
-                    )}
-                    
-                    <button
-                      className="btn-ghost"
-                      onClick={(e) => { e.stopPropagation(); handleFocus(tab.id); }}
-                      title="Navigate to this tab"
-                      style={{ 
-                        padding: '0', 
-                        width: '24px', 
-                        height: '24px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        borderRadius: '6px',
-                        background: 'rgba(255,255,255,0.03)'
-                      }}
-                    >
-                      <Target size={14} />
-                    </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
           
@@ -330,13 +424,15 @@ export const BridgeSelector = ({ compact = false, width = 400 }: BridgeSelectorP
               <button 
                 className="btn-ghost" 
                 style={{ width: '100%', fontSize: '10px', color: 'var(--danger)', opacity: 0.6 }}
-                onClick={async () => {
+                onClick={async (e) => {
+                   e.stopPropagation();
                    const res = await chrome.storage.session.get('sessionState');
                    const state = (res.sessionState as SessionState) || {};
                    await chrome.storage.session.set({
                       sessionState: { ...state, manualGeminiTabId: null }
                    });
                    manualBridgeTabId.value = null;
+                   await fetchTabs();
                 }}
               >
                 Reset to Auto-Discovery

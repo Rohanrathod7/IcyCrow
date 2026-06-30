@@ -1,8 +1,16 @@
+import type { SessionState } from '@lib/types';
+
 /**
  * Utility to find and track the Gemini tab.
  */
 export async function findGeminiTab(urlPattern: string): Promise<number[]> {
+  if (!chrome.tabs?.query) {
+    return [];
+  }
   const tabs = await chrome.tabs.query({ url: urlPattern });
+  if (!tabs) {
+    return [];
+  }
   return tabs.map(t => t.id).filter((id): id is number => id !== undefined);
 }
 
@@ -11,6 +19,9 @@ export async function findGeminiTab(urlPattern: string): Promise<number[]> {
  */
 export async function verifyBridgeHealth(tabId: number): Promise<boolean> {
   try {
+    if (!chrome.tabs?.get || !chrome.tabs?.sendMessage) {
+      return false;
+    }
     const tab = await chrome.tabs.get(tabId);
     if (!tab.url || !tab.url.startsWith('https://gemini.google.com/')) {
       return false;
@@ -31,6 +42,9 @@ export async function verifyAndRecoverBridge(tabId: number): Promise<boolean> {
   if (healthy) return true;
 
   try {
+    if (!chrome.tabs?.get || !chrome.runtime?.getManifest || !chrome.scripting?.executeScript) {
+      return false;
+    }
     const tab = await chrome.tabs.get(tabId);
     if (!tab.url || !tab.url.startsWith('https://gemini.google.com/')) {
       return false;
@@ -58,9 +72,12 @@ export async function verifyAndRecoverBridge(tabId: number): Promise<boolean> {
  */
 export function watchGeminiTab(urlPattern: string) {
   const updateId = async () => {
+    if (!chrome.storage?.session) {
+      return;
+    }
     const ids = await findGeminiTab(urlPattern);
     const result = await chrome.storage.session.get('sessionState');
-    const state = result.sessionState || {};
+    const state = (result.sessionState || {}) as Partial<SessionState>;
     
     let manualId = state.manualGeminiTabId || null;
     if (manualId !== null) {
@@ -80,6 +97,9 @@ export function watchGeminiTab(urlPattern: string) {
     
     // Proactive injection into matched tabs
     for (const id of ids) {
+       if (!chrome.runtime?.getManifest || !chrome.scripting?.executeScript) {
+         continue;
+       }
        const manifest = chrome.runtime.getManifest();
        const scriptPath = manifest.content_scripts?.[0]?.js?.[0];
        if (scriptPath) {
@@ -94,10 +114,12 @@ export function watchGeminiTab(urlPattern: string) {
   };
   
   // Proactive scan on boot
-  updateId();
+  if (typeof chrome.tabs?.query === 'function' && chrome.storage?.session) {
+    updateId();
+  }
 
   if (chrome.tabs?.onUpdated) {
-    chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+    chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
       if (changeInfo.status || changeInfo.url) {
         updateId();
       }

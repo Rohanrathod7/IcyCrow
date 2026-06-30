@@ -28,7 +28,7 @@ export class StorageMutex {
       if (this.locks.get(key) === nextTask) {
         this.locks.delete(key);
       }
-    });
+    }).catch(() => {});
 
     return nextTask;
   }

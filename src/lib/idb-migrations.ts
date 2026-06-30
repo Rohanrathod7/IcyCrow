@@ -3,7 +3,7 @@ import { IDB_NAME as CONST_DB_NAME } from './constants';
 import { type IcyCrowDBSchema } from './types';
 
 export const DB_NAME = CONST_DB_NAME;
-export const DB_VERSION = 6;
+export const DB_VERSION = 8;
 
 type MigrationFn = (db: IDBPDatabase<IcyCrowDBSchema>, tx: IDBPTransaction<IcyCrowDBSchema, any, 'versionchange'>) => void;
 
@@ -50,6 +50,25 @@ const MIGRATIONS: Record<number, MigrationFn> = {
   6: (db) => {
     if (!db.objectStoreNames.contains('workspace_handles')) {
       db.createObjectStore('workspace_handles', { keyPath: 'url' });
+    }
+  },
+  7: (db) => {
+    if (!db.objectStoreNames.contains('web_bookmarks')) {
+      const bookmarks = db.createObjectStore('web_bookmarks', { keyPath: 'id' });
+      bookmarks.createIndex('urlHash', 'urlHash');
+      bookmarks.createIndex('spaceId', 'spaceId');
+    }
+    if (!db.objectStoreNames.contains('flashcards')) {
+      const flashcards = db.createObjectStore('flashcards', { keyPath: 'id' });
+      flashcards.createIndex('highlightId', 'highlightId');
+      flashcards.createIndex('urlHash', 'urlHash');
+      flashcards.createIndex('nextReviewAt', 'nextReviewAt');
+    }
+  },
+  8: (db) => {
+    if (!db.objectStoreNames.contains('web_annotations')) {
+      const webAnnos = db.createObjectStore('web_annotations', { keyPath: 'urlHash' });
+      webAnnos.createIndex('urlHash', 'urlHash');
     }
   }
 };

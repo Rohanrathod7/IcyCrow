@@ -22,12 +22,12 @@
 }
 
 .tool-item {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: 8px;
   color: #fff;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.1s ease;
@@ -132,5 +132,24 @@
   color: white;
   padding: 8px 16px;
   border-radius: 8px;
+  border-radius: 8px;
   cursor: pointer;
+}
+
+.tool-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #000;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 5;
 }

@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/preact';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { activeTool } from '../store/viewer-state';
-import { exportWorkspace } from '../services/StateSyncService';
 
 // Mock dependencies
 vi.mock('../store/viewer-state', () => ({
@@ -17,9 +16,6 @@ vi.mock('../store/annotation-state', () => ({
   callouts: { value: [] }
 }));
 
-vi.mock('../services/StateSyncService', () => ({
-  exportWorkspace: vi.fn(),
-}));
 
 describe('useKeyboardShortcuts', () => {
   beforeEach(() => {
@@ -59,7 +55,7 @@ describe('useKeyboardShortcuts', () => {
     expect(activeTool.value).toBe('pan'); // Should NOT change
   });
 
-  it('triggers exportWorkspace on Ctrl+S', () => {
+  it('triggers workspace-save event on Ctrl+S', () => {
     renderHook(() => useKeyboardShortcuts());
     
     const event = new KeyboardEvent('keydown', { 
@@ -68,12 +64,16 @@ describe('useKeyboardShortcuts', () => {
       cancelable: true 
     });
     
-    // Mock preventDefault to check if it was called
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
     const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
     
     window.dispatchEvent(event);
     
-    expect(exportWorkspace).toHaveBeenCalled();
+    expect(dispatchSpy).toHaveBeenCalled();
+    const hasEvent = dispatchSpy.mock.calls.some(call => 
+      call[0] instanceof CustomEvent && call[0].type === 'workspace-save'
+    );
+    expect(hasEvent).toBe(true);
     expect(preventDefaultSpy).toHaveBeenCalled();
   });
 });

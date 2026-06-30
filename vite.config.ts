@@ -37,7 +37,8 @@ export default defineConfig({
       { find: /^react$/, replacement: 'preact/compat' },
       { find: /^react-dom$/, replacement: 'preact/compat' },
       { find: /^react-dom\/test-utils$/, replacement: 'preact/test-utils' },
-      { find: /^react\/jsx-runtime$/, replacement: 'preact/jsx-runtime' }
+      { find: /^react\/jsx-runtime$/, replacement: 'preact/jsx-runtime' },
+      { find: 'pdfjs-dist/build/pdf.worker.min.mjs?url', replacement: path.resolve(__dirname, 'tests/workspace/components/mock-worker.js') }
     ],
     server: {
       deps: {

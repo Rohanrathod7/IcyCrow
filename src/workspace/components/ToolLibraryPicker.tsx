@@ -1,12 +1,16 @@
 import { TOOL_LIBRARY, addToolToToolbar, isToolPickerOpen } from '../store/toolbar-state';
-import { MousePointer2, PenTool, Brush, Highlighter, Type } from 'lucide-preact';
+import { MousePointer2, PenTool, Brush, Highlighter, Type, StickyNote, ArrowUpRight, Brain, Baseline } from 'lucide-preact';
 
 const ICONS: Record<string, any> = {
   draw: PenTool,
   brush: Brush,
   highlight: Highlighter,
   text: Type,
-  select: MousePointer2
+  select: MousePointer2,
+  sticky: StickyNote,
+  callout: ArrowUpRight,
+  flashcard: Brain,
+  'text-highlight': Baseline
 };
 
 export const ToolLibraryPicker = () => {

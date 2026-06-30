@@ -13,6 +13,10 @@ import { validateExportPassword } from '@lib/export-worker';
 import { aiManager } from './managers/ai-manager';
 import { setupPdfInterceptor, registerTabPdfInterceptor } from './managers/pdf-interceptor';
 import { syncManager } from './managers/sync-manager';
+import { saveBookmark, getAllBookmarks, getBookmarksByUrl, deleteBookmark } from '@lib/bookmark-store';
+import { saveFlashcard, getAllFlashcards, getFlashcardsDueForReview, getFlashcardsByUrl, updateFlashcard, deleteFlashcard } from '@lib/flashcard-store';
+import { saveWebAnnotations, getWebAnnotations } from '@lib/web-annotation-store';
+import { sm2 } from '@lib/sm2';
 import type { IDBArticle, UUID, ISOTimestamp, SpaceRestoreMsg } from '@lib/types';
 
 console.log('IcyCrow MV3 Service Worker installed.');
@@ -167,6 +171,22 @@ export async function handleMessage(
       case 'TAB_DELETE_STANDALONE':
       case 'TAB_MOVE_TO_SPACE':
         return await handleSpaceMessage(message, sendResponse);
+
+      case 'BOOKMARK_CREATE':
+      case 'BOOKMARK_DELETE':
+      case 'BOOKMARKS_FETCH':
+        return await handleBookmarkMessage(message, sendResponse);
+
+      case 'FLASHCARD_CREATE':
+      case 'FLASHCARD_UPDATE':
+      case 'FLASHCARD_DELETE':
+      case 'FLASHCARDS_FETCH':
+      case 'FLASHCARD_REVIEW':
+        return await handleFlashcardMessage(message, sendResponse);
+
+      case 'WEB_ANNOTATIONS_SAVE':
+      case 'WEB_ANNOTATIONS_FETCH':
+        return await handleWebAnnotationsMessage(message, sendResponse);
 
       default:
         sendResponse({ ok: false, error: { code: 'NOT_IMPLEMENTED', message: `Handler for ${(message as any).type} not yet implemented` } });
@@ -999,6 +1019,172 @@ async function handleSpaceMessage(message: ValidatedInboundMessage, sendResponse
     case 'TAB_MOVE_TO_SPACE': {
       const moved = await spaceManager.moveTabToSpace(message.payload.tabId, message.payload.spaceId);
       sendResponse({ ok: true, data: { moved } });
+      break;
+    }
+  }
+}
+
+async function handleBookmarkMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'BOOKMARK_CREATE': {
+      const id = crypto.randomUUID() as UUID;
+      const createdAt = new Date().toISOString();
+      try {
+        await saveBookmark({
+          id,
+          url: message.payload.url,
+          urlHash: message.payload.urlHash,
+          title: message.payload.title,
+          anchorExact: message.payload.anchorExact,
+          anchorData: message.payload.anchorData,
+          scrollYPercent: message.payload.scrollYPercent,
+          favicon: message.payload.favicon,
+          spaceId: message.payload.spaceId,
+          createdAt,
+        });
+        sendResponse({ ok: true, data: { id, createdAt } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'BOOKMARK_DELETE': {
+      try {
+        await deleteBookmark(message.payload.bookmarkId);
+        sendResponse({ ok: true, data: { deleted: true } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'BOOKMARKS_FETCH': {
+      try {
+        const bookmarks = message.payload.urlHash
+          ? await getBookmarksByUrl(message.payload.urlHash)
+          : await getAllBookmarks();
+        sendResponse({ ok: true, data: { bookmarks } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+  }
+}
+
+async function handleFlashcardMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'FLASHCARD_CREATE': {
+      const id = crypto.randomUUID() as UUID;
+      const createdAt = new Date().toISOString();
+      const nextReviewAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 1 day from now
+      try {
+        await saveFlashcard({
+          id,
+          highlightId: message.payload.highlightId,
+          urlHash: message.payload.urlHash,
+          front: message.payload.front,
+          back: message.payload.back,
+          createdAt,
+          interval: 1,
+          repetition: 0,
+          easeFactor: 2.5,
+          nextReviewAt,
+        });
+        sendResponse({ ok: true, data: { id, createdAt } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'FLASHCARD_UPDATE': {
+      try {
+        await updateFlashcard(message.payload.flashcardId, message.payload.updates);
+        sendResponse({ ok: true, data: { updated: true } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'FLASHCARD_DELETE': {
+      try {
+        await deleteFlashcard(message.payload.flashcardId);
+        sendResponse({ ok: true, data: { deleted: true } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'FLASHCARDS_FETCH': {
+      try {
+        let flashcards;
+        if (message.payload.dueOnly) {
+          flashcards = await getFlashcardsDueForReview();
+        } else if (message.payload.urlHash) {
+          flashcards = await getFlashcardsByUrl(message.payload.urlHash);
+        } else {
+          flashcards = await getAllFlashcards();
+        }
+        sendResponse({ ok: true, data: { flashcards } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'FLASHCARD_REVIEW': {
+      try {
+        // Fetch the current card
+        const allCards = await getAllFlashcards();
+        const card = allCards.find(c => c.id === message.payload.flashcardId);
+        if (!card) {
+          sendResponse({ ok: false, error: { code: 'NOT_FOUND', message: 'Flashcard not found' } });
+          return;
+        }
+        // Run SM-2
+        const result = sm2(message.payload.quality, card.repetition, card.easeFactor, card.interval);
+        // Persist updated schedule
+        await updateFlashcard(message.payload.flashcardId, {
+          interval: result.interval,
+          repetition: result.repetition,
+          easeFactor: result.easeFactor,
+          nextReviewAt: result.nextReviewAt,
+        });
+        sendResponse({ ok: true, data: result });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+  }
+}
+
+async function handleWebAnnotationsMessage(message: ValidatedInboundMessage, sendResponse: (r: any) => void) {
+  switch (message.type) {
+    case 'WEB_ANNOTATIONS_SAVE': {
+      try {
+        const doc = {
+          urlHash: message.payload.urlHash,
+          strokes: message.payload.strokes,
+          textAnnotations: message.payload.textAnnotations,
+          stickyNotes: message.payload.stickyNotes,
+          callouts: message.payload.callouts,
+          flashcardNotes: message.payload.flashcardNotes,
+          highlights: message.payload.highlights,
+          lastUpdated: new Date().toISOString() as any
+        };
+        const saved = await saveWebAnnotations(doc);
+        sendResponse({ ok: saved, data: { saved } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
+      break;
+    }
+    case 'WEB_ANNOTATIONS_FETCH': {
+      try {
+        const doc = await getWebAnnotations(message.payload.urlHash);
+        sendResponse({ ok: true, data: { document: doc } });
+      } catch (err: any) {
+        sendResponse({ ok: false, error: { code: 'STORAGE_FAILURE', message: err.message } });
+      }
       break;
     }
   }

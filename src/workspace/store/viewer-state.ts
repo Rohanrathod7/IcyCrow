@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals';
 
-export type ToolType = 'pan' | 'select' | 'highlight' | 'draw' | 'brush' | 'eraser' | 'more' | 'color' | 'text' | 'sticky' | 'callout' | 'zoomReset';
+export type ToolType = 'pan' | 'select' | 'highlight' | 'draw' | 'brush' | 'eraser' | 'more' | 'color' | 'text' | 'sticky' | 'callout' | 'zoomReset' | 'flashcard';
 
 export interface ToolSettings {
   size: number;

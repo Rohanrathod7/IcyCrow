@@ -56,6 +56,9 @@ export const InkCanvas = ({ pageNumber, url }: InkCanvasProps) => {
         ctx.globalAlpha = stroke.opacity ?? 1.0;
         ctx.lineWidth = stroke.width * scale;
         
+        ctx.lineCap = stroke.isHighlight ? 'square' : 'round';
+        ctx.lineJoin = stroke.isHighlight ? 'miter' : 'round';
+        
         ctx.moveTo(
           stroke.points[0].x * scale, 
           stroke.points[0].y * scale
@@ -151,7 +154,8 @@ export const InkCanvas = ({ pageNumber, url }: InkCanvasProps) => {
       points: [{ x, y }],
       color: settings.color || defaultColor,
       width: settings.size,
-      opacity: settings.opacity ?? defaultOpacity
+      opacity: settings.opacity ?? defaultOpacity,
+      isHighlight: currentToolId === 'highlight'
     };
 
     strokes.value = [...strokes.value, newStroke];

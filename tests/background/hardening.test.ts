@@ -104,9 +104,7 @@ describe('Background Hardening', () => {
 
   it('returns STORAGE_FAILURE on quota exceeded', async () => {
     (chrome.storage.local.get as any).mockResolvedValue({});
-    (chrome.storage.local.set as any).mockImplementation(() => {
-      throw new Error('Quota exceeded');
-    });
+    (chrome.storage.local.set as any).mockImplementation(() => Promise.reject(new Error('Quota exceeded')));
 
     const msg = {
       type: 'HIGHLIGHT_CREATE',

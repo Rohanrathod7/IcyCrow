@@ -22,9 +22,7 @@ const PageMetaSchema = z.object({
   title: z.string(),
   domFingerprint: SHA256HashSchema,
 });
-
-const HighlightColorSchema = z.enum(['yellow', 'green', 'blue', 'pink', 'orange']);
-
+const HighlightColorSchema = z.string();
 const MetaSchema = z.object({
   senderId: z.string(),
   timestamp: ISOTimestampSchema,
@@ -318,6 +316,110 @@ export const TabMoveToSpaceSchema = z.object({
   _meta: MetaSchema,
 });
 
+// Bookmark Schemas
+export const BookmarkCreateSchema = z.object({
+  type: z.literal('BOOKMARK_CREATE'),
+  payload: z.object({
+    url: z.string(),
+    urlHash: SHA256HashSchema,
+    title: z.string(),
+    anchorExact: z.string().nullable(),
+    anchorData: z.any().nullable(),
+    scrollYPercent: z.number().min(0).max(1),
+    favicon: z.string().nullable(),
+    spaceId: UUIDSchema.nullable(),
+  }),
+  _meta: MetaSchema,
+});
+
+export const BookmarkDeleteSchema = z.object({
+  type: z.literal('BOOKMARK_DELETE'),
+  payload: z.object({
+    bookmarkId: UUIDSchema,
+  }),
+  _meta: MetaSchema,
+});
+
+export const BookmarksFetchSchema = z.object({
+  type: z.literal('BOOKMARKS_FETCH'),
+  payload: z.object({
+    urlHash: SHA256HashSchema.optional(),
+  }),
+  _meta: MetaSchema,
+});
+
+// Flashcard Schemas
+export const FlashcardCreateSchema = z.object({
+  type: z.literal('FLASHCARD_CREATE'),
+  payload: z.object({
+    highlightId: UUIDSchema,
+    urlHash: SHA256HashSchema,
+    front: z.string().min(1),
+    back: z.string().min(1),
+  }),
+  _meta: MetaSchema,
+});
+
+export const FlashcardUpdateSchema = z.object({
+  type: z.literal('FLASHCARD_UPDATE'),
+  payload: z.object({
+    flashcardId: UUIDSchema,
+    updates: z.object({
+      front: z.string().optional(),
+      back: z.string().optional(),
+    }),
+  }),
+  _meta: MetaSchema,
+});
+
+export const FlashcardDeleteSchema = z.object({
+  type: z.literal('FLASHCARD_DELETE'),
+  payload: z.object({
+    flashcardId: UUIDSchema,
+  }),
+  _meta: MetaSchema,
+});
+
+export const FlashcardsFetchSchema = z.object({
+  type: z.literal('FLASHCARDS_FETCH'),
+  payload: z.object({
+    dueOnly: z.boolean().optional(),
+    urlHash: SHA256HashSchema.optional(),
+  }),
+  _meta: MetaSchema,
+});
+
+export const FlashcardReviewSchema = z.object({
+  type: z.literal('FLASHCARD_REVIEW'),
+  payload: z.object({
+    flashcardId: UUIDSchema,
+    quality: z.number().min(0).max(5),
+  }),
+  _meta: MetaSchema,
+});
+
+export const WebAnnotationsSaveSchema = z.object({
+  type: z.literal('WEB_ANNOTATIONS_SAVE'),
+  payload: z.object({
+    urlHash: SHA256HashSchema,
+    strokes: z.array(z.any()),
+    textAnnotations: z.array(z.any()),
+    stickyNotes: z.array(z.any()),
+    callouts: z.array(z.any()),
+    flashcardNotes: z.array(z.any()).optional(),
+    highlights: z.array(z.any()).optional(),
+  }),
+  _meta: MetaSchema,
+});
+
+export const WebAnnotationsFetchSchema = z.object({
+  type: z.literal('WEB_ANNOTATIONS_FETCH'),
+  payload: z.object({
+    urlHash: SHA256HashSchema,
+  }),
+  _meta: MetaSchema,
+});
+
 export const InboundMessageSchema = z.discriminatedUnion('type', [
   HighlightCreateSchema,
   HighlightDeleteSchema,
@@ -348,6 +450,16 @@ export const InboundMessageSchema = z.discriminatedUnion('type', [
   TabAddMultipleStandaloneSchema,
   TabDeleteStandaloneSchema,
   TabMoveToSpaceSchema,
+  BookmarkCreateSchema,
+  BookmarkDeleteSchema,
+  BookmarksFetchSchema,
+  FlashcardCreateSchema,
+  FlashcardUpdateSchema,
+  FlashcardDeleteSchema,
+  FlashcardsFetchSchema,
+  FlashcardReviewSchema,
+  WebAnnotationsSaveSchema,
+  WebAnnotationsFetchSchema,
 ]);
 
 export type ValidatedInboundMessage = z.infer<typeof InboundMessageSchema>;

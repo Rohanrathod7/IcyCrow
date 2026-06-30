@@ -42,7 +42,7 @@ export const HighlightOverlay = ({ pageNumber, url }: HighlightOverlayProps) => 
               height: `${rect.height * currentScale}px`,
               backgroundColor: highlight.color,
               mixBlendMode: 'multiply',
-              opacity: 0.8,
+              opacity: highlight.opacity ?? 0.4,
               borderRadius: '2px',
               cursor: isEraser ? 'crosshair' : 'default'
             }}

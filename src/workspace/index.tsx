@@ -24,7 +24,8 @@ import {
   autoSaveFileHandle,
   originalPdfBlob
 } from './store/viewer-state';
-import { isToolbarSettingsOpen } from './store/toolbar-state';
+import { isToolbarSettingsOpen, toolbarPosition } from './store/toolbar-state';
+import { isSidebarOpen as isRightSidebarOpen } from './store/ui-state';
 import { exportAnnotatedPdf, downloadBlob } from './services/PdfExportService';
 import { saveToHandle } from './services/StateSyncService';
 import { highlights, strokes, stickyNotes, callouts, persistAnnotations } from './store/annotation-state';
@@ -40,7 +41,7 @@ import {
   ChevronUp,
   ChevronDown
 } from 'lucide-preact';
-import { showSyncToast } from './components/SyncToast';
+import { showSyncToast, SyncToast } from './components/SyncToast';
 // Inject Professional Styles
 import './index.css';
 
@@ -386,6 +387,116 @@ function WorkspaceApp() {
       }, 100);
     }
   }, [isSearchOpen.value]);
+
+  useEffect(() => {
+    const query = searchQuery.value;
+    if (!query || !pdfDoc) {
+      const marks = document.querySelectorAll('mark.search-match');
+      marks.forEach(mark => {
+        const parent = mark.parentNode;
+        if (parent) {
+          parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
+          parent.normalize();
+        }
+      });
+      return;
+    }
+
+    const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapeRegExp(query), 'gi');
+
+    const highlightNode = (node: Node, pageNum: number, collector: HTMLElement[]) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.nodeValue || '';
+        const match = text.match(regex);
+        if (match && match.index !== undefined && match[0].length > 0) {
+          const parent = node.parentNode;
+          if (parent && parent.nodeName !== 'MARK') {
+            const matchText = match[0];
+            const prefix = text.slice(0, match.index);
+            const suffix = text.slice(match.index + matchText.length);
+
+            const prefixNode = document.createTextNode(prefix);
+            const markNode = document.createElement('mark');
+            markNode.className = 'search-match';
+            markNode.textContent = matchText;
+            const suffixNode = document.createTextNode(suffix);
+
+            parent.replaceChild(suffixNode, node);
+            parent.insertBefore(markNode, suffixNode);
+            parent.insertBefore(prefixNode, markNode);
+
+            collector.push(markNode);
+
+            highlightNode(suffixNode, pageNum, collector);
+          }
+        }
+      } else if (node.nodeType === Node.ELEMENT_NODE && node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE' && node.nodeName !== 'MARK') {
+        const children = Array.from(node.childNodes);
+        children.forEach(child => highlightNode(child, pageNum, collector));
+      }
+    };
+
+    const applyHighlights = () => {
+      const marks = document.querySelectorAll('mark.search-match');
+      marks.forEach(mark => {
+        const parent = mark.parentNode;
+        if (parent) {
+          parent.replaceChild(document.createTextNode(mark.textContent || ''), mark);
+          parent.normalize();
+        }
+      });
+
+      const textLayers = document.querySelectorAll('.textLayer');
+      textLayers.forEach(layer => {
+        const pageEl = layer.closest('[data-testid^="pdf-page-"]');
+        if (pageEl) {
+          const pageId = pageEl.getAttribute('data-testid');
+          if (pageId) {
+            const pageNum = parseInt(pageId.replace('pdf-page-', ''), 10);
+            const collector: HTMLElement[] = [];
+            highlightNode(layer, pageNum, collector);
+
+            if (pageNum === currentPage.value) {
+              collector.forEach(el => el.classList.add('search-match-active'));
+            }
+          }
+        }
+      });
+    };
+
+    applyHighlights();
+
+    const workspace = document.querySelector('.pdf-document-wrapper');
+    if (!workspace) return;
+
+    const observer = new MutationObserver((mutations) => {
+      let shouldHighlight = false;
+      for (const mutation of mutations) {
+        if (mutation.addedNodes.length > 0) {
+          for (const node of Array.from(mutation.addedNodes)) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              const el = node as HTMLElement;
+              if (el.classList.contains('textLayer') || el.querySelector('.textLayer')) {
+                shouldHighlight = true;
+                break;
+              }
+            }
+          }
+        }
+        if (shouldHighlight) break;
+      }
+
+      if (shouldHighlight) {
+        observer.disconnect();
+        applyHighlights();
+        observer.observe(workspace, { childList: true, subtree: true });
+      }
+    });
+
+    observer.observe(workspace, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [searchQuery.value, currentPage.value, pdfDoc]);
 
   // Mount keyboard shortcuts (Epic S30)
   useKeyboardShortcuts();
@@ -740,7 +851,16 @@ function WorkspaceApp() {
       )}
 
       {/* Upper-Right Utility Bar */}
-      <div className="top-right-utility-bar">
+      <div 
+        className="top-right-utility-bar"
+        style={{
+          right: `${
+            (isRightSidebarOpen.value ? 320 : 0) + 
+            (toolbarPosition.value === 'right' ? 100 : 20)
+          }px`,
+          transition: 'right 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      >
         <button
           className={`control-btn ${isSearchOpen.value ? 'active' : ''}`}
           onClick={() => isSearchOpen.value = !isSearchOpen.value}
@@ -794,6 +914,7 @@ function WorkspaceApp() {
           <SettingsIcon size={16} />
         </button>
       </div>
+      <SyncToast />
     </div>
   );
 }

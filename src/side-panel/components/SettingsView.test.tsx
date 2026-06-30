@@ -41,15 +41,15 @@ describe('SettingsView', () => {
 
   it('renders theme and engine options', () => {
     render(<SettingsView />);
-    expect(screen.getByText(/Theme/i)).toBeTruthy();
-    expect(screen.getByText(/AI Engine/i)).toBeTruthy();
+    expect(screen.getByText(/Appearance Theme/i)).toBeTruthy();
+    expect(screen.getByText(/AI Engine Provider/i)).toBeTruthy();
   });
 
   it('toggles theme and persists to storage', async () => {
     render(<SettingsView />);
-    const themeSelect = screen.getByLabelText(/Theme/i) as HTMLSelectElement;
+    const darkBtn = screen.getByRole('button', { name: /Dark/i });
     
-    fireEvent.change(themeSelect, { target: { value: 'dark' } });
+    fireEvent.click(darkBtn);
     
     expect(settings.value.theme).toBe('dark');
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
@@ -59,15 +59,29 @@ describe('SettingsView', () => {
 
   it('toggles AI engine and persists to storage', async () => {
     render(<SettingsView />);
-    const engineSelect = screen.getByLabelText(/AI Engine/i) as HTMLSelectElement;
+    const nanoCard = screen.getByText(/Gemini Nano/i);
     
-    fireEvent.change(engineSelect, { target: { value: 'window.ai' } });
+    fireEvent.click(nanoCard);
     
     expect(settings.value.aiEngine).toBe('window.ai');
     expect(chrome.storage.local.set).toHaveBeenCalledWith({
       settings: expect.objectContaining({ aiEngine: 'window.ai' })
     });
   });
+
+  it('toggles PDF interceptor and persists to storage', async () => {
+    render(<SettingsView />);
+    const pdfCheckbox = screen.getByRole('checkbox') as HTMLInputElement;
+    expect(pdfCheckbox.checked).toBe(true);
+    
+    fireEvent.click(pdfCheckbox);
+    
+    expect(settings.value.enablePdfInterceptor).toBe(false);
+    expect(chrome.storage.local.set).toHaveBeenCalledWith({
+      settings: expect.objectContaining({ enablePdfInterceptor: false })
+    });
+  });
+
 
   describe('Security Controls', () => {
     it('renders locked status correctly', () => {
@@ -78,7 +92,7 @@ describe('SettingsView', () => {
     it('dispatches CRYPTO_LOCK when lock button clicked', async () => {
       isLocked.value = false;
       render(<SettingsView />);
-      const lockBtn = screen.getByRole('button', { name: /^Lock$/i });
+      const lockBtn = screen.getByRole('button', { name: /Lock Workspace/i });
       fireEvent.click(lockBtn);
       
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: 'CRYPTO_LOCK' });
@@ -87,7 +101,7 @@ describe('SettingsView', () => {
     it('opens prompt for CRYPTO_UNLOCK when unlock clicked', async () => {
       vi.stubGlobal('prompt', vi.fn().mockReturnValue('password123'));
       render(<SettingsView />);
-      const unlockBtn = screen.getByRole('button', { name: /Unlock/i });
+      const unlockBtn = screen.getByRole('button', { name: /Unlock Workspace/i });
       fireEvent.click(unlockBtn);
       
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ 
@@ -119,7 +133,7 @@ describe('SettingsView', () => {
     it('renders backup/restore controls', () => {
       render(<SettingsView />);
       expect(screen.getByText(/Generate Encrypted Backup/i)).toBeTruthy();
-      expect(screen.getByText(/Restore from Backup/i)).toBeTruthy();
+      expect(screen.getByText(/Restore Workspace Backup/i)).toBeTruthy();
     });
 
     it('prompts for password and dispatches EXPORT_WORKSPACE', async () => {
@@ -142,7 +156,7 @@ describe('SettingsView', () => {
       vi.stubGlobal('showOpenFilePicker', vi.fn().mockResolvedValue([mockHandle]));
       
       render(<SettingsView />);
-      const importBtn = screen.getByRole('button', { name: /Restore from Backup/i });
+      const importBtn = screen.getByRole('button', { name: /Restore Workspace Backup/i });
       
       fireEvent.click(importBtn);
       
@@ -174,7 +188,7 @@ describe('SettingsView', () => {
 
     it('dispatches DEBUG_EXPORT when debug button clicked', () => {
       render(<SettingsView />);
-      const debugBtn = screen.getByRole('button', { name: /Download Diagnostics/i });
+      const debugBtn = screen.getByRole('button', { name: /Download Debug Logs/i });
       
       fireEvent.click(debugBtn);
       

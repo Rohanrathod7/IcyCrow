@@ -1,5 +1,12 @@
 import { render } from 'preact';
 import { HighlightTooltip } from './components/HighlightTooltip';
+import { FlashcardCreator } from './components/FlashcardCreator';
+import { WebInkCanvas } from './components/WebInkCanvas';
+import { WebHtmlAnnotations } from './components/WebHtmlAnnotations';
+import { WebToolbarManager } from './components/WebToolbarManager';
+import { WebFlashcardViewer } from './components/WebFlashcardViewer';
+import { initWebAnnotations } from './store/web-annotation-state';
+import toolbarStyles from '../workspace/components/Toolbar.css?inline';
 
 /**
  * Initialize the IcyCrow UI Root in the host page
@@ -50,6 +57,9 @@ export function initUiRoot(): HTMLElement {
     * {
       box-sizing: border-box !important;
     }
+    
+    /* Inject Toolbar Styles */
+    ${toolbarStyles}
   `;
   shadow.appendChild(style);
 
@@ -57,10 +67,23 @@ export function initUiRoot(): HTMLElement {
   mountPoint.id = 'icycrow-mount';
   shadow.appendChild(mountPoint);
 
-  render(<HighlightTooltip />, mountPoint);
+  initWebAnnotations().then(() => {
+    render(
+      <div>
+        <WebInkCanvas />
+        <WebHtmlAnnotations />
+        <WebToolbarManager />
+        <HighlightTooltip />
+        <FlashcardCreator />
+        <WebFlashcardViewer />
+      </div>,
+      mountPoint
+    );
+  });
 
   // Appending to documentElement is safer for sites that re-write or sandbox the body (like Gemini)
   document.documentElement.appendChild(host);
   
   return mountPoint;
 }
+

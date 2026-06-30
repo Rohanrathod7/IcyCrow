@@ -15,6 +15,7 @@ import {
   horizontalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { toolbarPosition, toolsOrder, isToolPickerOpen, isToolbarSettingsOpen } from '../store/toolbar-state';
+import { isSidebarOpen } from '../store/ui-state';
 import { SortableToolItem } from './SortableToolItem';
 import './Toolbar.css';
 
@@ -58,7 +59,8 @@ export const EdgeToolbar = () => {
       gap: '8px',
       boxShadow: '0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
       border: '1px solid rgba(255,255,255,0.1)',
-      pointerEvents: 'auto'
+      pointerEvents: 'auto',
+      transition: 'right 0.3s cubic-bezier(0.16, 1, 0.3, 1), left 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
     };
 
     switch (pos) {
@@ -78,7 +80,8 @@ export const EdgeToolbar = () => {
         styles.transform = 'translateY(-50%)';
         break;
       case 'right':
-        styles.right = '20px';
+        const rightOffset = (isSidebarOpen.value ? 320 : 0) + 20;
+        styles.right = `${rightOffset}px`;
         styles.top = '50%';
         styles.transform = 'translateY(-50%)';
         break;
@@ -103,31 +106,22 @@ export const EdgeToolbar = () => {
         </SortableContext>
       </DndContext>
 
-      {/* Decorative Empty Slots */}
-      <div style={{ display: 'flex', flexDirection: isVertical ? 'column' : 'row', gap: '8px' }}>
-        <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '1.5px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-        <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '1.5px dashed rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
-      </div>
 
-      {/* Spacer */}
-      <div style={{ height: isVertical ? '8px' : '0', width: isVertical ? '0' : '8px' }} />
 
       {/* Action Anchors */}
       <div style={{ display: 'flex', flexDirection: isVertical ? 'column' : 'row', gap: '8px' }}>
-         <button 
-           className="dial-tool-button" 
+         <div 
+           className="tool-item" 
            onClick={() => isToolPickerOpen.value = true}
-           style={{ position: 'relative', background: 'rgba(255,255,255,0.05)' }}
          >
            <Plus size={20} color="rgba(255,255,255,0.6)" />
-         </button>
-         <button 
-           className="dial-tool-button" 
+         </div>
+         <div 
+           className="tool-item" 
            onClick={() => isToolbarSettingsOpen.value = true}
-           style={{ position: 'relative', background: 'transparent' }}
          >
            <MoreHorizontal size={20} color="rgba(255,255,255,0.3)" />
-         </button>
+         </div>
       </div>
     </div>
   );

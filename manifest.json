@@ -54,5 +54,15 @@
         "path": "src/background/rules.json"
       }
     ]
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/workspace/index.html",
+        "src/workspace/*",
+        "assets/*"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

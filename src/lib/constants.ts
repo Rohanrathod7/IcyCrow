@@ -31,6 +31,7 @@ export const DEFAULT_SETTINGS: IcyCrowSettings = {
   },
   theme: 'system',
   aiEngine: 'gemini',
+  enablePdfInterceptor: true,
 };
 export const IDB_NAME = 'IcyCrowDB';
 export const OFFSCREEN_PATH = 'src/offscreen/offscreen.html';

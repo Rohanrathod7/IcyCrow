@@ -22,7 +22,7 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 2, delayMs = 1000):
 /**
  * Core Highlight Action
  */
-export async function performHighlight() {
+export async function performHighlight(overrideColor?: string) {
   const selection = window.getSelection();
   if (!selection || selection.isCollapsed) return;
 
@@ -34,7 +34,20 @@ export async function performHighlight() {
     const bodyText = document.body.innerText || document.body.textContent || '';
     const domFingerprint = await sha256Hash(bodyText.slice(0, 500));
     
+    console.log('[IcyCrow DEBUG] Creating highlight for URL:', url, 'Hash:', urlHash);
+    
+    const colorMap: Record<string, string> = {
+      yellow: '#eab308',
+      green: '#22c55e',
+      blue: '#3b82f6',
+      red: '#ef4444',
+      pink: '#ec4899',
+      orange: '#f97316'
+    };
+    
     let highlightId = crypto.randomUUID();
+    const rawColor = overrideColor || selectedColor.value;
+    const finalColor = colorMap[rawColor] || rawColor;
     
     try {
       const response = await chrome.runtime.sendMessage({
@@ -43,7 +56,7 @@ export async function performHighlight() {
           url,
           urlHash,
           text: anchor.exact,
-          color: selectedColor.value,
+          color: finalColor,
           anchor,
           pageMeta: { title: document.title, domFingerprint },
           spaceId: null
@@ -56,7 +69,7 @@ export async function performHighlight() {
       console.warn('[IcyCrow] Failed to sync highlight. Wrapping locally.', e);
     }
 
-    wrapRange(range, highlightId, selectedColor.value);
+    wrapRange(range, highlightId, finalColor);
     selection.removeAllRanges();
     tooltipVisible.value = false;
   }
@@ -102,22 +115,54 @@ async function restoreHighlightsFromStorage() {
       payload: { urlHash, currentDomFingerprint: domFingerprint }
     }));
 
-    if (!res || !res.ok) return;
+    if (!res || !res.ok) {
+      console.error('[IcyCrow] HIGHLIGHTS_FETCH failed:', res?.error);
+      return;
+    }
+    console.log('[IcyCrow DEBUG] Fetched highlights from storage:', res.data.highlights.length, res.data.highlights, 'for URL:', window.location.href, 'Hash:', urlHash);
 
+    let orphanedHighlights: any[] = [];
+    
     for (const h of res.data.highlights) {
-      if (res.data.pageChanged) {
-        // Ghost mark logic handled here in future phase, skip restore for now
-        continue;
-      }
-      
+      // Remove aggressive pageChanged check to allow robust anchoring to attempt restoration
       try {
         const range = restoreAnchor(h.anchor);
         if (range) {
           wrapRange(range, h.id, h.color);
+        } else {
+          orphanedHighlights.push(h);
         }
       } catch (err) {
-        console.warn('[IcyCrow] Failed to restore highlight:', h.id, err);
+        orphanedHighlights.push(h);
       }
+    }
+    
+    console.log('[IcyCrow DEBUG] Orphaned highlights:', orphanedHighlights.length);
+
+    // Phase 4: Handle Dynamic Content (SPAs)
+    if (orphanedHighlights.length > 0) {
+      const observer = new MutationObserver(() => {
+        const stillOrphaned: any[] = [];
+        for (const h of orphanedHighlights) {
+          try {
+            const range = restoreAnchor(h.anchor);
+            if (range) {
+              wrapRange(range, h.id, h.color);
+            } else {
+              stillOrphaned.push(h);
+            }
+          } catch (e) {
+            stillOrphaned.push(h);
+          }
+        }
+        orphanedHighlights = stillOrphaned;
+        if (orphanedHighlights.length === 0) {
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+      // Disconnect after 10 seconds to prevent memory leaks if they never resolve
+      setTimeout(() => observer.disconnect(), 10000);
     }
   } catch (err) {
     console.warn('[IcyCrow] Failed to fetch highlights:', err);
@@ -164,6 +209,52 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     performHighlight();
   } else if (message.type === 'PING_BRIDGE') {
     sendResponse({ ok: true, pong: true });
+  } else if (message.type === 'BOOKMARK_NAVIGATE') {
+    // Navigate to a bookmarked location on this page
+    const { anchorData, scrollYPercent } = message.payload;
+    let navigated = false;
+
+    // Strategy 1: Try text anchor restoration
+    if (anchorData) {
+      try {
+        const range = restoreAnchor(anchorData);
+        if (range) {
+          const el = range.startContainer.parentElement;
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Pulse highlight animation
+            const pulse = document.createElement('div');
+            const rect = range.getBoundingClientRect();
+            Object.assign(pulse.style, {
+              position: 'fixed',
+              top: `${rect.top - 4}px`,
+              left: `${rect.left - 4}px`,
+              width: `${rect.width + 8}px`,
+              height: `${rect.height + 8}px`,
+              background: 'rgba(99, 102, 241, 0.25)',
+              borderRadius: '6px',
+              zIndex: '2147483646',
+              pointerEvents: 'none',
+              transition: 'opacity 1.5s ease-out',
+            });
+            document.body.appendChild(pulse);
+            setTimeout(() => { pulse.style.opacity = '0'; }, 200);
+            setTimeout(() => pulse.remove(), 1800);
+            navigated = true;
+          }
+        }
+      } catch (e) {
+        console.warn('[IcyCrow] Anchor restoration failed, falling back to scroll:', e);
+      }
+    }
+
+    // Strategy 2: Fallback to scroll percentage
+    if (!navigated && typeof scrollYPercent === 'number') {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      window.scrollTo({ top: maxScroll * scrollYPercent, behavior: 'smooth' });
+    }
+
+    sendResponse({ ok: true });
   } else if (message.type === 'AI_QUERY' && window.location.href.includes('gemini.google.com')) {
     const { prompt, taskId, skipPromptInjection } = message.payload;
     
@@ -200,10 +291,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 /**
+ * Handle custom events from UI components
+ */
+window.addEventListener('icycrow-highlight-command', (e: any) => {
+  performHighlight(e.detail?.color);
+});
+
+/**
  * IcyCrow Content Script Entry Point
  */
 export async function main() {
   console.log('[IcyCrow] Content Script Main initializing...');
+  
+  let styleEl = document.getElementById('icycrow-highlight-style');
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = 'icycrow-highlight-style';
+    styleEl.textContent = `
+      mark.icycrow-highlight { background-color: transparent; }
+    `;
+    document.head.appendChild(styleEl);
+  }
+  
   initUiRoot();
   
   document.addEventListener('mouseup', handleSelectionChange);

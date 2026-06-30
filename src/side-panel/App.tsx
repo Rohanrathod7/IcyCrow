@@ -6,7 +6,8 @@ import {
   commandPaletteOpen, 
   spaces,
   dashboardViewMode,
-  hydrateStore
+  hydrateStore,
+  settings
 } from './store';
 import { batch } from '@preact/signals';
 import { HomeView } from './components/HomeView';
@@ -15,6 +16,9 @@ import { SpacesView } from './components/SpacesView';
 import { SettingsView } from './components/SettingsView';
 import { ChatView } from './components/ChatView';
 import { HighlightsPanel } from './components/HighlightsPanel';
+import { BookmarksPanel } from './components/BookmarksPanel';
+import { FlashcardReviewPanel } from './components/FlashcardReviewPanel';
+import { FlashcardManager } from './components/FlashcardManager';
 import { DatabaseHeader } from './components/DatabaseHeader';
 import { CommandPalette } from './components/CommandPalette';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -59,6 +63,36 @@ export const App = () => {
     hydrateStore();
     syncAllHighlights();
   }, []);
+
+  useEffect(() => {
+    const applyTheme = () => {
+      const theme = settings.value?.theme || 'system';
+      const root = document.documentElement;
+      let activeTheme = theme;
+      if (theme === 'system') {
+        activeTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      root.setAttribute('data-theme', activeTheme);
+      if (activeTheme === 'light') {
+        root.classList.add('theme-light');
+        root.classList.remove('theme-dark');
+      } else {
+        root.classList.add('theme-dark');
+        root.classList.remove('theme-light');
+      }
+    };
+
+    applyTheme();
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const listener = () => {
+      if (settings.value?.theme === 'system') {
+        applyTheme();
+      }
+    };
+    mediaQuery.addEventListener('change', listener);
+    return () => mediaQuery.removeEventListener('change', listener);
+  }, [settings.value?.theme]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -175,6 +209,17 @@ export const App = () => {
       case 'settings': return <SettingsView />;
       case 'highlights':
         return <HighlightsPanel />;
+      case 'bookmarks':
+        return <BookmarksPanel />;
+      case 'study':
+        return (
+          <div>
+            <FlashcardReviewPanel />
+            <div style={{ borderTop: '1px solid var(--card-border, rgba(255,255,255,0.06))', marginTop: '8px' }}>
+              <FlashcardManager />
+            </div>
+          </div>
+        );
       default:
         return <HomeView />;
     }
@@ -228,7 +273,7 @@ export const App = () => {
           )}
 
           <DatabaseHeader />
-          <main style={{ flex: 1, overflowY: 'auto', backgroundColor: '#121212' }}>
+          <main style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--bg-panel)', transition: 'background-color 0.3s ease' }}>
             {renderView()}
           </main>
           

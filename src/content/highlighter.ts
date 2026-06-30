@@ -2,6 +2,14 @@
  * Wrap a DOM Range in a <mark> element 
  * Following LLD §3.2 Step 7 and LLD §3.4
  */
+export function hexToRgba(hex: string, alpha: number): string {
+  if (!hex.startsWith('#')) return hex;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export function wrapRange(range: Range, id: string, color: string): void {
   if (range.collapsed) return;
 
@@ -10,6 +18,7 @@ export function wrapRange(range: Range, id: string, color: string): void {
     mark.className = 'icycrow-highlight';
     mark.setAttribute('data-id', id);
     mark.setAttribute('data-color', color);
+    mark.style.backgroundColor = hexToRgba(color, 0.4);
     
     // surroundContents throws if range spans multiple elements
     range.surroundContents(mark);
@@ -68,6 +77,7 @@ function wrapCrossElementRange(range: Range, id: string, color: string): void {
       mark.className = 'icycrow-highlight';
       mark.setAttribute('data-id', id);
       mark.setAttribute('data-color', color);
+      mark.style.backgroundColor = hexToRgba(color, 0.4);
       
       try {
         nodeRange.surroundContents(mark);

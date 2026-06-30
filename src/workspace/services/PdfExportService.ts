@@ -12,10 +12,28 @@ export interface AnnotationState {
  * Helper to convert hex colors to pdf-lib rgb
  */
 function hexToRgb(hex: string): Color {
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  return rgb(r, g, b);
+  if (!hex || typeof hex !== 'string') {
+    return rgb(1, 1, 0); // Default to yellow if invalid
+  }
+  
+  let cleanHex = hex.trim();
+  if (cleanHex.startsWith('#')) {
+    cleanHex = cleanHex.slice(1);
+  }
+  
+  if (cleanHex.length === 3) {
+    cleanHex = cleanHex[0] + cleanHex[0] + cleanHex[1] + cleanHex[1] + cleanHex[2] + cleanHex[2];
+  }
+  
+  const r = parseInt(cleanHex.slice(0, 2) || 'FF', 16) / 255;
+  const g = parseInt(cleanHex.slice(2, 4) || 'FF', 16) / 255;
+  const b = parseInt(cleanHex.slice(4, 6) || '00', 16) / 255;
+  
+  const validR = isNaN(r) ? 1 : Math.max(0, Math.min(1, r));
+  const validG = isNaN(g) ? 1 : Math.max(0, Math.min(1, g));
+  const validB = isNaN(b) ? 0 : Math.max(0, Math.min(1, b));
+  
+  return rgb(validR, validG, validB);
 }
 
 /**
@@ -30,21 +48,25 @@ export async function exportAnnotatedPdf(
   const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
 
+  const highlightsList = annotations?.highlights || [];
+  const strokesList = annotations?.strokes || [];
+  const stickyNotesList = annotations?.stickyNotes || [];
+  const calloutsList = annotations?.callouts || [];
+
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i];
-    const { width, height } = page.getSize();
+    const { height } = page.getSize();
     const pageNum = i + 1;
 
     // 1. Draw Highlights
-    const pageHighlights = annotations.highlights.filter(h => h.pageNumber === pageNum);
+    const pageHighlights = highlightsList.filter(h => h.pageNumber === pageNum);
     for (const highlight of pageHighlights) {
       const color = hexToRgb(highlight.color);
       for (const rect of highlight.rects) {
-        // Normalize 0-1000 to PDF points
-        const rX = (rect.left / 1000) * width;
-        const rY = (rect.top / 1000) * height;
-        const rW = (rect.width / 1000) * width;
-        const rH = (rect.height / 1000) * height;
+        const rX = rect.left;
+        const rY = rect.top;
+        const rW = rect.width;
+        const rH = rect.height;
 
         page.drawRectangle({
           x: rX,
@@ -52,13 +74,13 @@ export async function exportAnnotatedPdf(
           width: rW,
           height: rH,
           color,
-          opacity: 0.4
+          opacity: highlight.opacity ?? 0.4
         });
       }
     }
 
     // 2. Draw Ink Strokes
-    const pageStrokes = annotations.strokes.filter(s => s.pageNumber === pageNum);
+    const pageStrokes = strokesList.filter(s => s.pageNumber === pageNum);
     for (const stroke of pageStrokes) {
       const color = hexToRgb(stroke.color);
       const strokeWidth = stroke.width || 2;
@@ -69,12 +91,12 @@ export async function exportAnnotatedPdf(
 
         page.drawLine({
           start: { 
-            x: (p1.x / 1000) * width, 
-            y: height - (p1.y / 1000) * height 
+            x: p1.x, 
+            y: height - p1.y 
           },
           end: { 
-            x: (p2.x / 1000) * width, 
-            y: height - (p2.y / 1000) * height 
+            x: p2.x, 
+            y: height - p2.y 
           },
           thickness: strokeWidth,
           color,
@@ -84,12 +106,12 @@ export async function exportAnnotatedPdf(
     }
 
     // 3. Draw Sticky Notes as Icons
-    const pageNotes = annotations.stickyNotes.filter(n => n.pageNumber === pageNum);
+    const pageNotes = stickyNotesList.filter(n => n.pageNumber === pageNum);
     for (const note of pageNotes) {
       const color = hexToRgb(note.color);
       const noteSize = 24;
-      const nX = (note.x / 1000) * width;
-      const nY = (note.y / 1000) * height;
+      const nX = note.x;
+      const nY = note.y;
       
       page.drawRectangle({
         x: nX - noteSize / 2,
@@ -103,14 +125,14 @@ export async function exportAnnotatedPdf(
     }
 
     // 4. Draw Callouts with Arrowheads and Boxes
-    const pageCallouts = annotations.callouts.filter(c => c.pageNumber === pageNum);
+    const pageCallouts = calloutsList.filter(c => c.pageNumber === pageNum);
     for (const callout of pageCallouts) {
       const color = hexToRgb(callout.color);
       
-      const aX = (callout.anchor.x / 1000) * width;
-      const aY = height - (callout.anchor.y / 1000) * height;
-      const bX = (callout.box.x / 1000) * width;
-      const bY = height - (callout.box.y / 1000) * height;
+      const aX = callout.anchor.x;
+      const aY = height - callout.anchor.y;
+      const bX = callout.box.x;
+      const bY = height - callout.box.y;
 
       // 4a. The Line
       page.drawLine({

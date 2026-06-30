@@ -165,6 +165,43 @@ export interface IcyCrowDBSchema {
     key: string;
     value: { url: string; handle: any; filename: string; lastLinked: string };
   };
+  web_bookmarks: {
+    key: string;
+    value: {
+      id: string;
+      url: string;
+      urlHash: string;
+      title: string;
+      anchorExact: string | null;
+      anchorData: any | null;
+      scrollYPercent: number;
+      favicon: string | null;
+      createdAt: string;
+      spaceId: string | null;
+    };
+    indexes: { urlHash: string; spaceId: string | null };
+  };
+  flashcards: {
+    key: string;
+    value: {
+      id: string;
+      highlightId: string;
+      urlHash: string;
+      front: string;
+      back: string;
+      createdAt: string;
+      interval: number;
+      repetition: number;
+      easeFactor: number;
+      nextReviewAt: string;
+    };
+    indexes: { highlightId: string; urlHash: string; nextReviewAt: string };
+  };
+  web_annotations: {
+    key: string; // urlHash
+    value: WebAnnotationDocument;
+    indexes: { urlHash: string };
+  };
 }
 
 // chrome.storage.local: Settings
@@ -251,7 +288,7 @@ export interface PageMeta {
   domFingerprint: SHA256Hash;
 }
 
-export type HighlightColor = 'yellow' | 'green' | 'blue' | 'pink' | 'orange';
+export type HighlightColor = string;
 
 export interface Highlight {
   id: UUID;
@@ -532,6 +569,149 @@ export type ExplainTextRequestMsg = BaseMessage<'EXPLAIN_TEXT_REQUEST', {
   requestId?: string;
 }>;
 
+// Bookmark Messages
+export type BookmarkCreateMsg = BaseMessage<'BOOKMARK_CREATE', {
+  url: string;
+  urlHash: SHA256Hash;
+  title: string;
+  anchorExact: string | null;
+  anchorData: any | null;
+  scrollYPercent: number;
+  favicon: string | null;
+  spaceId: UUID | null;
+}>;
+export type BookmarkCreateRes = ApiResponse<{ id: UUID; createdAt: ISOTimestamp }>;
+
+export type BookmarkDeleteMsg = BaseMessage<'BOOKMARK_DELETE', {
+  bookmarkId: UUID;
+}>;
+export type BookmarkDeleteRes = ApiResponse<{ deleted: boolean }>;
+
+export type BookmarksFetchMsg = BaseMessage<'BOOKMARKS_FETCH', {
+  urlHash?: SHA256Hash;
+}>;
+export type BookmarksFetchRes = ApiResponse<{ bookmarks: any[] }>;
+
+// Flashcard Messages
+export type FlashcardCreateMsg = BaseMessage<'FLASHCARD_CREATE', {
+  highlightId: UUID;
+  urlHash: SHA256Hash;
+  front: string;
+  back: string;
+}>;
+export type FlashcardCreateRes = ApiResponse<{ id: UUID; createdAt: ISOTimestamp }>;
+
+export type FlashcardUpdateMsg = BaseMessage<'FLASHCARD_UPDATE', {
+  flashcardId: UUID;
+  updates: { front?: string; back?: string };
+}>;
+export type FlashcardUpdateRes = ApiResponse<{ updated: boolean }>;
+
+export type FlashcardDeleteMsg = BaseMessage<'FLASHCARD_DELETE', {
+  flashcardId: UUID;
+}>;
+export type FlashcardDeleteRes = ApiResponse<{ deleted: boolean }>;
+
+export type FlashcardsFetchMsg = BaseMessage<'FLASHCARDS_FETCH', {
+  dueOnly?: boolean;
+  urlHash?: SHA256Hash;
+}>;
+export type FlashcardsFetchRes = ApiResponse<{ flashcards: any[] }>;
+
+export type FlashcardReviewMsg = BaseMessage<'FLASHCARD_REVIEW', {
+  flashcardId: UUID;
+  quality: number;  // 0–5
+}>;
+export type FlashcardReviewRes = ApiResponse<{
+  interval: number;
+  repetition: number;
+  easeFactor: number;
+  nextReviewAt: ISOTimestamp;
+}>;
+
+// Web Annotation Messages
+export interface WebStroke {
+  id: string;
+  points: { x: number; y: number }[];
+  color: string;
+  width: number;
+  opacity?: number;
+  isHighlight?: boolean;
+}
+
+export interface WebTextAnnotation {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  fontSize: number;
+}
+
+export interface WebStickyNote {
+  id: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  isExpanded?: boolean;
+  imageUrl?: string;
+  text: string;
+  color: string;
+}
+
+export interface WebCallout {
+  id: string;
+  anchor: { x: number; y: number };
+  box: { x: number; y: number };
+  width?: number;
+  height?: number;
+  isExpanded?: boolean;
+  imageUrl?: string;
+  text: string;
+  color: string;
+}
+
+export interface WebFlashcardNote {
+  id: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  isExpanded?: boolean;
+  imageUrl?: string;
+  frontText: string;
+  backText: string;
+  color: string;
+}
+
+export interface WebAnnotationDocument {
+  urlHash: SHA256Hash;
+  strokes: WebStroke[];
+  textAnnotations: WebTextAnnotation[];
+  stickyNotes: WebStickyNote[];
+  callouts: WebCallout[];
+  flashcardNotes?: WebFlashcardNote[];
+  highlights?: any[];
+  lastUpdated: ISOTimestamp;
+}
+
+export type WebAnnotationsSaveMsg = BaseMessage<'WEB_ANNOTATIONS_SAVE', {
+  urlHash: SHA256Hash;
+  strokes: WebStroke[];
+  textAnnotations: WebTextAnnotation[];
+  stickyNotes: WebStickyNote[];
+  callouts: WebCallout[];
+  flashcardNotes?: WebFlashcardNote[];
+  highlights?: any[];
+}>;
+export type WebAnnotationsSaveRes = ApiResponse<{ saved: boolean }>;
+
+export type WebAnnotationsFetchMsg = BaseMessage<'WEB_ANNOTATIONS_FETCH', {
+  urlHash: SHA256Hash;
+}>;
+export type WebAnnotationsFetchRes = ApiResponse<{ document: WebAnnotationDocument | null }>;
+
 export type InboundMessage =
   | HighlightCreateMsg
   | HighlightDeleteMsg
@@ -553,6 +733,16 @@ export type InboundMessage =
   | GeminiHealthCheckMsg
   | CryptoLockMsg
   | WindowAiQueryMsg
-  | ExplainTextRequestMsg;
+  | ExplainTextRequestMsg
+  | BookmarkCreateMsg
+  | BookmarkDeleteMsg
+  | BookmarksFetchMsg
+  | FlashcardCreateMsg
+  | FlashcardUpdateMsg
+  | FlashcardDeleteMsg
+  | FlashcardsFetchMsg
+  | FlashcardReviewMsg
+  | WebAnnotationsSaveMsg
+  | WebAnnotationsFetchMsg;
 
 export type MessageType = InboundMessage['type'];

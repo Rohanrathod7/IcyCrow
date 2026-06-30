@@ -4,7 +4,12 @@ import {
   getSpaces, 
   getStandaloneTabs, 
   getPreferredView,
-  setPreferredView
+  setPreferredView,
+  getChatSessions,
+  setChatSessions,
+  getChatHistoryBySession,
+  saveChatHistoryBySession,
+  deleteChatSession
 } from '../lib/storage';
 import type { 
   Highlight, 
@@ -17,12 +22,14 @@ import type {
   Space,
   StandaloneTabsStore,
   SpaceTab,
-  SHA256Hash 
+  SHA256Hash,
+  ChatSession,
+  ISOTimestamp 
 } from '../lib/types';
 import { DEFAULT_SETTINGS } from '../lib/constants';
 import { sendToSW } from '../lib/messaging';
 
-export type ViewType = 'home' | 'search' | 'chat' | 'spaces' | 'settings' | 'highlights';
+export type ViewType = 'home' | 'search' | 'chat' | 'spaces' | 'settings' | 'highlights' | 'bookmarks' | 'study';
 export type AppStatus = 'idle' | 'saving' | 'thinking' | 'success';
 
 export interface SearchResult {
@@ -41,6 +48,8 @@ export const activeWorkspaces = signal<ActiveWorkspaces>({});
 export const searchResults = signal<SearchResult[]>([]);
 export const chatMessages = signal<ChatMessage[]>([]);
 export const chatEngine = signal<ChatEngine>('gemini');
+export const chatSessions = signal<ChatSession[]>([]);
+export const activeChatSessionId = signal<UUID | null>(null);
 export const selectedContextTabs = signal<Array<{ tabId: number; url: string; title: string }>>([]);
 export const isLoading = signal(false);
 export const error = signal<string | null>(null);
@@ -57,6 +66,11 @@ export const currentWindowId = signal<number | null>(null);
 export const currentWindowOpenTabs = signal<chrome.tabs.Tab[]>([]);
 export const bulkSelectionMode = signal<boolean>(false);
 export const selectedStandaloneTabIds = signal<Record<UUID, boolean>>({});
+
+// Bookmark & Flashcard signals
+export const allBookmarks = signal<any[]>([]);
+export const allFlashcards = signal<any[]>([]);
+export const dueFlashcards = signal<any[]>([]);
 
 export const selectionModalState = signal({
   isOpen: false,
@@ -374,16 +388,96 @@ export async function saveCurrentSessionAsSpace() {
 
 
 /**
- * Loads the chat history for a specific space.
+ * Syncs the chat sessions signal from storage.
  */
-export async function loadChatHistory(spaceId: UUID) {
-  try {
-    const key = `chatHistories:${spaceId}`;
-    const result = await chrome.storage.local.get(key);
-    const history = (result[key] as ChatMessage[]) || [];
-    chatMessages.value = history;
-  } catch (err) {
-    console.error('[IcyCrow] Failed to load chat history:', err);
+export async function syncChatSessions() {
+  const sessions = await getChatSessions();
+  // Filter sessions by the currently active space
+  const filtered = sessions.filter(s => s.spaceId === activeSpaceId.value);
+  // Sort by updatedAt descending
+  filtered.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  chatSessions.value = filtered;
+}
+
+/**
+ * Loads the chat messages for a specific session.
+ */
+export async function loadChatSession(sessionId: UUID) {
+  activeChatSessionId.value = sessionId;
+  const history = await getChatHistoryBySession(sessionId);
+  chatMessages.value = history;
+}
+
+/**
+ * Clears the chat messages and active session state.
+ */
+export function createNewChatSession() {
+  activeChatSessionId.value = null;
+  chatMessages.value = [];
+}
+
+/**
+ * Saves chat history to the active session, creating it if needed.
+ */
+export async function saveActiveSessionMessages(messages: ChatMessage[]) {
+  let sessionId = activeChatSessionId.value;
+  if (!sessionId) {
+    sessionId = crypto.randomUUID() as UUID;
+    activeChatSessionId.value = sessionId;
+
+    const firstMessage = messages[0]?.content || 'New Chat';
+    const title = firstMessage.slice(0, 30) + (firstMessage.length > 30 ? '...' : '');
+
+    const newSession: ChatSession = {
+      id: sessionId,
+      title,
+      createdAt: new Date().toISOString() as ISOTimestamp,
+      updatedAt: new Date().toISOString() as ISOTimestamp,
+      spaceId: activeSpaceId.value
+    };
+
+    const current = await getChatSessions();
+    await setChatSessions([newSession, ...current]);
+    await syncChatSessions();
+  } else {
+    const current = await getChatSessions();
+    const updated = current.map(s => {
+      if (s.id === sessionId) {
+        return {
+          ...s,
+          updatedAt: new Date().toISOString() as ISOTimestamp
+        };
+      }
+      return s;
+    });
+    await setChatSessions(updated);
+    await syncChatSessions();
+  }
+
+  await saveChatHistoryBySession(sessionId, messages);
+}
+
+/**
+ * Deletes a session and its history, resetting if active.
+ */
+export async function deleteChatSessionAndHistory(sessionId: UUID) {
+  await deleteChatSession(sessionId);
+  await syncChatSessions();
+  if (activeChatSessionId.value === sessionId) {
+    createNewChatSession();
+  }
+}
+
+/**
+ * Initializes chat state for the current active space.
+ */
+export async function initializeChatForSpace(spaceId: UUID | null) {
+  activeSpaceId.value = spaceId;
+  await syncChatSessions();
+  if (chatSessions.value.length > 0) {
+    await loadChatSession(chatSessions.value[0].id);
+  } else {
+    createNewChatSession();
   }
 }
 
@@ -671,4 +765,141 @@ export function moveTabBetweenSpaces(tabId: string, sourceSpaceId: UUID, targetS
     chrome.storage.local.set({ spaces: next });
   }
   return next;
+}
+
+// ===== Bookmark Actions =====
+
+export async function loadBookmarks() {
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: 'BOOKMARKS_FETCH',
+      payload: {}
+    });
+    if (res && res.ok) {
+      allBookmarks.value = res.data.bookmarks || [];
+    }
+  } catch (err) {
+    console.error('[IcyCrow] loadBookmarks error:', err);
+  }
+}
+
+export async function removeBookmark(bookmarkId: UUID) {
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'BOOKMARK_DELETE',
+      payload: { bookmarkId }
+    });
+    allBookmarks.value = allBookmarks.value.filter(b => b.id !== bookmarkId);
+  } catch (err) {
+    console.error('[IcyCrow] removeBookmark error:', err);
+  }
+}
+
+export async function navigateToBookmark(bookmark: any) {
+  try {
+    // Find or create a tab with the bookmark URL
+    const tabs = await chrome.tabs.query({ url: bookmark.url });
+    let tabId: number;
+
+    if (tabs.length > 0 && tabs[0].id) {
+      tabId = tabs[0].id;
+      await chrome.tabs.update(tabId, { active: true });
+      // Wait for tab to be ready
+      await new Promise(r => setTimeout(r, 300));
+    } else {
+      const newTab = await chrome.tabs.create({ url: bookmark.url, active: true });
+      tabId = newTab.id!;
+      // Wait for page to load
+      await new Promise(r => setTimeout(r, 1500));
+    }
+
+    // Send navigate message to content script
+    chrome.tabs.sendMessage(tabId, {
+      type: 'BOOKMARK_NAVIGATE',
+      payload: {
+        anchorData: bookmark.anchorData,
+        scrollYPercent: bookmark.scrollYPercent,
+      }
+    });
+  } catch (err) {
+    console.error('[IcyCrow] navigateToBookmark error:', err);
+  }
+}
+
+// ===== Flashcard Actions =====
+
+export async function loadFlashcards() {
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: 'FLASHCARDS_FETCH',
+      payload: {}
+    });
+    if (res && res.ok) {
+      allFlashcards.value = res.data.flashcards || [];
+    }
+  } catch (err) {
+    console.error('[IcyCrow] loadFlashcards error:', err);
+  }
+}
+
+export async function loadDueFlashcards() {
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: 'FLASHCARDS_FETCH',
+      payload: { dueOnly: true }
+    });
+    if (res && res.ok) {
+      dueFlashcards.value = res.data.flashcards || [];
+    }
+  } catch (err) {
+    console.error('[IcyCrow] loadDueFlashcards error:', err);
+  }
+}
+
+export async function reviewFlashcard(flashcardId: UUID, quality: number) {
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: 'FLASHCARD_REVIEW',
+      payload: { flashcardId, quality }
+    });
+    if (res && res.ok) {
+      // Remove from due list
+      dueFlashcards.value = dueFlashcards.value.filter(c => c.id !== flashcardId);
+      // Update in allFlashcards
+      allFlashcards.value = allFlashcards.value.map(c =>
+        c.id === flashcardId ? { ...c, ...res.data } : c
+      );
+    }
+    return res;
+  } catch (err) {
+    console.error('[IcyCrow] reviewFlashcard error:', err);
+    return null;
+  }
+}
+
+export async function removeFlashcard(flashcardId: UUID) {
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'FLASHCARD_DELETE',
+      payload: { flashcardId }
+    });
+    allFlashcards.value = allFlashcards.value.filter(c => c.id !== flashcardId);
+    dueFlashcards.value = dueFlashcards.value.filter(c => c.id !== flashcardId);
+  } catch (err) {
+    console.error('[IcyCrow] removeFlashcard error:', err);
+  }
+}
+
+export async function updateFlashcardContent(flashcardId: UUID, updates: { front?: string; back?: string }) {
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'FLASHCARD_UPDATE',
+      payload: { flashcardId, updates }
+    });
+    allFlashcards.value = allFlashcards.value.map(c =>
+      c.id === flashcardId ? { ...c, ...updates } : c
+    );
+  } catch (err) {
+    console.error('[IcyCrow] updateFlashcardContent error:', err);
+  }
 }

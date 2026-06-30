@@ -1,13 +1,14 @@
 import { activeView, dashboardViewMode, setViewMode, searchQuery, currentAppStatus } from '../store';
 import { DinoMascot } from './DinoMascot';
-import { Pin, MessageSquare, Settings, X, Search, LayoutGrid, FileText } from 'lucide-preact';
+import { Pin, MessageSquare, Settings, X, Search, LayoutGrid, FileText, Bookmark, Brain } from 'lucide-preact';
+import type { ViewType } from '../store';
 
 export const DatabaseHeader = () => {
   const status = currentAppStatus.value;
   const mode = dashboardViewMode.value;
   const currentView = activeView.value;
 
-  const handleNav = (view: 'spaces' | 'chat' | 'settings') => {
+  const handleNav = (view: ViewType) => {
     activeView.value = view;
   };
 
@@ -39,6 +40,20 @@ export const DatabaseHeader = () => {
             title="AI Chat"
           >
             <MessageSquare size={14} />
+          </button>
+          <button 
+            className={`db-nav-btn ${currentView === 'bookmarks' ? 'active' : ''}`} 
+            onClick={() => handleNav('bookmarks')}
+            title="Bookmarks"
+          >
+            <Bookmark size={14} />
+          </button>
+          <button 
+            className={`db-nav-btn ${currentView === 'study' ? 'active' : ''}`} 
+            onClick={() => handleNav('study')}
+            title="Study Flashcards"
+          >
+            <Brain size={14} />
           </button>
           <button 
             className={`db-nav-btn ${currentView === 'settings' ? 'active' : ''}`} 

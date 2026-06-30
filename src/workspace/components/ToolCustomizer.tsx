@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'preact/hooks';
-import { activeCustomizationTool, toolSettings } from '../store/viewer-state';
+import { activeTool, activeCustomizationTool, toolSettings } from '../store/viewer-state';
+import { removeToolInstance } from '../store/toolbar-state';
 
 export const ToolCustomizer = () => {
   const toolId = activeCustomizationTool.value;
@@ -15,9 +16,16 @@ export const ToolCustomizer = () => {
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
-        const target = e.target as HTMLElement;
-        if (target.closest('.tool-item') || target.closest('.dial-tool-button')) {
+      const path = e.composedPath() as HTMLElement[];
+      if (modalRef.current && !path.includes(modalRef.current)) {
+        // Also ignore if clicking on a tool button
+        const isToolButton = path.some(el => 
+          el?.classList?.contains('tool-item') || 
+          el?.classList?.contains('dial-tool-button') ||
+          el?.closest?.('.tool-item') ||
+          el?.closest?.('.dial-tool-button')
+        );
+        if (isToolButton) {
           return;
         }
         activeCustomizationTool.value = null;
@@ -102,7 +110,7 @@ export const ToolCustomizer = () => {
           backgroundColor: isEraser ? 'transparent' : (settings.color || '#3b82f6'),
           border: isEraser ? '2px solid #333' : 'none',
           borderRadius: '50%',
-          opacity: settings.opacity ?? 1,
+          opacity: settings.opacity ?? (baseType === 'highlight' ? 0.4 : 1),
           boxShadow: isEraser ? 'none' : '0 10px 40px rgba(0,0,0,0.2)',
           display: 'flex',
           alignItems: 'center',
@@ -169,12 +177,12 @@ export const ToolCustomizer = () => {
           </div>
         </div>
 
-        {/* Transparency Slider */}
+        {/* Opacity Slider */}
         {!isEraser && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(255,255,255,0.6)', fontSize: '14px', fontWeight: 600 }}>
-              <span>Transparency</span>
-              <span style={{ color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px' }}>{Math.round((settings.opacity ?? 1) * 100)}%</span>
+              <span>Opacity</span>
+              <span style={{ color: '#fff', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '4px' }}>{Math.round((settings.opacity ?? (baseType === 'highlight' ? 0.4 : 1)) * 100)}%</span>
             </div>
             <div className="custom-slider-container">
               <input 
@@ -182,7 +190,7 @@ export const ToolCustomizer = () => {
                 min="0.1" 
                 max="1.0" 
                 step="0.01"
-                value={settings.opacity ?? 1}
+                value={settings.opacity ?? (baseType === 'highlight' ? 0.4 : 1)}
                 onInput={handleOpacityChange}
                 className="premium-slider"
               />
@@ -269,8 +277,39 @@ export const ToolCustomizer = () => {
           </div>
         )}
 
+        {/* Remove from Toolbar Button */}
+        <div style={{ marginTop: 'auto', marginBottom: '16px' }}>
+          <button
+            onClick={() => {
+              removeToolInstance(toolId);
+              if (activeTool.value === toolId) activeTool.value = 'select';
+              handleClose();
+            }}
+            style={{
+              width: '100%',
+              padding: '10px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              color: '#ef4444',
+              fontWeight: 600,
+              fontSize: '13px',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as any).style.background = 'rgba(239, 68, 68, 0.2)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as any).style.background = 'rgba(239, 68, 68, 0.1)';
+            }}
+          >
+            Remove from Toolbar
+          </button>
+        </div>
+
         {/* Footer info */}
-        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', opacity: 0.3, fontSize: '11px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.3, fontSize: '11px' }}>
            <span>ID: {crypto.randomUUID().slice(0, 8)}</span>
            <span>Antigravity Render Engine v2.0</span>
         </div>
