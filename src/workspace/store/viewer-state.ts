@@ -40,25 +40,33 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     hasHydrated = true;
   });
 
-  // Watch signal and save to storage when settings change
+  // Watch signal and save to storage when settings change (debounced to avoid performance/sync loops)
+  let saveTimeout: any = null;
   effect(() => {
     const currentSettings = toolSettings.value;
     if (!hasHydrated) return;
-    chrome.storage.local.get('icycrow_tool_settings', (res) => {
-      const saved = (res?.icycrow_tool_settings || {}) as Record<string, ToolSettings>;
-      const isDifferent = Object.keys(currentSettings).some(key => {
-        const s1 = currentSettings[key];
-        const s2 = saved[key];
-        if (!s2) return true;
-        return s1.color !== s2.color || 
-               s1.opacity !== s2.opacity || 
-               s1.size !== s2.size ||
-               s1.mode !== s2.mode;
+
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+    }
+
+    saveTimeout = setTimeout(() => {
+      chrome.storage.local.get('icycrow_tool_settings', (res) => {
+        const saved = (res?.icycrow_tool_settings || {}) as Record<string, ToolSettings>;
+        const isDifferent = Object.keys(currentSettings).some(key => {
+          const s1 = currentSettings[key];
+          const s2 = saved[key];
+          if (!s2) return true;
+          return s1.color !== s2.color || 
+                 s1.opacity !== s2.opacity || 
+                 s1.size !== s2.size ||
+                 s1.mode !== s2.mode;
+        });
+        if (isDifferent) {
+          chrome.storage.local.set({ 'icycrow_tool_settings': currentSettings });
+        }
       });
-      if (isDifferent) {
-        chrome.storage.local.set({ 'icycrow_tool_settings': currentSettings });
-      }
-    });
+    }, 150);
   });
 
   // Listen for changes from other contexts to keep in-memory signal updated

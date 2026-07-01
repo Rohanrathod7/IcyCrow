@@ -308,7 +308,7 @@ export async function main() {
     styleEl = document.createElement('style');
     styleEl.id = 'icycrow-highlight-style';
     styleEl.textContent = `
-      mark.icycrow-highlight { background-color: transparent; }
+      mark.icycrow-highlight { background-color: transparent; color: inherit; }
     `;
     document.head.appendChild(styleEl);
   }

@@ -30,6 +30,10 @@ export const ToolCustomizer = () => {
   if (!settings) return null;
 
   const modalRef = useRef<HTMLDivElement>(null);
+  const customizerIdRef = useRef<string | null>(null);
+  if (!customizerIdRef.current) {
+    customizerIdRef.current = crypto.randomUUID().slice(0, 8);
+  }
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -483,9 +487,9 @@ export const ToolCustomizer = () => {
           </button>
         </div>
 
-        {/* Footer info */}
+         {/* Footer info */}
         <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.3, fontSize: '11px' }}>
-           <span>ID: {crypto.randomUUID().slice(0, 8)}</span>
+           <span>ID: {customizerIdRef.current}</span>
            <span>Antigravity Render Engine v2.0</span>
         </div>
       </div>
