@@ -18,3 +18,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 * **Color Preset Persistency Bug:** Fixed a race condition where default in-memory signal values would overwrite customized settings in storage during page refresh/reload.
 * **Edge Case Test Mock Failures:** Wrapped `chrome.storage.onChanged` calls with runtime checks to avoid test execution failures inside JSDOM/Node environments.
+* **Highlighter Slider Performance Bug:** Added a 150ms debounce window to storage writes to resolve high-frequency IPC write loops that caused slider glitches and Chrome hangs.
