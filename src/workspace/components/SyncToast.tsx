@@ -2,7 +2,12 @@ import { useEffect, useState } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import { CheckCircle2, AlertCircle, RefreshCw, X } from 'lucide-preact';
 
-export const syncToastMessage = signal<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+export const syncToastMessage = signal<{ 
+  type: 'success' | 'error' | 'info'; 
+  text: string;
+  actionLabel?: string;
+  onAction?: () => void;
+} | null>(null);
 
 export const SyncToast = () => {
   const [visible, setVisible] = useState(false);
@@ -54,6 +59,28 @@ export const SyncToast = () => {
     >
       {getIcon()}
       <span style={{ fontSize: '13px', fontWeight: 500 }}>{message?.text}</span>
+      {message?.actionLabel && message?.onAction && (
+        <button 
+          onClick={() => {
+            message.onAction?.();
+            setVisible(false);
+          }}
+          style={{
+            background: '#3b82f6',
+            border: 'none',
+            color: '#fff',
+            padding: '4px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            marginLeft: '8px',
+            outline: 'none'
+          }}
+        >
+          {message.actionLabel}
+        </button>
+      )}
       <button 
         onClick={() => setVisible(false)}
         style={{ background: 'transparent', border: 'none', color: '#fff', opacity: 0.3, cursor: 'pointer', padding: '4px' }}
@@ -64,6 +91,11 @@ export const SyncToast = () => {
   );
 };
 
-export const showSyncToast = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
-  syncToastMessage.value = { text, type };
+export const showSyncToast = (
+  text: string, 
+  type: 'success' | 'error' | 'info' = 'info',
+  actionLabel?: string,
+  onAction?: () => void
+) => {
+  syncToastMessage.value = { text, type, actionLabel, onAction };
 };

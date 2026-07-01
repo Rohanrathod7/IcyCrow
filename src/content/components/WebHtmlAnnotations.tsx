@@ -1,4 +1,4 @@
-import { webStickyNotes, webCallouts, webFlashcardNotes, webActiveStickyId, webActiveCalloutId, webActiveFlashcardId, triggerAutoSave } from '../store/web-annotation-state';
+import { webStickyNotes, webCallouts, webFlashcardNotes, webActiveStickyId, webActiveCalloutId, webActiveFlashcardId, triggerAutoSave, deleteWebSticky, deleteWebCallout, deleteWebFlashcard } from '../store/web-annotation-state';
 import { DraggableNoteWindow } from './DraggableNoteWindow';
 
 export const WebHtmlAnnotations = () => {
@@ -18,21 +18,15 @@ export const WebHtmlAnnotations = () => {
   };
 
   const handleStickyDelete = (id: string) => {
-    webStickyNotes.value = webStickyNotes.value.filter(s => s.id !== id);
-    if (webActiveStickyId.value === id) webActiveStickyId.value = null;
-    triggerAutoSave();
+    deleteWebSticky(id);
   };
 
   const handleCalloutDelete = (id: string) => {
-    webCallouts.value = webCallouts.value.filter(c => c.id !== id);
-    if (webActiveCalloutId.value === id) webActiveCalloutId.value = null;
-    triggerAutoSave();
+    deleteWebCallout(id);
   };
 
   const handleFlashcardDelete = (id: string) => {
-    webFlashcardNotes.value = webFlashcardNotes.value.filter(f => f.id !== id);
-    if (webActiveFlashcardId.value === id) webActiveFlashcardId.value = null;
-    triggerAutoSave();
+    deleteWebFlashcard(id);
   };
 
   // We only render this layer. Moving notes can be complex due to absolute positioning on scrollable websites. 

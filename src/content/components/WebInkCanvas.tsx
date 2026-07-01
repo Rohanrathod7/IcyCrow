@@ -7,7 +7,13 @@ import {
   webFlashcardNotes,
   webDraftCallout,
   triggerAutoSave,
-  deleteWebHighlight
+  deleteWebHighlight,
+  deleteWebStroke,
+  deleteWebSticky,
+  deleteWebCallout,
+  deleteWebFlashcard,
+  startWebEraseTransaction,
+  endWebEraseTransaction
 } from '../store/web-annotation-state';
 import { activeTool, toolSettings } from '../../workspace/store/viewer-state';
 import type { WebStroke } from '../../lib/types';
@@ -167,9 +173,8 @@ export const WebInkCanvas = () => {
     // Basic eraser width fallback if not set
     const eraserSettings = toolSettings.value['eraser'] as any;
     const eraseRadius = eraserSettings?.size || 20;
-    let didErase = false;
 
-    // Erase text highlights under pointer using robust circle-rectangle intersection
+    // 1. Erase text highlights under pointer using robust circle-rectangle intersection
     if (canvasRef.current) {
       const marks = document.querySelectorAll('mark.icycrow-highlight');
       const viewportX = x;
@@ -189,59 +194,54 @@ export const WebInkCanvas = () => {
           if (id) {
             unwrapHighlight(id);
             deleteWebHighlight(id);
-            didErase = true;
           }
         }
       });
     }
 
-    webStrokes.value = webStrokes.value.filter(stroke => {
-      // Check if point (x,y) is near any point in stroke
+    // 2. Erase drawings (strokes)
+    for (const stroke of webStrokes.value) {
       for (const p of stroke.points) {
         const dx = p.x - x;
         const dy = p.y - y;
         if (Math.sqrt(dx * dx + dy * dy) <= eraseRadius) {
-          didErase = true;
-          return false; // Remove this stroke
+          deleteWebStroke(stroke.id);
+          break;
         }
       }
-      return true; // Keep
-    });
+    }
 
-    const initialStickyCount = webStickyNotes.value.length;
-    webStickyNotes.value = webStickyNotes.value.filter(note => {
+    // 3. Erase sticky notes
+    for (const note of webStickyNotes.value) {
       const dx = note.x - x;
       const dy = note.y - y;
-      if (Math.sqrt(dx*dx + dy*dy) < eraseRadius + 60) return false;
-      return true;
-    });
-    if (webStickyNotes.value.length < initialStickyCount) didErase = true;
+      if (Math.sqrt(dx*dx + dy*dy) < eraseRadius + 60) {
+        deleteWebSticky(note.id);
+      }
+    }
 
-    const initialCalloutCount = webCallouts.value.length;
-    webCallouts.value = webCallouts.value.filter(c => {
+    // 4. Erase callouts
+    for (const c of webCallouts.value) {
        const dx = c.box.x - x;
        const dy = c.box.y - y;
-       if (Math.sqrt(dx*dx + dy*dy) < eraseRadius + 60) return false;
-       if (c.anchor) {
+       let shouldDelete = Math.sqrt(dx*dx + dy*dy) < eraseRadius + 60;
+       if (!shouldDelete && c.anchor) {
          const adx = c.anchor.x - x;
          const ady = c.anchor.y - y;
-         if (Math.sqrt(adx*adx + ady*ady) < eraseRadius + 20) return false;
+         shouldDelete = Math.sqrt(adx*adx + ady*ady) < eraseRadius + 20;
        }
-       return true;
-    });
-    if (webCallouts.value.length < initialCalloutCount) didErase = true;
+       if (shouldDelete) {
+         deleteWebCallout(c.id);
+       }
+    }
 
-    const initialFlashcardCount = webFlashcardNotes.value.length;
-    webFlashcardNotes.value = webFlashcardNotes.value.filter(f => {
+    // 5. Erase flashcards
+    for (const f of webFlashcardNotes.value) {
        const dx = f.x - x;
        const dy = f.y - y;
-       if (Math.sqrt(dx*dx + dy*dy) < eraseRadius + 60) return false;
-       return true;
-    });
-    if (webFlashcardNotes.value.length < initialFlashcardCount) didErase = true;
-
-    if (didErase) {
-      triggerAutoSave();
+       if (Math.sqrt(dx*dx + dy*dy) < eraseRadius + 60) {
+         deleteWebFlashcard(f.id);
+       }
     }
   };
 
@@ -259,6 +259,7 @@ export const WebInkCanvas = () => {
     const docY = e.clientY + window.scrollY;
 
     if (isEraser) {
+      startWebEraseTransaction();
       checkErase(docX, docY);
     } else if (baseType === 'sticky') {
       const id = crypto.randomUUID();
@@ -322,6 +323,7 @@ export const WebInkCanvas = () => {
   const handlePointerUp = (e: PointerEvent) => {
     if (isDrawing.value) {
       (e.target as Element).releasePointerCapture(e.pointerId);
+      const wasEraser = isEraser;
       isDrawing.value = false;
       
       if (webDraftCallout.value) {
@@ -341,7 +343,11 @@ export const WebInkCanvas = () => {
       }
       
       currentStrokeId.value = null;
-      triggerAutoSave();
+      if (wasEraser) {
+        endWebEraseTransaction();
+      } else {
+        triggerAutoSave();
+      }
     }
   };
 

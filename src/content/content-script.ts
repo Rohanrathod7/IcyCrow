@@ -189,10 +189,27 @@ async function handleStorageChange(changes: { [key: string]: chrome.storage.Stor
       const oldIds = new Set(oldHighlights.map(h => h.id));
       const newIds = new Set(newHighlights.map(h => h.id));
       
-      // Find deleted IDs
+      // Find deleted IDs and unwrap them
       for (const id of oldIds) {
         if (!newIds.has(id)) {
           unwrapHighlight(id);
+        }
+      }
+
+      // Find added IDs and wrap them (for undo or cross-context synchronization)
+      for (const h of newHighlights) {
+        if (!oldIds.has(h.id)) {
+          const existing = document.querySelector(`mark.icycrow-highlight[data-id="${h.id}"]`);
+          if (!existing) {
+            try {
+              const range = restoreAnchor(h.anchor);
+              if (range) {
+                wrapRange(range, h.id, h.color, h.opacity);
+              }
+            } catch (err) {
+              console.error('[IcyCrow] Failed to restore undo highlight:', err);
+            }
+          }
         }
       }
     }

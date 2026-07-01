@@ -1,5 +1,76 @@
 import { signal } from '@preact/signals';
 import { saveAnnotations, getAnnotations } from '../../lib/idb-store';
+import { showSyncToast } from '../components/SyncToast';
+
+export const lastDeletedItems = signal<{
+  items: Array<{
+    type: 'highlight' | 'stroke' | 'sticky' | 'callout';
+    data: any;
+  }>;
+  url: string;
+} | null>(null);
+
+let activeEraseTransaction: Array<{
+  type: 'highlight' | 'stroke' | 'sticky' | 'callout';
+  data: any;
+}> | null = null;
+
+export function startEraseTransaction() {
+  activeEraseTransaction = [];
+}
+
+export async function endEraseTransaction(url: string) {
+  if (!activeEraseTransaction || activeEraseTransaction.length === 0) {
+    activeEraseTransaction = null;
+    return;
+  }
+  
+  lastDeletedItems.value = {
+    items: activeEraseTransaction,
+    url
+  };
+  activeEraseTransaction = null;
+
+  const count = lastDeletedItems.value.items.length;
+  const message = count === 1 
+    ? `${lastDeletedItems.value.items[0].type.charAt(0).toUpperCase() + lastDeletedItems.value.items[0].type.slice(1)} deleted`
+    : `Erased ${count} annotations`;
+
+  showUndoToast(message, url);
+}
+
+function showUndoToast(messageText: string, url: string) {
+  showSyncToast(messageText, 'info', 'Undo', async () => {
+    const transaction = lastDeletedItems.value;
+    if (!transaction) return;
+    
+    let newHighlights = [...highlights.value];
+    let newStrokes = [...strokes.value];
+    let newStickies = [...stickyNotes.value];
+    let newCallouts = [...callouts.value];
+    
+    for (const item of transaction.items) {
+      if (item.type === 'highlight') {
+        newHighlights.push(item.data);
+      } else if (item.type === 'stroke') {
+        newStrokes.push(item.data);
+      } else if (item.type === 'sticky') {
+        newStickies.push(item.data);
+      } else if (item.type === 'callout') {
+        newCallouts.push(item.data);
+      }
+    }
+    
+    highlights.value = newHighlights;
+    strokes.value = newStrokes;
+    stickyNotes.value = newStickies;
+    callouts.value = newCallouts;
+    
+    await persistAnnotations(url);
+    lastDeletedItems.value = null;
+    showSyncToast('Restored!', 'success');
+  });
+}
 
 export interface HighlightRect {
   top: number;
@@ -86,14 +157,40 @@ export async function persistAnnotations(url: string) {
 
 /** Delete a stroke and persist */
 export async function deleteStroke(id: string, url: string) {
-  strokes.value = strokes.value.filter(s => s.id !== id);
-  await persistAnnotations(url);
+  const item = strokes.value.find(s => s.id === id);
+  if (item) {
+    strokes.value = strokes.value.filter(s => s.id !== id);
+    await persistAnnotations(url);
+    
+    if (activeEraseTransaction) {
+      activeEraseTransaction.push({ type: 'stroke', data: item });
+    } else {
+      lastDeletedItems.value = {
+        items: [{ type: 'stroke', data: item }],
+        url
+      };
+      showUndoToast('Drawing deleted', url);
+    }
+  }
 }
 
 /** Delete a highlight and persist */
 export async function deleteHighlight(id: string, url: string) {
-  highlights.value = highlights.value.filter(h => h.id !== id);
-  await persistAnnotations(url);
+  const item = highlights.value.find(h => h.id === id);
+  if (item) {
+    highlights.value = highlights.value.filter(h => h.id !== id);
+    await persistAnnotations(url);
+    
+    if (activeEraseTransaction) {
+      activeEraseTransaction.push({ type: 'highlight', data: item });
+    } else {
+      lastDeletedItems.value = {
+        items: [{ type: 'highlight', data: item }],
+        url
+      };
+      showUndoToast('Highlight deleted', url);
+    }
+  }
 }
 
 /** Sticky Note Actions */
@@ -123,8 +220,21 @@ export function updateStickyPosition(id: string, x: number, y: number) {
 }
 
 export async function deleteSticky(id: string, url: string) {
-  stickyNotes.value = stickyNotes.value.filter(s => s.id !== id);
-  await persistAnnotations(url);
+  const item = stickyNotes.value.find(s => s.id === id);
+  if (item) {
+    stickyNotes.value = stickyNotes.value.filter(s => s.id !== id);
+    await persistAnnotations(url);
+    
+    if (activeEraseTransaction) {
+      activeEraseTransaction.push({ type: 'sticky', data: item });
+    } else {
+      lastDeletedItems.value = {
+        items: [{ type: 'sticky', data: item }],
+        url
+      };
+      showUndoToast('Note deleted', url);
+    }
+  }
 }
 
 /** Callout Actions */
@@ -154,6 +264,19 @@ export function updateCalloutBoxPosition(id: string, x: number, y: number) {
 }
 
 export async function deleteCallout(id: string, url: string) {
-  callouts.value = callouts.value.filter(c => c.id !== id);
-  await persistAnnotations(url);
+  const item = callouts.value.find(c => c.id === id);
+  if (item) {
+    callouts.value = callouts.value.filter(c => c.id !== id);
+    await persistAnnotations(url);
+    
+    if (activeEraseTransaction) {
+      activeEraseTransaction.push({ type: 'callout', data: item });
+    } else {
+      lastDeletedItems.value = {
+        items: [{ type: 'callout', data: item }],
+        url
+      };
+      showUndoToast('Callout deleted', url);
+    }
+  }
 }

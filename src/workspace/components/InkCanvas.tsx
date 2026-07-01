@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { useSignal } from '@preact/signals';
-import { strokes, Stroke, Point, persistAnnotations, deleteStroke, highlights, deleteHighlight } from '../store/annotation-state';
+import { strokes, Stroke, Point, persistAnnotations, deleteStroke, highlights, deleteHighlight, startEraseTransaction, endEraseTransaction } from '../store/annotation-state';
 import { viewerScale, activeTool, toolSettings } from '../store/viewer-state';
 
 interface InkCanvasProps {
@@ -136,6 +136,7 @@ export const InkCanvas = ({ pageNumber, url }: InkCanvasProps) => {
 
     if (currentToolId === 'eraser') {
       isDrawing.value = true;
+      startEraseTransaction();
       handleEraser(x, y);
       canvas.setPointerCapture(e.pointerId);
       return;
@@ -191,15 +192,22 @@ export const InkCanvas = ({ pageNumber, url }: InkCanvasProps) => {
 
   const handlePointerLeave = () => {
     hoverPos.value = null;
+    const wasEraser = activeTool.value === 'eraser' && isDrawing.value;
     isDrawing.value = false;
     currentStrokeId.value = null;
+    if (wasEraser) {
+      endEraseTransaction(url);
+    }
   };
 
   const handlePointerUp = () => {
+    const wasEraser = activeTool.value === 'eraser' && isDrawing.value;
     isDrawing.value = false;
     currentStrokeId.value = null;
-    if (activeTool.value !== 'eraser') {
+    if (!wasEraser) {
       persistAnnotations(url);
+    } else {
+      endEraseTransaction(url);
     }
   };
 

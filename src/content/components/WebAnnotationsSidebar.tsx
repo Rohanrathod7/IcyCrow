@@ -10,7 +10,10 @@ import {
   webActiveCalloutId,
   webActiveFlashcardId,
   deleteWebHighlight,
-  triggerAutoSave
+  deleteWebSticky,
+  deleteWebCallout,
+  deleteWebFlashcard,
+  deleteWebStroke
 } from '../store/web-annotation-state';
 import { unwrapHighlight } from '../highlighter';
 
@@ -54,16 +57,13 @@ export const WebAnnotationsSidebar = () => {
   const handleDelete = (type: string, id: string) => {
     switch (type) {
       case 'sticky':
-        webStickyNotes.value = webStickyNotes.value.filter(n => n.id !== id);
-        if (webActiveStickyId.value === id) webActiveStickyId.value = null;
+        deleteWebSticky(id);
         break;
       case 'callout':
-        webCallouts.value = webCallouts.value.filter(n => n.id !== id);
-        if (webActiveCalloutId.value === id) webActiveCalloutId.value = null;
+        deleteWebCallout(id);
         break;
       case 'flashcard':
-        webFlashcardNotes.value = webFlashcardNotes.value.filter(n => n.id !== id);
-        if (webActiveFlashcardId.value === id) webActiveFlashcardId.value = null;
+        deleteWebFlashcard(id);
         break;
       case 'highlight':
         unwrapHighlight(id);
@@ -71,10 +71,9 @@ export const WebAnnotationsSidebar = () => {
         setDomHighlights(prev => prev.filter(h => h.id !== id));
         break;
       case 'stroke':
-        webStrokes.value = webStrokes.value.filter(s => s.id !== id);
+        deleteWebStroke(id);
         break;
     }
-    triggerAutoSave();
   };
 
   const handleFocus = (type: string, id: string, y?: number) => {
