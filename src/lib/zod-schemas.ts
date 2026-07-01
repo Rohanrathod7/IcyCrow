@@ -35,6 +35,7 @@ export const HighlightCreateSchema = z.object({
     urlHash: SHA256HashSchema,
     text: z.string(),
     color: HighlightColorSchema,
+    opacity: z.number().optional(),
     anchor: TextQuoteAnchorSchema,
     pageMeta: PageMetaSchema,
     spaceId: UUIDSchema.nullable(),

@@ -28,7 +28,9 @@ describe('InboundMessageSchema Validation', () => {
       _meta: meta
     };
     expect(() => InboundMessageSchema.parse(valid)).not.toThrow();
-    expect(() => InboundMessageSchema.parse({ ...valid, payload: { ...valid.payload, color: 'invalid' }})).toThrow();
+    expect(() => InboundMessageSchema.parse({ ...valid, payload: { ...valid.payload, opacity: 0.5 }})).not.toThrow();
+    expect(() => InboundMessageSchema.parse({ ...valid, payload: { ...valid.payload, opacity: 'invalid' }})).toThrow();
+    expect(() => InboundMessageSchema.parse({ ...valid, payload: { ...valid.payload, color: '#eab308' }})).not.toThrow();
   });
 
   it('validates HIGHLIGHT_DELETE', () => {
@@ -46,7 +48,7 @@ describe('InboundMessageSchema Validation', () => {
   it('validates HIGHLIGHT_UPDATE', () => {
     const valid = { type: 'HIGHLIGHT_UPDATE', payload: { urlHash: 'h', highlightId: '6b6b801a-82bd-4849-81bc-b7ea6aa5bcad', updates: { color: 'green' } } };
     expect(() => InboundMessageSchema.parse(valid)).not.toThrow();
-    expect(() => InboundMessageSchema.parse({ ...valid, payload: { ...valid.payload, updates: { color: 'invalid' } } })).toThrow();
+    expect(() => InboundMessageSchema.parse({ ...valid, payload: { ...valid.payload, updates: { color: '#22c55e' } } })).not.toThrow();
   });
 
   it('validates AI_QUERY', () => {

@@ -109,15 +109,17 @@ export async function initWebAnnotations() {
 }
 
 // Listen for highlight changes from content-script so we can trigger JSON autosave
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && currentUrlHash) {
-    const key = `highlights:${currentUrlHash}`;
-    if (changes[key]) {
-      webHighlights.value = (changes[key].newValue as any[]) || [];
-      triggerAutoSave();
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && currentUrlHash) {
+      const key = `highlights:${currentUrlHash}`;
+      if (changes[key]) {
+        webHighlights.value = (changes[key].newValue as any[]) || [];
+        triggerAutoSave();
+      }
     }
-  }
-});
+  });
+}
 
 /**
  * Persists the current state to IDB via background script.

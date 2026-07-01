@@ -10,7 +10,7 @@ export function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export function wrapRange(range: Range, id: string, color: string): void {
+export function wrapRange(range: Range, id: string, color: string, opacity?: number): void {
   if (range.collapsed) return;
 
   try {
@@ -18,13 +18,16 @@ export function wrapRange(range: Range, id: string, color: string): void {
     mark.className = 'icycrow-highlight';
     mark.setAttribute('data-id', id);
     mark.setAttribute('data-color', color);
-    mark.style.backgroundColor = hexToRgba(color, 0.4);
+    if (opacity !== undefined) {
+      mark.setAttribute('data-opacity', String(opacity));
+    }
+    mark.style.backgroundColor = hexToRgba(color, opacity ?? 0.4);
     
     // surroundContents throws if range spans multiple elements
     range.surroundContents(mark);
   } catch (err) {
     // Fallback for cross-element range
-    wrapCrossElementRange(range, id, color);
+    wrapCrossElementRange(range, id, color, opacity);
   }
 }
 
@@ -32,7 +35,7 @@ export function wrapRange(range: Range, id: string, color: string): void {
  * Handle highlights that span across multiple DOM elements
  * Following LLD §3.4 - In-place wrapping strategy
  */
-function wrapCrossElementRange(range: Range, id: string, color: string): void {
+function wrapCrossElementRange(range: Range, id: string, color: string, opacity?: number): void {
   const commonAncestor = range.commonAncestorContainer;
   const walker = document.createTreeWalker(
     commonAncestor,
@@ -77,7 +80,10 @@ function wrapCrossElementRange(range: Range, id: string, color: string): void {
       mark.className = 'icycrow-highlight';
       mark.setAttribute('data-id', id);
       mark.setAttribute('data-color', color);
-      mark.style.backgroundColor = hexToRgba(color, 0.4);
+      if (opacity !== undefined) {
+        mark.setAttribute('data-opacity', String(opacity));
+      }
+      mark.style.backgroundColor = hexToRgba(color, opacity ?? 0.4);
       
       try {
         nodeRange.surroundContents(mark);

@@ -1192,15 +1192,17 @@ async function handleWebAnnotationsMessage(message: ValidatedInboundMessage, sen
 
 watchGeminiTab('https://gemini.google.com/*');
 
-chrome.storage.onChanged.addListener(async (changes, areaName) => {
-  if (areaName === 'local' && changes.settings) {
-    const oldVal = changes.settings.oldValue as any;
-    const newVal = changes.settings.newValue as any;
-    if (newVal && oldVal?.enablePdfInterceptor !== newVal.enablePdfInterceptor) {
-      await setupPdfInterceptor(newVal.enablePdfInterceptor !== false);
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+  chrome.storage.onChanged.addListener(async (changes, areaName) => {
+    if (areaName === 'local' && changes.settings) {
+      const oldVal = changes.settings.oldValue as any;
+      const newVal = changes.settings.newValue as any;
+      if (newVal && oldVal?.enablePdfInterceptor !== newVal.enablePdfInterceptor) {
+        await setupPdfInterceptor(newVal.enablePdfInterceptor !== false);
+      }
     }
-  }
-});
+  });
+}
 
 registerTabPdfInterceptor();
 boot().catch(console.error);

@@ -153,3 +153,45 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   z-index: 5;
 }
+
+/* Premium Customizer Slider styles for content script injection */
+.premium-slider {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 100% !important;
+  height: 6px !important;
+  border-radius: 3px !important;
+  outline: none !important;
+  margin: 10px 0 !important;
+  cursor: pointer !important;
+  background: rgba(255, 255, 255, 0.15);
+  transition: all 0.2s ease !important;
+}
+
+.premium-slider::-webkit-slider-thumb {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  width: 18px !important;
+  height: 18px !important;
+  background: #ffffff !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+  border: 2px solid #3a76f0 !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.premium-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2) !important;
+  box-shadow: 0 0 10px rgba(58, 118, 240, 0.5) !important;
+}
+
+.premium-slider::-moz-range-thumb {
+  width: 18px !important;
+  height: 18px !important;
+  background: #ffffff !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+  border: 2px solid #3a76f0 !important;
+}

@@ -128,7 +128,7 @@ async function restoreHighlightsFromStorage() {
       try {
         const range = restoreAnchor(h.anchor);
         if (range) {
-          wrapRange(range, h.id, h.color);
+          wrapRange(range, h.id, h.color, h.opacity);
         } else {
           orphanedHighlights.push(h);
         }
@@ -147,7 +147,7 @@ async function restoreHighlightsFromStorage() {
           try {
             const range = restoreAnchor(h.anchor);
             if (range) {
-              wrapRange(range, h.id, h.color);
+              wrapRange(range, h.id, h.color, h.opacity);
             } else {
               stillOrphaned.push(h);
             }

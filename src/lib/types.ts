@@ -295,6 +295,7 @@ export interface Highlight {
   url: string;
   text: string;
   color: HighlightColor;
+  opacity?: number;
   note: string | null;
   anchor: TextQuoteAnchor;
   pageMeta: PageMeta;
@@ -683,6 +684,7 @@ export interface WebFlashcardNote {
   frontText: string;
   backText: string;
   color: string;
+  splitRatio?: number;
 }
 
 export interface WebAnnotationDocument {

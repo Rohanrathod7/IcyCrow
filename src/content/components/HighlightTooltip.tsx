@@ -6,7 +6,7 @@ import { wrapRange } from '../highlighter';
 import { sha256Hash, canonicalUrl } from '../../lib/url-utils';
 import { Bookmark, Brain, Plus, Eraser, StickyNote, ArrowUpRight } from 'lucide-preact';
 import { isToolPickerOpen } from '../../workspace/store/toolbar-state';
-import { activeTool } from '../../workspace/store/viewer-state';
+import { activeTool, activeCustomizationTool, toolSettings } from '../../workspace/store/viewer-state';
 
 /**
  * Floating Tooltip for text selection
@@ -15,6 +15,16 @@ import { activeTool } from '../../workspace/store/viewer-state';
  */
 export const HighlightTooltip = () => {
   if (!tooltipVisible.value) return null;
+
+  const getCustomColor = (colorName: HighlightColor): string => {
+    const settings = toolSettings.value['highlight-' + colorName] || toolSettings.value['highlight'];
+    return settings?.color || getColorValue(colorName);
+  };
+
+  const getCustomOpacity = (colorName: HighlightColor): number => {
+    const settings = toolSettings.value['highlight-' + colorName] || toolSettings.value['highlight'];
+    return settings?.opacity ?? 0.4;
+  };
 
   const onHighlight = async () => {
     const selection = window.getSelection();
@@ -29,6 +39,9 @@ export const HighlightTooltip = () => {
       const bodyText = document.body.innerText || document.body.textContent || '';
       const domFingerprint = await sha256Hash(bodyText.slice(0, 500));
 
+      const finalColor = getCustomColor(selectedColor.value);
+      const finalOpacity = getCustomOpacity(selectedColor.value);
+
       try {
         const response = await chrome.runtime.sendMessage({
           type: 'HIGHLIGHT_CREATE',
@@ -36,19 +49,20 @@ export const HighlightTooltip = () => {
             url,
             urlHash,
             text: anchor.exact,
-            color: getColorValue(selectedColor.value as any),
+            color: finalColor,
+            opacity: finalOpacity,
             anchor,
             pageMeta: { title: document.title, domFingerprint },
             spaceId: null
           }
         });
         if (response && response.ok) {
-          wrapRange(range, response.data.id, getColorValue(selectedColor.value as any));
+          wrapRange(range, response.data.id, finalColor, finalOpacity);
         } else {
-          wrapRange(range, highlightId, getColorValue(selectedColor.value as any));
+          wrapRange(range, highlightId, finalColor, finalOpacity);
         }
       } catch (e) {
-        wrapRange(range, highlightId, getColorValue(selectedColor.value as any));
+        wrapRange(range, highlightId, finalColor, finalOpacity);
       }
 
       selection.removeAllRanges();
@@ -94,6 +108,9 @@ export const HighlightTooltip = () => {
     const selectedText = selection.toString();
     const anchor = captureAnchor(selection);
 
+    const finalColor = getCustomColor(selectedColor.value);
+    const finalOpacity = getCustomOpacity(selectedColor.value);
+
     // First, create a highlight so the flashcard has a parent
     let highlightId = crypto.randomUUID();
     if (anchor) {
@@ -110,7 +127,8 @@ export const HighlightTooltip = () => {
             url,
             urlHash,
             text: anchor.exact,
-            color: getColorValue(selectedColor.value as any),
+            color: finalColor,
+            opacity: finalOpacity,
             anchor,
             pageMeta: { title: document.title, domFingerprint },
             spaceId: null
@@ -118,10 +136,10 @@ export const HighlightTooltip = () => {
         });
         if (response && response.ok) {
           highlightId = response.data.id;
-          wrapRange(range, highlightId, getColorValue(selectedColor.value as any));
+          wrapRange(range, highlightId, finalColor, finalOpacity);
         }
       } catch (e) {
-        wrapRange(range, highlightId, getColorValue(selectedColor.value as any));
+        wrapRange(range, highlightId, finalColor, finalOpacity);
       }
     }
 
@@ -138,11 +156,9 @@ export const HighlightTooltip = () => {
         y: docY, 
         frontText: selectedText, 
         backText: '', 
-        color: selectedColor.value === 'yellow' ? '#a855f7' : getColorValue(selectedColor.value) 
+        color: selectedColor.value === 'yellow' ? '#a855f7' : finalColor 
       }
     ];
-    triggerAutoSave();
-
     triggerAutoSave();
 
     if (selection) selection.removeAllRanges();
@@ -158,17 +174,21 @@ export const HighlightTooltip = () => {
       const urlHash = await sha256Hash(canonicalUrl(url));
       const bodyText = document.body.innerText || document.body.textContent || '';
       const domFingerprint = await sha256Hash(bodyText.slice(0, 500));
+      
+      const finalColor = getCustomColor(selectedColor.value);
+      const finalOpacity = getCustomOpacity(selectedColor.value);
+
       try {
         const response = await chrome.runtime.sendMessage({
           type: 'HIGHLIGHT_CREATE',
-          payload: { url, urlHash, text: anchor.exact, color: getColorValue(selectedColor.value as any), anchor, pageMeta: { title: document.title, domFingerprint }, spaceId: null }
+          payload: { url, urlHash, text: anchor.exact, color: finalColor, opacity: finalOpacity, anchor, pageMeta: { title: document.title, domFingerprint }, spaceId: null }
         });
         if (response && response.ok) {
           highlightId = response.data.id;
-          wrapRange(range, highlightId, getColorValue(selectedColor.value as any));
+          wrapRange(range, highlightId, finalColor, finalOpacity);
         }
       } catch (e) {
-        wrapRange(range, highlightId, getColorValue(selectedColor.value as any));
+        wrapRange(range, highlightId, finalColor, finalOpacity);
       }
     }
     return highlightId;
@@ -184,6 +204,8 @@ export const HighlightTooltip = () => {
     const docX = tooltipPos.value.x;
     const docY = tooltipPos.value.y + 50;
     
+    const finalColor = getCustomColor(selectedColor.value);
+
     webStickyNotes.value = [
       ...webStickyNotes.value,
       {
@@ -191,7 +213,7 @@ export const HighlightTooltip = () => {
         x: docX,
         y: docY,
         text: '', 
-        color: selectedColor.value === 'yellow' ? '#fde047' : getColorValue(selectedColor.value),
+        color: selectedColor.value === 'yellow' ? '#fde047' : finalColor,
         isExpanded: true
       }
     ];
@@ -210,6 +232,8 @@ export const HighlightTooltip = () => {
     const docX = tooltipPos.value.x;
     const docY = tooltipPos.value.y; // anchor right at the text
     
+    const finalColor = getCustomColor(selectedColor.value);
+
     webCallouts.value = [
       ...webCallouts.value,
       {
@@ -217,7 +241,7 @@ export const HighlightTooltip = () => {
         anchor: { x: docX, y: docY },
         box: { x: docX + 40, y: docY + 40 },
         text: '',
-        color: selectedColor.value === 'yellow' ? '#fde047' : getColorValue(selectedColor.value),
+        color: selectedColor.value === 'yellow' ? '#fde047' : finalColor,
         isExpanded: true
       }
     ];
@@ -226,7 +250,7 @@ export const HighlightTooltip = () => {
     tooltipVisible.value = false;
   };
 
-  const colors: HighlightColor[] = ['green', 'red', 'blue', 'yellow'];
+  const colors: HighlightColor[] = ['yellow', 'green', 'blue'];
 
   return (
     <div
@@ -282,11 +306,15 @@ export const HighlightTooltip = () => {
             key={color}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => selectedColor.value = color}
+            onDblClick={() => {
+              selectedColor.value = color;
+              activeCustomizationTool.value = ('highlight-' + color) as any;
+            }}
             style={{
               width: '22px',
               height: '22px',
               borderRadius: '50%',
-              backgroundColor: getColorValue(color),
+              backgroundColor: getCustomColor(color),
               border: selectedColor.value === color ? '2px solid #3a76f0' : '1px solid rgba(0,0,0,0.1)',
               cursor: 'pointer',
               padding: 0,

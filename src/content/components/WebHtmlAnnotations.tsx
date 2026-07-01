@@ -136,6 +136,7 @@ export const WebHtmlAnnotations = () => {
           frontText={flashcard.frontText}
           backText={flashcard.backText}
           imageUrl={flashcard.imageUrl}
+          splitRatio={flashcard.splitRatio}
           onUpdate={(updates) => handleFlashcardUpdate(flashcard.id, updates)}
           onDelete={() => handleFlashcardDelete(flashcard.id)}
           onFocus={() => webActiveFlashcardId.value = flashcard.id}

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'preact/hooks';
+import { useState, useRef, useEffect } from 'preact/hooks';
 import { Minimize2, Image as ImageIcon, Trash2, GripHorizontal, MessageSquare, StickyNote, Brain } from 'lucide-preact';
 import { triggerAutoSave } from '../store/web-annotation-state';
 
@@ -19,6 +19,7 @@ export interface DraggableNoteProps {
   frontText?: string;
   backText?: string;
   imageUrl?: string;
+  splitRatio?: number;
   
   // Callbacks
   onUpdate: (updates: any) => void;
@@ -30,12 +31,68 @@ export interface DraggableNoteProps {
 }
 
 export const DraggableNoteWindow = (props: DraggableNoteProps) => {
-  const { type, x, y, width = 240, height = 200, isExpanded = true, color, text, frontText, backText, imageUrl, onUpdate, onDelete, onFocus, onBlur, isActive } = props;
+  const { id, type, x, y, width = 240, height = 200, isExpanded = true, color, text, frontText, backText, imageUrl, splitRatio = 0.5, onUpdate, onDelete, onFocus, onBlur, isActive } = props;
   
   const [isDragging, setIsDragging] = useState(false);
   const [hasDragged, setHasDragged] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const [localSplitRatio, setLocalSplitRatio] = useState(splitRatio);
+  const isResizingSplit = useRef(false);
+
+  // Sync prop changes if updated externally
+  useEffect(() => {
+    setLocalSplitRatio(splitRatio);
+  }, [splitRatio]);
+
+  const handleSplitPointerDown = (e: PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    isResizingSplit.current = true;
+    (e.target as Element).setPointerCapture(e.pointerId);
+  };
+
+  const handleSplitPointerMove = (e: PointerEvent) => {
+    if (!isResizingSplit.current) return;
+    if (!containerRef.current) return;
+    const bodyEl = containerRef.current.querySelector('.flashcard-body-container') as HTMLElement;
+    if (bodyEl) {
+      const rect = bodyEl.getBoundingClientRect();
+      const relativeY = e.clientY - rect.top;
+      const newRatio = Math.max(0.15, Math.min(0.85, relativeY / rect.height));
+      setLocalSplitRatio(newRatio);
+    }
+  };
+
+  const handleSplitPointerUp = (e: PointerEvent) => {
+    if (isResizingSplit.current) {
+      isResizingSplit.current = false;
+      (e.target as Element).releasePointerCapture(e.pointerId);
+      onUpdate({ splitRatio: localSplitRatio });
+      triggerAutoSave();
+    }
+  };
+
+  // Compress expanded note window automatically on click outside
+  useEffect(() => {
+    if (!isExpanded) return;
+    const handleDocumentClick = (e: MouseEvent) => {
+      const path = e.composedPath() as HTMLElement[];
+      if (containerRef.current && !path.includes(containerRef.current)) {
+        onUpdate({ isExpanded: false });
+      }
+    };
+    
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleDocumentClick);
+    }, 100);
+    
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleDocumentClick);
+    };
+  }, [isExpanded, id, onUpdate]);
   
   const handlePointerDown = (e: PointerEvent) => {
     e.stopPropagation();
@@ -187,11 +244,40 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
           userSelect: 'none'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.5 }}>
-          <GripHorizontal size={14} color={type === 'sticky' ? '#000' : '#fff'} />
-          <span style={{ fontSize: '12px', fontWeight: 600, color: type === 'sticky' ? '#000' : '#fff', textTransform: 'uppercase' }}>
-            {type}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.5 }}>
+            <GripHorizontal size={14} color={type === 'sticky' ? '#000' : '#fff'} />
+            <span style={{ fontSize: '12px', fontWeight: 600, color: type === 'sticky' ? '#000' : '#fff', textTransform: 'uppercase' }}>
+              {type}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '5px', marginLeft: '6px', alignItems: 'center' }}>
+            {['#fbbf24', '#4ade80', '#3b82f6', '#f87171', '#c084fc'].map(c => (
+              <button
+                key={c}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdate({ color: c });
+                }}
+                style={{
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '50%',
+                  backgroundColor: c,
+                  border: color === c ? (type === 'sticky' ? '1px solid #000' : '1px solid #fff') : '1px solid rgba(255,255,255,0.1)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  outline: 'none',
+                  boxShadow: color === c ? '0 0 4px rgba(255,255,255,0.5)' : 'none',
+                  transition: 'transform 0.1s ease'
+                }}
+                onMouseEnter={(el) => el.currentTarget.style.transform = 'scale(1.2)'}
+                onMouseLeave={(el) => el.currentTarget.style.transform = 'scale(1)'}
+                title="Change color"
+              />
+            ))}
+          </div>
         </div>
         
         <div style={{ display: 'flex', gap: '4px' }}>
@@ -232,25 +318,51 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
       {/* Content Body */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px', gap: '8px', overflowY: 'auto' }}>
         {type === 'flashcard' ? (
-          <>
+          <div className="flashcard-body-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
             <textarea
               value={frontText}
               onInput={(e) => onUpdate({ frontText: (e.target as HTMLTextAreaElement).value })}
               placeholder="Front (Question)..."
-              style={{ flex: 1, minHeight: '60px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
+              style={{ height: `calc(${localSplitRatio * 100}% - 6px)`, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
               onFocus={onFocus}
               onBlur={onBlur}
             />
-            <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
+            
+            <div 
+              onPointerDown={handleSplitPointerDown}
+              onPointerMove={handleSplitPointerMove}
+              onPointerUp={handleSplitPointerUp}
+              onPointerCancel={handleSplitPointerUp}
+              style={{ 
+                height: '12px', 
+                margin: '2px 0', 
+                cursor: 'row-resize', 
+                position: 'relative', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                userSelect: 'none',
+                touchAction: 'none'
+              }}
+            >
+              <div style={{ 
+                width: '100%', 
+                height: '1px', 
+                background: isResizingSplit.current ? '#3a76f0' : 'rgba(255,255,255,0.15)',
+                boxShadow: isResizingSplit.current ? '0 0 4px #3a76f0' : 'none',
+                transition: 'background 0.15s'
+              }} />
+            </div>
+
             <textarea
               value={backText}
               onInput={(e) => onUpdate({ backText: (e.target as HTMLTextAreaElement).value })}
               placeholder="Back (Answer)..."
-              style={{ flex: 1, minHeight: '60px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
+              style={{ height: `calc(${(1 - localSplitRatio) * 100}% - 6px)`, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
               onFocus={onFocus}
               onBlur={onBlur}
             />
-          </>
+          </div>
         ) : (
           <textarea
             value={text}

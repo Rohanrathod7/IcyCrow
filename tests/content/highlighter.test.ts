@@ -38,4 +38,19 @@ describe('Highlighter: Wrapping', () => {
     expect(p1.innerHTML).toContain('<mark');
     expect(l1.innerHTML).toContain('<mark');
   });
+
+  it('applies custom opacity to the wrapRange element background', () => {
+    document.body.innerHTML = '<p id="p">Hello World</p>';
+    const p = document.getElementById('p')!;
+    const range = document.createRange();
+    range.setStart(p.firstChild!, 0);
+    range.setEnd(p.firstChild!, 5);
+    
+    wrapRange(range, 'test-id-opacity', '#ef4444', 0.25);
+    
+    const mark = p.querySelector('mark');
+    expect(mark).not.toBeNull();
+    // rgba(239, 68, 68, 0.25) or equivalent parsed by browser
+    expect(mark?.style.backgroundColor.replace(/\s+/g, '')).toBe('rgba(239,68,68,0.25)');
+  });
 });
