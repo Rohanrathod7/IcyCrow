@@ -5,7 +5,10 @@ export const useKeyboardShortcuts = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // 1. Focus Gatekeeper (CRITICAL)
-      const active = document.activeElement;
+      let active = document.activeElement;
+      while (active && active.shadowRoot && active.shadowRoot.activeElement) {
+        active = active.shadowRoot.activeElement;
+      }
       const isTyping = 
         active?.tagName === 'INPUT' || 
         active?.tagName === 'TEXTAREA' || 

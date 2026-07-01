@@ -55,6 +55,22 @@ describe('useKeyboardShortcuts', () => {
     expect(activeTool.value).toBe('pan'); // Should NOT change
   });
 
+  it('ignores shortcuts when typing in an input inside a Shadow DOM', () => {
+    renderHook(() => useKeyboardShortcuts());
+    
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    const input = document.createElement('input');
+    shadow.appendChild(input);
+    input.focus();
+    
+    const event = new KeyboardEvent('keydown', { key: 'p' });
+    window.dispatchEvent(event);
+    
+    expect(activeTool.value).toBe('pan'); // Should NOT change
+  });
+
   it('triggers workspace-save event on Ctrl+S', () => {
     renderHook(() => useKeyboardShortcuts());
     
