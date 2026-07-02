@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Minimize2, Image as ImageIcon, Trash2, GripHorizontal, MessageSquare, StickyNote, Brain } from 'lucide-preact';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { triggerAutoSave } from '../store/web-annotation-state';
 
 export type NoteType = 'sticky' | 'callout' | 'flashcard';
@@ -74,6 +76,32 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
   const isResizingImage = useRef(false);
   const resizeStartPointerX = useRef(0);
   const resizeStartWidthPercent = useRef(100);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [isEditingFront, setIsEditingFront] = useState(false);
+  const [isEditingBack, setIsEditingBack] = useState(false);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const frontTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const backTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      textareaRef.current?.focus();
+    }
+  }, [isEditing]);
+
+  useEffect(() => {
+    if (isEditingFront) {
+      frontTextareaRef.current?.focus();
+    }
+  }, [isEditingFront]);
+
+  useEffect(() => {
+    if (isEditingBack) {
+      backTextareaRef.current?.focus();
+    }
+  }, [isEditingBack]);
 
   // Sync prop changes if updated externally
   useEffect(() => {
@@ -368,6 +396,49 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
       </div>
     );
   };
+
+  const getMarkdownHtml = (content: string) => {
+    const rawHtml = marked.parse(content || '') as string;
+    return DOMPurify.sanitize(rawHtml);
+  };
+
+  const renderMarkdownPreview = (content: string, placeholder: string, onClick: () => void) => {
+    if (!content) {
+      return (
+        <div 
+          onClick={onClick}
+          style={{ 
+            flex: 1, 
+            color: type === 'sticky' ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)', 
+            fontStyle: 'italic', 
+            fontSize: '14px', 
+            cursor: 'text',
+            userSelect: 'none',
+            minHeight: '30px'
+          }}
+        >
+          {placeholder}
+        </div>
+      );
+    }
+    
+    return (
+      <div 
+        onClick={onClick}
+        className="markdown-preview"
+        style={{ 
+          flex: 1, 
+          color: type === 'sticky' ? '#000' : '#fff', 
+          fontSize: '14px', 
+          cursor: 'text',
+          wordBreak: 'break-word',
+          overflowY: 'auto',
+          minHeight: '30px'
+        }}
+        dangerouslySetInnerHTML={{ __html: getMarkdownHtml(content) }}
+      />
+    );
+  };
   
   // Icon for collapsed state
   const Icon = type === 'callout' ? MessageSquare : (type === 'flashcard' ? Brain : StickyNote);
@@ -525,6 +596,14 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
 
       {/* Content Body */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px', gap: '8px', overflowY: 'auto' }}>
+        <style>{`
+          .markdown-preview p { margin: 0 0 8px 0; }
+          .markdown-preview p:last-child { margin: 0; }
+          .markdown-preview ul, .markdown-preview ol { margin: 4px 0; padding-left: 20px; }
+          .markdown-preview h1, .markdown-preview h2, .markdown-preview h3 { font-size: 15px; margin: 8px 0 4px 0; font-weight: 600; }
+          .markdown-preview code { font-family: monospace; background: ${type === 'sticky' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.15)'}; padding: 2px 4px; border-radius: 4px; font-size: 90%; }
+        `}</style>
+
         {type === 'flashcard' ? (
           <div className="flashcard-body-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
             <div 
@@ -542,15 +621,25 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
                 (s) => onUpdate({ frontImageSize: s, imageUrl: undefined, frontImageUrl: frontImageUrl || imageUrl }), 
                 () => onUpdate({ imageUrl: undefined, frontImageUrl: undefined })
               )}
-              <textarea
-                value={frontText}
-                onInput={(e) => onUpdate({ frontText: (e.target as HTMLTextAreaElement).value })}
-                onPaste={(e) => handlePaste(e, 'frontText')}
-                placeholder="Front (Question)..."
-                style={{ flex: 1, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
-                onFocus={onFocus}
-                onBlur={onBlur}
-              />
+              {isEditingFront ? (
+                <textarea
+                  ref={frontTextareaRef}
+                  value={frontText}
+                  onInput={(e) => onUpdate({ frontText: (e.target as HTMLTextAreaElement).value })}
+                  onPaste={(e) => handlePaste(e, 'frontText')}
+                  onBlur={() => {
+                    setIsEditingFront(false);
+                    onBlur?.();
+                  }}
+                  placeholder="Front (Question)..."
+                  style={{ flex: 1, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
+                />
+              ) : (
+                renderMarkdownPreview(frontText || '', 'Front (Question)... (Click to edit)', () => {
+                  setIsEditingFront(true);
+                  onFocus?.();
+                })
+              )}
             </div>
             
             <div 
@@ -594,15 +683,25 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
                 (s) => onUpdate({ backImageSize: s }), 
                 () => onUpdate({ backImageUrl: undefined })
               )}
-              <textarea
-                value={backText}
-                onInput={(e) => onUpdate({ backText: (e.target as HTMLTextAreaElement).value })}
-                onPaste={(e) => handlePaste(e, 'backText')}
-                placeholder="Back (Answer)..."
-                style={{ flex: 1, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
-                onFocus={onFocus}
-                onBlur={onBlur}
-              />
+              {isEditingBack ? (
+                <textarea
+                  ref={backTextareaRef}
+                  value={backText}
+                  onInput={(e) => onUpdate({ backText: (e.target as HTMLTextAreaElement).value })}
+                  onPaste={(e) => handlePaste(e, 'backText')}
+                  onBlur={() => {
+                    setIsEditingBack(false);
+                    onBlur?.();
+                  }}
+                  placeholder="Back (Answer)..."
+                  style={{ flex: 1, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
+                />
+              ) : (
+                renderMarkdownPreview(backText || '', 'Back (Answer)... (Click to edit)', () => {
+                  setIsEditingBack(true);
+                  onFocus?.();
+                })
+              )}
             </div>
           </div>
         ) : (
@@ -613,15 +712,25 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
               (s) => onUpdate({ imageSize: s }), 
               () => onUpdate({ imageUrl: undefined })
             )}
-            <textarea
-              value={text}
-              onInput={(e) => onUpdate({ text: (e.target as HTMLTextAreaElement).value })}
-              onPaste={(e) => handlePaste(e, 'text')}
-              placeholder={`Type ${type} text...`}
-              style={{ flex: 1, background: 'transparent', border: 'none', resize: 'none', color: type === 'sticky' ? '#000' : '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
-              onFocus={onFocus}
-              onBlur={onBlur}
-            />
+            {isEditing ? (
+              <textarea
+                ref={textareaRef}
+                value={text}
+                onInput={(e) => onUpdate({ text: (e.target as HTMLTextAreaElement).value })}
+                onPaste={(e) => handlePaste(e, 'text')}
+                onBlur={() => {
+                  setIsEditing(false);
+                  onBlur?.();
+                }}
+                placeholder={`Type ${type} text...`}
+                style={{ flex: 1, background: 'transparent', border: 'none', resize: 'none', color: type === 'sticky' ? '#000' : '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
+              />
+            ) : (
+              renderMarkdownPreview(text || '', `Type ${type} text... (Click to edit)`, () => {
+                setIsEditing(true);
+                onFocus?.();
+              })
+            )}
           </div>
         )}
       </div>

@@ -86,6 +86,10 @@ describe('DraggableNoteWindow Component', () => {
       const onUpdate = vi.fn();
       render(<DraggableNoteWindow {...defaultProps} onUpdate={onUpdate} />);
 
+      // Click preview to enter edit mode
+      const preview = screen.getByText('Hello world');
+      fireEvent.click(preview);
+
       const textarea = screen.getByPlaceholderText('Type sticky text...');
       const file = new File([''], 'test.png', { type: 'image/png' });
       const clipboardData = {
@@ -197,7 +201,13 @@ describe('DraggableNoteWindow Component', () => {
       
       render(<DraggableNoteWindow {...flashcardProps} />);
 
+      // Click previews to enter edit mode
+      const frontPreview = screen.getByText('Front question');
+      fireEvent.click(frontPreview);
       const frontTextarea = screen.getByPlaceholderText('Front (Question)...');
+
+      const backPreview = screen.getByText('Back answer');
+      fireEvent.click(backPreview);
       const backTextarea = screen.getByPlaceholderText('Back (Answer)...');
 
       const file = new File([''], 'fc.png', { type: 'image/png' });
@@ -220,6 +230,40 @@ describe('DraggableNoteWindow Component', () => {
       
       await new Promise(resolve => setTimeout(resolve, 20));
       expect(onUpdate).toHaveBeenCalledWith({ backImageUrl: 'data:image/png;base64,mockdata' });
+    });
+
+    it('renders Markdown preview for note content and toggles editing on click/blur', () => {
+      const onUpdate = vi.fn();
+      render(
+        <DraggableNoteWindow 
+          {...defaultProps} 
+          text="**hello** markdown" 
+          onUpdate={onUpdate}
+        />
+      );
+
+      // By default, it should render the parsed HTML in preview mode
+      const preview = screen.getByText((content, element) => {
+        return element?.tagName.toLowerCase() === 'strong' && content === 'hello';
+      });
+      expect(preview).toBeDefined();
+
+      // Textarea should NOT be present in preview mode
+      expect(screen.queryByPlaceholderText('Type sticky text...')).toBeNull();
+
+      // Click the preview to enter editing mode
+      fireEvent.click(preview);
+
+      // Now the raw textarea should be displayed
+      const textarea = screen.getByPlaceholderText('Type sticky text...') as HTMLTextAreaElement;
+      expect(textarea).toBeDefined();
+      expect(textarea.value).toBe('**hello** markdown');
+
+      // Blur the textarea to return to preview mode
+      fireEvent.blur(textarea);
+
+      // Textarea should be gone again
+      expect(screen.queryByPlaceholderText('Type sticky text...')).toBeNull();
     });
   });
 });
