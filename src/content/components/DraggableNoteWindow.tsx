@@ -48,6 +48,40 @@ const isColorDark = (hex: string) => {
   return false;
 };
 
+const maskImages = (rawText: string, imagesMap: Record<string, string>) => {
+  if (!rawText) return rawText;
+  let maskedText = rawText;
+  const regex = /<img[^>]*src=["'](data:image\/[^"']+)["'][^>]*>/g;
+  let match;
+  let imgCounter = Object.keys(imagesMap).length + 1;
+  regex.lastIndex = 0;
+  while ((match = regex.exec(rawText)) !== null) {
+    const fullSrc = match[1];
+    let key = '';
+    for (const [k, v] of Object.entries(imagesMap)) {
+      if (v === fullSrc) {
+        key = k;
+        break;
+      }
+    }
+    if (!key) {
+      key = `__img_placeholder_${imgCounter++}__`;
+      imagesMap[key] = fullSrc;
+    }
+    maskedText = maskedText.replaceAll(fullSrc, key);
+  }
+  return maskedText;
+};
+
+const unmaskImages = (maskedText: string, imagesMap: Record<string, string>) => {
+  if (!maskedText) return maskedText;
+  let rawText = maskedText;
+  for (const [key, fullSrc] of Object.entries(imagesMap)) {
+    rawText = rawText.replaceAll(key, fullSrc);
+  }
+  return rawText;
+};
+
 export const DraggableNoteWindow = (props: DraggableNoteProps) => {
   const { 
     id, 
@@ -95,6 +129,29 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
   const [activeHoveredImg, setActiveHoveredImg] = useState<{ element: HTMLImageElement; field: 'text' | 'frontText' | 'backText' } | null>(null);
   const [isEditingFront, setIsEditingFront] = useState(isExpanded && !frontText);
   const [isEditingBack, setIsEditingBack] = useState(isExpanded && !backText);
+
+  const [localText, setLocalText] = useState('');
+  const [localFrontText, setLocalFrontText] = useState('');
+  const [localBackText, setLocalBackText] = useState('');
+  const imagesMap = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    if (isEditing) {
+      setLocalText(maskImages(text || '', imagesMap.current));
+    }
+  }, [isEditing]);
+
+  useEffect(() => {
+    if (isEditingFront) {
+      setLocalFrontText(maskImages(frontText || '', imagesMap.current));
+    }
+  }, [isEditingFront]);
+
+  useEffect(() => {
+    if (isEditingBack) {
+      setLocalBackText(maskImages(backText || '', imagesMap.current));
+    }
+  }, [isEditingBack]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const frontTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -258,15 +315,25 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
             const start = textarea.selectionStart ?? 0;
             const end = textarea.selectionEnd ?? 0;
             
-            let currentText = '';
-            if (field === 'text') currentText = text || '';
-            else if (field === 'frontText') currentText = frontText || '';
-            else if (field === 'backText') currentText = backText || '';
+            const imgKey = `__img_placeholder_${Object.keys(imagesMap.current).length + 1}__`;
+            imagesMap.current[imgKey] = dataUrl;
             
-            const imageMarkdown = `\n<img src="${dataUrl}" width="100%" />\n`;
-            const updatedText = currentText.substring(0, start) + imageMarkdown + currentText.substring(end);
+            const imageTag = `\n<img src="${imgKey}" width="100%" />\n`;
             
-            onUpdate({ [field]: updatedText });
+            let newLocalVal = '';
+            if (field === 'text') {
+              newLocalVal = localText.substring(0, start) + imageTag + localText.substring(end);
+              setLocalText(newLocalVal);
+            } else if (field === 'frontText') {
+              newLocalVal = localFrontText.substring(0, start) + imageTag + localFrontText.substring(end);
+              setLocalFrontText(newLocalVal);
+            } else if (field === 'backText') {
+              newLocalVal = localBackText.substring(0, start) + imageTag + localBackText.substring(end);
+              setLocalBackText(newLocalVal);
+            }
+            
+            const unmasked = unmaskImages(newLocalVal, imagesMap.current);
+            onUpdate({ [field]: unmasked });
           };
           reader.readAsDataURL(file);
           break;
@@ -777,8 +844,13 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
               {isEditingFront ? (
                 <textarea
                   ref={frontTextareaRef}
-                  value={frontText}
-                  onInput={(e) => onUpdate({ frontText: (e.target as HTMLTextAreaElement).value })}
+                  value={localFrontText}
+                  onInput={(e) => {
+                    const val = (e.target as HTMLTextAreaElement).value;
+                    setLocalFrontText(val);
+                    const unmasked = unmaskImages(val, imagesMap.current);
+                    onUpdate({ frontText: unmasked });
+                  }}
                   onPaste={(e) => handlePaste(e, 'frontText')}
                   onBlur={onBlur}
                   placeholder="Front (Question)..."
@@ -836,8 +908,13 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
               {isEditingBack ? (
                 <textarea
                   ref={backTextareaRef}
-                  value={backText}
-                  onInput={(e) => onUpdate({ backText: (e.target as HTMLTextAreaElement).value })}
+                  value={localBackText}
+                  onInput={(e) => {
+                    const val = (e.target as HTMLTextAreaElement).value;
+                    setLocalBackText(val);
+                    const unmasked = unmaskImages(val, imagesMap.current);
+                    onUpdate({ backText: unmasked });
+                  }}
                   onPaste={(e) => handlePaste(e, 'backText')}
                   onBlur={onBlur}
                   placeholder="Back (Answer)..."
@@ -862,8 +939,13 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
             {isEditing ? (
               <textarea
                 ref={textareaRef}
-                value={text}
-                onInput={(e) => onUpdate({ text: (e.target as HTMLTextAreaElement).value })}
+                value={localText}
+                onInput={(e) => {
+                  const val = (e.target as HTMLTextAreaElement).value;
+                  setLocalText(val);
+                  const unmasked = unmaskImages(val, imagesMap.current);
+                  onUpdate({ text: unmasked });
+                }}
                 onPaste={(e) => handlePaste(e, 'text')}
                 onBlur={onBlur}
                 placeholder={`Type ${type} text...`}
