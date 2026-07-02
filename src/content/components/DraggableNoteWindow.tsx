@@ -19,6 +19,11 @@ export interface DraggableNoteProps {
   frontText?: string;
   backText?: string;
   imageUrl?: string;
+  frontImageUrl?: string;
+  backImageUrl?: string;
+  imageSize?: number;
+  frontImageSize?: number;
+  backImageSize?: number;
   splitRatio?: number;
   
   // Callbacks
@@ -26,12 +31,38 @@ export interface DraggableNoteProps {
   onDelete: () => void;
   onFocus?: () => void;
   onBlur?: () => void;
+  onViewFullscreen?: (url: string) => void;
   
   isActive?: boolean;
 }
 
 export const DraggableNoteWindow = (props: DraggableNoteProps) => {
-  const { id, type, x, y, width = 240, height = 200, isExpanded = true, color, text, frontText, backText, imageUrl, splitRatio = 0.5, onUpdate, onDelete, onFocus, onBlur, isActive } = props;
+  const { 
+    id, 
+    type, 
+    x, 
+    y, 
+    width = 240, 
+    height = 200, 
+    isExpanded = true, 
+    color, 
+    text, 
+    frontText, 
+    backText, 
+    imageUrl, 
+    frontImageUrl,
+    backImageUrl,
+    imageSize = 100,
+    frontImageSize = 100,
+    backImageSize = 100,
+    splitRatio = 0.5, 
+    onUpdate, 
+    onDelete, 
+    onFocus, 
+    onBlur, 
+    onViewFullscreen,
+    isActive 
+  } = props;
   
   const [isDragging, setIsDragging] = useState(false);
   const [hasDragged, setHasDragged] = useState(false);
@@ -146,6 +177,160 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
       onUpdate({ imageUrl: event.target?.result });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handlePaste = (e: ClipboardEvent, field: 'text' | 'frontText' | 'backText') => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const dataUrl = event.target?.result as string;
+            if (type === 'flashcard') {
+              if (field === 'frontText') {
+                onUpdate({ frontImageUrl: dataUrl });
+              } else {
+                onUpdate({ backImageUrl: dataUrl });
+              }
+            } else {
+              onUpdate({ imageUrl: dataUrl });
+            }
+          };
+          reader.readAsDataURL(file);
+          break;
+        }
+      }
+    }
+  };
+
+  const renderImageContainer = (
+    url: string, 
+    sizePercent = 100, 
+    onSizeChange: (s: number) => void, 
+    onDelete: () => void
+  ) => {
+    const [isHovered, setIsHovered] = useState(false);
+    return (
+      <div 
+        style={{ 
+          position: 'relative', 
+          width: '100%', 
+          display: 'flex', 
+          justifyContent: 'center',
+          alignItems: 'center',
+          margin: '4px 0',
+          borderRadius: '6px',
+          overflow: 'hidden'
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div style={{ width: `${sizePercent}%`, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <img 
+            src={url} 
+            style={{ 
+              width: '100%', 
+              maxHeight: '180px', 
+              objectFit: 'contain', 
+              borderRadius: '4px',
+              border: type === 'sticky' ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.15)',
+              cursor: 'zoom-in'
+            }} 
+            onClick={() => onViewFullscreen?.(url)}
+          />
+          
+          {/* Overlay controls on hover */}
+          {isHovered && (
+            <div 
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                padding: '6px',
+                boxSizing: 'border-box',
+                borderRadius: '4px',
+                backdropFilter: 'blur(2px)'
+              }}
+            >
+              {/* Top controls: Zoom + Delete */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onViewFullscreen?.(url); }}
+                  style={{
+                    background: 'rgba(0,0,0,0.6)',
+                    border: 'none',
+                    borderRadius: '4px',
+                    color: '#fff',
+                    padding: '4px 6px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Full screen"
+                >
+                  🔍 Full screen
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.8)',
+                    border: 'none',
+                    borderRadius: '4px',
+                    color: '#fff',
+                    padding: '4px 6px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Delete image"
+                >
+                  🗑️ Delete
+                </button>
+              </div>
+
+              {/* Bottom controls: Resize Slider */}
+              <div 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  background: 'rgba(0,0,0,0.75)', 
+                  padding: '4px 8px', 
+                  borderRadius: '4px',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span style={{ fontSize: '10px', color: '#ccc', whiteSpace: 'nowrap' }}>Size: {sizePercent}%</span>
+                <input 
+                  type="range" 
+                  min="20" 
+                  max="100" 
+                  value={sizePercent} 
+                  onInput={(e) => onSizeChange(parseInt((e.target as HTMLInputElement).value))}
+                  style={{ flex: 1, height: '4px', cursor: 'pointer', accentColor: color }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
   
   // Icon for collapsed state
@@ -301,32 +486,36 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
           </button>
         </div>
       </div>
-      
-      {/* Image Preview */}
-      {imageUrl && (
-        <div style={{ position: 'relative', width: '100%', maxHeight: '120px', backgroundColor: 'rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-          <img src={imageUrl} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-          <button 
-            style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => onUpdate({ imageUrl: undefined })}
-          >
-            &times;
-          </button>
-        </div>
-      )}
 
       {/* Content Body */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px', gap: '8px', overflowY: 'auto' }}>
         {type === 'flashcard' ? (
           <div className="flashcard-body-container" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
-            <textarea
-              value={frontText}
-              onInput={(e) => onUpdate({ frontText: (e.target as HTMLTextAreaElement).value })}
-              placeholder="Front (Question)..."
-              style={{ height: `calc(${localSplitRatio * 100}% - 6px)`, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
-              onFocus={onFocus}
-              onBlur={onBlur}
-            />
+            <div 
+              style={{ 
+                height: `calc(${localSplitRatio * 100}% - 6px)`, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '4px',
+                overflowY: 'auto' 
+              }}
+            >
+              {(frontImageUrl || imageUrl) && renderImageContainer(
+                (frontImageUrl || imageUrl) as string, 
+                frontImageSize, 
+                (s) => onUpdate({ frontImageSize: s, imageUrl: undefined, frontImageUrl: frontImageUrl || imageUrl }), 
+                () => onUpdate({ imageUrl: undefined, frontImageUrl: undefined })
+              )}
+              <textarea
+                value={frontText}
+                onInput={(e) => onUpdate({ frontText: (e.target as HTMLTextAreaElement).value })}
+                onPaste={(e) => handlePaste(e, 'frontText')}
+                placeholder="Front (Question)..."
+                style={{ flex: 1, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
+                onFocus={onFocus}
+                onBlur={onBlur}
+              />
+            </div>
             
             <div 
               onPointerDown={handleSplitPointerDown}
@@ -354,24 +543,50 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
               }} />
             </div>
 
+            <div 
+              style={{ 
+                height: `calc(${(1 - localSplitRatio) * 100}% - 6px)`, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '4px',
+                overflowY: 'auto'
+              }}
+            >
+              {backImageUrl && renderImageContainer(
+                backImageUrl as string, 
+                backImageSize, 
+                (s) => onUpdate({ backImageSize: s }), 
+                () => onUpdate({ backImageUrl: undefined })
+              )}
+              <textarea
+                value={backText}
+                onInput={(e) => onUpdate({ backText: (e.target as HTMLTextAreaElement).value })}
+                onPaste={(e) => handlePaste(e, 'backText')}
+                placeholder="Back (Answer)..."
+                style={{ flex: 1, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
+                onFocus={onFocus}
+                onBlur={onBlur}
+              />
+            </div>
+          </div>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', height: '100%' }}>
+            {imageUrl && renderImageContainer(
+              imageUrl as string, 
+              imageSize, 
+              (s) => onUpdate({ imageSize: s }), 
+              () => onUpdate({ imageUrl: undefined })
+            )}
             <textarea
-              value={backText}
-              onInput={(e) => onUpdate({ backText: (e.target as HTMLTextAreaElement).value })}
-              placeholder="Back (Answer)..."
-              style={{ height: `calc(${(1 - localSplitRatio) * 100}% - 6px)`, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
+              value={text}
+              onInput={(e) => onUpdate({ text: (e.target as HTMLTextAreaElement).value })}
+              onPaste={(e) => handlePaste(e, 'text')}
+              placeholder={`Type ${type} text...`}
+              style={{ flex: 1, background: 'transparent', border: 'none', resize: 'none', color: type === 'sticky' ? '#000' : '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
               onFocus={onFocus}
               onBlur={onBlur}
             />
           </div>
-        ) : (
-          <textarea
-            value={text}
-            onInput={(e) => onUpdate({ text: (e.target as HTMLTextAreaElement).value })}
-            placeholder={`Type ${type} text...`}
-            style={{ flex: 1, background: 'transparent', border: 'none', resize: 'none', color: type === 'sticky' ? '#000' : '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
-            onFocus={onFocus}
-            onBlur={onBlur}
-          />
         )}
       </div>
     </div>

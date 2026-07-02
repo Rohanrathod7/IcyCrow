@@ -657,6 +657,7 @@ export interface WebStickyNote {
   height?: number;
   isExpanded?: boolean;
   imageUrl?: string;
+  imageSize?: number;
   text: string;
   color: string;
 }
@@ -669,6 +670,7 @@ export interface WebCallout {
   height?: number;
   isExpanded?: boolean;
   imageUrl?: string;
+  imageSize?: number;
   text: string;
   color: string;
 }
@@ -681,6 +683,10 @@ export interface WebFlashcardNote {
   height?: number;
   isExpanded?: boolean;
   imageUrl?: string;
+  frontImageUrl?: string;
+  backImageUrl?: string;
+  frontImageSize?: number;
+  backImageSize?: number;
   frontText: string;
   backText: string;
   color: string;
