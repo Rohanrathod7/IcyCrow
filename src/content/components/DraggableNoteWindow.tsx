@@ -949,6 +949,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
               onPointerDown={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
+                
                 isResizingImage.current = true;
                 resizeStartPointerX.current = e.clientX;
                 
@@ -960,61 +961,71 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
                   parsedWidth = parseInt(widthAttr);
                 }
                 resizeStartWidthPercent.current = parsedWidth;
-                
-                const target = e.target as HTMLElement;
-                if (typeof target.setPointerCapture === 'function') {
-                  target.setPointerCapture(e.pointerId);
-                }
-              }}
-              onPointerMove={(e) => {
-                if (!isResizingImage.current) return;
-                e.stopPropagation();
-                
-                const parent = activeHoveredImg.element.parentElement;
-                if (!parent) return;
-                
-                const parentRect = parent.getBoundingClientRect();
-                if (parentRect.width === 0) return;
-                
-                const deltaX = e.clientX - resizeStartPointerX.current;
-                const deltaPercent = (deltaX / parentRect.width) * 100;
-                const newPercent = Math.max(20, Math.min(100, Math.round(resizeStartWidthPercent.current + deltaPercent)));
-                
-                const src = activeHoveredImg.element.getAttribute('src') || '';
-                updateInlineImageSize(src, newPercent, activeHoveredImg.field);
-              }}
-              onPointerUp={(e) => {
-                if (isResizingImage.current) {
-                  isResizingImage.current = false;
-                  const target = e.target as HTMLElement;
-                  if (typeof target.releasePointerCapture === 'function') {
-                    target.releasePointerCapture(e.pointerId);
+
+                const currentSrc = activeHoveredImg.element.getAttribute('src') || '';
+                const currentField = activeHoveredImg.field;
+
+                const handleWindowPointerMove = (moveEv: PointerEvent) => {
+                  if (!isResizingImage.current) return;
+                  if (!containerRef.current) return;
+                  
+                  const allImgs = containerRef.current.querySelectorAll('img');
+                  let foundParent: HTMLElement | null = null;
+                  for (let i = 0; i < allImgs.length; i++) {
+                    if (allImgs[i].getAttribute('src') === currentSrc) {
+                      foundParent = allImgs[i].parentElement;
+                      break;
+                    }
                   }
+                  if (!foundParent) return;
+                  
+                  const parentRect = foundParent.getBoundingClientRect();
+                  if (parentRect.width === 0) return;
+                  
+                  const deltaX = moveEv.clientX - resizeStartPointerX.current;
+                  const deltaPercent = (deltaX / parentRect.width) * 100;
+                  const newPercent = Math.max(20, Math.min(100, Math.round(resizeStartWidthPercent.current + deltaPercent)));
+                  
+                  updateInlineImageSize(currentSrc, newPercent, currentField);
+                };
+
+                const handleWindowPointerUp = () => {
+                  isResizingImage.current = false;
+                  window.removeEventListener('pointermove', handleWindowPointerMove);
+                  window.removeEventListener('pointerup', handleWindowPointerUp);
                   triggerAutoSave();
                   setActiveHoveredImg(null);
-                }
+                };
+
+                window.addEventListener('pointermove', handleWindowPointerMove);
+                window.addEventListener('pointerup', handleWindowPointerUp);
               }}
               style={{ 
                 position: 'absolute',
-                right: '4px',
-                bottom: '4px',
-                width: '14px',
-                height: '14px',
-                cursor: 'se-resize',
-                background: 'rgba(255, 255, 255, 0.95)',
-                borderRadius: '3px',
-                border: '1px solid rgba(0,0,0,0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                right: '-4px',
+                top: 0,
+                width: '8px',
+                height: '100%',
+                cursor: 'col-resize',
                 pointerEvents: 'auto',
                 userSelect: 'none',
                 touchAction: 'none',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
-              title="Drag to resize"
+              title="Drag right edge to resize"
             >
-              <span style={{ fontSize: '8px', color: '#333', fontWeight: 'bold', lineHeight: 1, pointerEvents: 'none' }}>⤱</span>
+              <div 
+                style={{
+                  width: '4px',
+                  height: '24px',
+                  borderRadius: '2px',
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid rgba(0,0,0,0.3)',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                }} 
+              />
             </div>
           </div>
         );
