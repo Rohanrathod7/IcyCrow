@@ -108,7 +108,7 @@ describe('DraggableNoteWindow Component', () => {
       expect(onUpdate).toHaveBeenCalledWith({ imageUrl: 'data:image/png;base64,mockdata' });
     });
 
-    it('displays image size slider when image is present', () => {
+    it('supports grab-to-resize handle for dragging image size', () => {
       const onUpdate = vi.fn();
       render(
         <DraggableNoteWindow 
@@ -119,26 +119,46 @@ describe('DraggableNoteWindow Component', () => {
         />
       );
 
-      // We need to trigger hover/mouseenter to show the controls
+      // Trigger hover to show controls
       const img = screen.getByRole('img');
-      const container = img.parentElement?.parentElement;
-      expect(container).toBeDefined();
+      const grandparent = img.parentElement?.parentElement;
+      expect(grandparent).toBeDefined();
 
-      if (container) {
-        fireEvent.mouseEnter(container);
+      if (grandparent) {
+        fireEvent.mouseEnter(grandparent);
       }
 
-      // Check for size slider
-      const slider = screen.getByRole('slider') as HTMLInputElement;
-      expect(slider).toBeDefined();
-      expect(slider.value).toBe('50');
+      // Check for grab handle
+      const handle = screen.getByTitle('Drag to resize');
+      expect(handle).toBeDefined();
 
-      // Change slider value
-      fireEvent.input(slider, { target: { value: '75' } });
+      // Mock getBoundingClientRect for parent width calculation
+      const greatGrandparent = grandparent?.parentElement;
+      expect(greatGrandparent).toBeDefined();
+      if (greatGrandparent) {
+        vi.spyOn(greatGrandparent, 'getBoundingClientRect').mockReturnValue({
+          left: 100,
+          right: 300,
+          width: 200,
+          top: 0,
+          bottom: 0,
+          height: 100,
+          x: 100,
+          y: 0,
+          toJSON: () => {}
+        });
+      }
+
+      // Simulate pointer drag resizing:
+      // Dragging pointer from handle (x coordinate 200) to clientX 250 (which represents 75% width)
+      fireEvent.pointerDown(handle, { clientX: 200, pointerId: 1 });
+      fireEvent.pointerMove(handle, { clientX: 250 });
+      fireEvent.pointerUp(handle, { pointerId: 1 });
+
       expect(onUpdate).toHaveBeenCalledWith({ imageSize: 75 });
     });
 
-    it('triggers onViewFullscreen when fullscreen button is clicked', () => {
+    it('triggers onViewFullscreen when double clicking the image and ensures fullscreen button is removed', () => {
       const onViewFullscreen = vi.fn();
       render(
         <DraggableNoteWindow 
@@ -149,15 +169,18 @@ describe('DraggableNoteWindow Component', () => {
       );
 
       const img = screen.getByRole('img');
-      const container = img.parentElement?.parentElement;
-      expect(container).toBeDefined();
+      const grandparent = img.parentElement?.parentElement;
+      expect(grandparent).toBeDefined();
 
-      if (container) {
-        fireEvent.mouseEnter(container);
+      if (grandparent) {
+        fireEvent.mouseEnter(grandparent);
       }
 
-      const zoomBtn = screen.getByTitle('Full screen');
-      fireEvent.click(zoomBtn);
+      // Full screen button should NOT exist anymore
+      expect(screen.queryByTitle('Full screen')).toBeNull();
+
+      // Double-click triggers fullscreen zoom
+      fireEvent.dblClick(img);
 
       expect(onViewFullscreen).toHaveBeenCalledWith('data:image/png;base64,mockdata');
     });

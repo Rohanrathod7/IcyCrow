@@ -71,6 +71,9 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
 
   const [localSplitRatio, setLocalSplitRatio] = useState(splitRatio);
   const isResizingSplit = useRef(false);
+  const isResizingImage = useRef(false);
+  const resizeStartPointerX = useRef(0);
+  const resizeStartWidthPercent = useRef(100);
 
   // Sync prop changes if updated externally
   useEffect(() => {
@@ -214,8 +217,55 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
     onDelete: () => void
   ) => {
     const [isHovered, setIsHovered] = useState(false);
+
+    const handleResizePointerDown = (e: PointerEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      isResizingImage.current = true;
+      resizeStartPointerX.current = e.clientX;
+      resizeStartWidthPercent.current = sizePercent;
+      
+      const target = e.target as HTMLElement;
+      if (typeof target.setPointerCapture === 'function') {
+        target.setPointerCapture(e.pointerId);
+      }
+    };
+
+    const handleResizePointerMove = (e: PointerEvent) => {
+      if (!isResizingImage.current) return;
+      e.stopPropagation();
+      
+      const target = e.target as HTMLElement;
+      const container = target.closest('.image-wrapper-container') as HTMLElement;
+      if (!container) return;
+      
+      const parent = container.parentElement;
+      if (!parent) return;
+      
+      const parentRect = parent.getBoundingClientRect();
+      if (parentRect.width === 0) return;
+      
+      const deltaX = e.clientX - resizeStartPointerX.current;
+      const deltaPercent = (deltaX / parentRect.width) * 100;
+      const newPercent = Math.max(20, Math.min(100, Math.round(resizeStartWidthPercent.current + deltaPercent)));
+      
+      onSizeChange(newPercent);
+    };
+
+    const handleResizePointerUp = (e: PointerEvent) => {
+      if (isResizingImage.current) {
+        isResizingImage.current = false;
+        const target = e.target as HTMLElement;
+        if (typeof target.releasePointerCapture === 'function') {
+          target.releasePointerCapture(e.pointerId);
+        }
+        triggerAutoSave();
+      }
+    };
+
     return (
       <div 
+        className="image-wrapper-container"
         style={{ 
           position: 'relative', 
           width: '100%', 
@@ -240,7 +290,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
               border: type === 'sticky' ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.15)',
               cursor: 'zoom-in'
             }} 
-            onClick={() => onViewFullscreen?.(url)}
+            onDblClick={() => onViewFullscreen?.(url)}
           />
           
           {/* Overlay controls on hover */}
@@ -259,29 +309,12 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
                 padding: '6px',
                 boxSizing: 'border-box',
                 borderRadius: '4px',
-                backdropFilter: 'blur(2px)'
+                backdropFilter: 'blur(2px)',
+                pointerEvents: 'none'
               }}
             >
-              {/* Top controls: Zoom + Delete */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onViewFullscreen?.(url); }}
-                  style={{
-                    background: 'rgba(0,0,0,0.6)',
-                    border: 'none',
-                    borderRadius: '4px',
-                    color: '#fff',
-                    padding: '4px 6px',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                  title="Full screen"
-                >
-                  🔍 Full screen
-                </button>
+              {/* Top controls: Delete */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', pointerEvents: 'auto' }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(); }}
                   style={{
@@ -302,29 +335,32 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
                 </button>
               </div>
 
-              {/* Bottom controls: Resize Slider */}
+              {/* Grab handle at bottom right corner */}
               <div 
+                onPointerDown={handleResizePointerDown}
+                onPointerMove={handleResizePointerMove}
+                onPointerUp={handleResizePointerUp}
+                onPointerCancel={handleResizePointerUp}
                 style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '6px', 
-                  background: 'rgba(0,0,0,0.75)', 
-                  padding: '4px 8px', 
-                  borderRadius: '4px',
-                  width: '100%',
-                  boxSizing: 'border-box'
+                  position: 'absolute',
+                  right: '4px',
+                  bottom: '4px',
+                  width: '14px',
+                  height: '14px',
+                  cursor: 'se-resize',
+                  background: 'rgba(255, 255, 255, 0.8)',
+                  borderRadius: '3px',
+                  border: '1px solid rgba(0,0,0,0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'auto',
+                  userSelect: 'none',
+                  touchAction: 'none'
                 }}
-                onClick={(e) => e.stopPropagation()}
+                title="Drag to resize"
               >
-                <span style={{ fontSize: '10px', color: '#ccc', whiteSpace: 'nowrap' }}>Size: {sizePercent}%</span>
-                <input 
-                  type="range" 
-                  min="20" 
-                  max="100" 
-                  value={sizePercent} 
-                  onInput={(e) => onSizeChange(parseInt((e.target as HTMLInputElement).value))}
-                  style={{ flex: 1, height: '4px', cursor: 'pointer', accentColor: color }}
-                />
+                <span style={{ fontSize: '8px', color: '#666', lineHeight: 1, pointerEvents: 'none' }}>⤱</span>
               </div>
             </div>
           )}
