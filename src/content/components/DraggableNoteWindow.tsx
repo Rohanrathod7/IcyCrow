@@ -88,6 +88,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
   const resizeStartWidthPercent = useRef(100);
 
   const [isEditing, setIsEditing] = useState(isExpanded && !text);
+  const [activeHoveredImg, setActiveHoveredImg] = useState<{ element: HTMLImageElement; field: 'text' | 'frontText' | 'backText' } | null>(null);
   const [isEditingFront, setIsEditingFront] = useState(isExpanded && !frontText);
   const [isEditingBack, setIsEditingBack] = useState(isExpanded && !backText);
 
@@ -258,7 +259,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
             else if (field === 'frontText') currentText = frontText || '';
             else if (field === 'backText') currentText = backText || '';
             
-            const imageMarkdown = `\n![Image](${dataUrl})\n`;
+            const imageMarkdown = `\n<img src="${dataUrl}" width="100%" />\n`;
             const updatedText = currentText.substring(0, start) + imageMarkdown + currentText.substring(end);
             
             onUpdate({ [field]: updatedText });
@@ -429,6 +430,75 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
     );
   };
 
+  const escapeRegExp = (string: string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  };
+
+  const updateInlineImageSize = (src: string, newWidth: number, field: 'text' | 'frontText' | 'backText') => {
+    let currentText = '';
+    if (field === 'text') currentText = text || '';
+    else if (field === 'frontText') currentText = frontText || '';
+    else if (field === 'backText') currentText = backText || '';
+
+    const regex = new RegExp(`<img[^>]*src=["']${escapeRegExp(src)}["'][^>]*>`, 'g');
+    const match = regex.exec(currentText);
+    if (match) {
+      const matchedTag = match[0];
+      let updatedTag = matchedTag;
+      if (matchedTag.includes('width=')) {
+        updatedTag = matchedTag.replace(/width=["'][^"']*["']/, `width="${newWidth}%"`);
+      } else {
+        updatedTag = matchedTag.replace('/>', `width="${newWidth}%" />`).replace('>', ` width="${newWidth}%">`);
+      }
+      const newText = currentText.replace(matchedTag, updatedTag);
+      onUpdate({ [field]: newText });
+    }
+  };
+
+  const deleteInlineImage = (src: string, field: 'text' | 'frontText' | 'backText') => {
+    let currentText = '';
+    if (field === 'text') currentText = text || '';
+    else if (field === 'frontText') currentText = frontText || '';
+    else if (field === 'backText') currentText = backText || '';
+
+    const regex = new RegExp(`<img[^>]*src=["']${escapeRegExp(src)}["'][^>]*>`, 'g');
+    const newText = currentText.replace(regex, '').trim();
+    onUpdate({ [field]: newText });
+    setActiveHoveredImg(null);
+  };
+
+  const handlePreviewDoubleClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName.toLowerCase() === 'img') {
+      const src = target.getAttribute('src');
+      if (src) {
+        onViewFullscreen?.(src);
+      }
+    }
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isResizingImage.current) return;
+    const target = e.target as HTMLElement;
+    if (target.tagName.toLowerCase() === 'img' && target.closest('.markdown-preview')) {
+      let field: 'text' | 'frontText' | 'backText' = 'text';
+      if (type === 'flashcard') {
+        const isBack = !!target.closest('.flashcard-body-container > div:last-child');
+        field = isBack ? 'backText' : 'frontText';
+      }
+      setActiveHoveredImg({ element: target as HTMLImageElement, field });
+    }
+  };
+
+  const handleMouseLeave = (e: MouseEvent) => {
+    if (isResizingImage.current) return;
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (relatedTarget && (relatedTarget.closest('.image-floating-overlay') || relatedTarget.tagName.toLowerCase() === 'img')) {
+      return;
+    }
+    setActiveHoveredImg(null);
+  };
+
   const getMarkdownHtml = (content: string) => {
     const rawHtml = marked.parse(content || '') as string;
     return DOMPurify.sanitize(rawHtml);
@@ -457,6 +527,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
     return (
       <div 
         onClick={onClick}
+        onDblClick={handlePreviewDoubleClick}
         className="markdown-preview"
         style={{ 
           flex: 1, 
@@ -544,6 +615,8 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
       onMouseUp={() => {
         // Handle native resize event by checking if dimensions changed
         if (containerRef.current) {
@@ -791,6 +864,131 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
           </div>
         )}
       </div>
+
+      {activeHoveredImg && containerRef.current && (() => {
+        const imgRect = activeHoveredImg.element.getBoundingClientRect();
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const top = imgRect.top - containerRect.top;
+        const left = imgRect.left - containerRect.left;
+        const width = imgRect.width;
+        const height = imgRect.height;
+
+        return (
+          <div 
+            className="image-floating-overlay"
+            style={{
+              position: 'absolute',
+              top: `${top}px`,
+              left: `${left}px`,
+              width: `${width}px`,
+              height: `${height}px`,
+              border: '1.5px dashed #3a76f0',
+              boxSizing: 'border-box',
+              pointerEvents: 'none',
+              zIndex: 50,
+              borderRadius: '4px'
+            }}
+            onMouseLeave={handleMouseLeave}
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const src = activeHoveredImg.element.getAttribute('src') || '';
+                deleteInlineImage(src, activeHoveredImg.field);
+              }}
+              style={{
+                position: 'absolute',
+                top: '4px',
+                right: '4px',
+                background: 'rgba(239, 68, 68, 0.9)',
+                border: 'none',
+                borderRadius: '4px',
+                color: '#fff',
+                padding: '2px 6px',
+                cursor: 'pointer',
+                fontSize: '10px',
+                pointerEvents: 'auto',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+              }}
+              title="Delete image"
+            >
+              🗑️ Delete
+            </button>
+
+            <div 
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                isResizingImage.current = true;
+                resizeStartPointerX.current = e.clientX;
+                
+                const widthAttr = activeHoveredImg.element.getAttribute('width');
+                let parsedWidth = 100;
+                if (widthAttr && widthAttr.endsWith('%')) {
+                  parsedWidth = parseInt(widthAttr);
+                } else if (widthAttr) {
+                  parsedWidth = parseInt(widthAttr);
+                }
+                resizeStartWidthPercent.current = parsedWidth;
+                
+                const target = e.target as HTMLElement;
+                if (typeof target.setPointerCapture === 'function') {
+                  target.setPointerCapture(e.pointerId);
+                }
+              }}
+              onPointerMove={(e) => {
+                if (!isResizingImage.current) return;
+                e.stopPropagation();
+                
+                const parent = activeHoveredImg.element.parentElement;
+                if (!parent) return;
+                
+                const parentRect = parent.getBoundingClientRect();
+                if (parentRect.width === 0) return;
+                
+                const deltaX = e.clientX - resizeStartPointerX.current;
+                const deltaPercent = (deltaX / parentRect.width) * 100;
+                const newPercent = Math.max(20, Math.min(100, Math.round(resizeStartWidthPercent.current + deltaPercent)));
+                
+                const src = activeHoveredImg.element.getAttribute('src') || '';
+                updateInlineImageSize(src, newPercent, activeHoveredImg.field);
+              }}
+              onPointerUp={(e) => {
+                if (isResizingImage.current) {
+                  isResizingImage.current = false;
+                  const target = e.target as HTMLElement;
+                  if (typeof target.releasePointerCapture === 'function') {
+                    target.releasePointerCapture(e.pointerId);
+                  }
+                  triggerAutoSave();
+                  setActiveHoveredImg(null);
+                }
+              }}
+              style={{ 
+                position: 'absolute',
+                right: '4px',
+                bottom: '4px',
+                width: '14px',
+                height: '14px',
+                cursor: 'se-resize',
+                background: 'rgba(255, 255, 255, 0.95)',
+                borderRadius: '3px',
+                border: '1px solid rgba(0,0,0,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'auto',
+                userSelect: 'none',
+                touchAction: 'none',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
+              }}
+              title="Drag to resize"
+            >
+              <span style={{ fontSize: '8px', color: '#333', fontWeight: 'bold', lineHeight: 1, pointerEvents: 'none' }}>⤱</span>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -109,7 +109,7 @@ describe('DraggableNoteWindow Component', () => {
       // Wait for FileReader onload to execute
       await new Promise(resolve => setTimeout(resolve, 20));
 
-      expect(onUpdate).toHaveBeenCalledWith({ text: 'Hello world\n![Image](data:image/png;base64,mockdata)\n' });
+      expect(onUpdate).toHaveBeenCalledWith({ text: 'Hello world\n<img src="data:image/png;base64,mockdata" width="100%" />\n' });
     });
 
     it('supports grab-to-resize handle for dragging image size', () => {
@@ -220,7 +220,7 @@ describe('DraggableNoteWindow Component', () => {
       fireEvent(frontTextarea, pasteEventFront);
       
       await new Promise(resolve => setTimeout(resolve, 20));
-      expect(onUpdate).toHaveBeenCalledWith({ frontText: 'Front question\n![Image](data:image/png;base64,mockdata)\n' });
+      expect(onUpdate).toHaveBeenCalledWith({ frontText: 'Front question\n<img src="data:image/png;base64,mockdata" width="100%" />\n' });
 
       onUpdate.mockClear();
 
@@ -229,7 +229,7 @@ describe('DraggableNoteWindow Component', () => {
       fireEvent(backTextarea, pasteEventBack);
       
       await new Promise(resolve => setTimeout(resolve, 20));
-      expect(onUpdate).toHaveBeenCalledWith({ backText: 'Back answer\n![Image](data:image/png;base64,mockdata)\n' });
+      expect(onUpdate).toHaveBeenCalledWith({ backText: 'Back answer\n<img src="data:image/png;base64,mockdata" width="100%" />\n' });
     });
 
     it('renders Markdown preview for note content and toggles editing on click/blur', () => {
@@ -265,6 +265,27 @@ describe('DraggableNoteWindow Component', () => {
 
       // Textarea should be gone again
       expect(screen.queryByPlaceholderText('Type sticky text...')).toBeNull();
+    });
+
+    it('triggers onViewFullscreen when double clicking an inline image inside the markdown preview', () => {
+      const onViewFullscreen = vi.fn();
+      render(
+        <DraggableNoteWindow 
+          {...defaultProps} 
+          text='Check this out: <img src="data:image/png;base64,inlinedata" width="50%" />' 
+          onViewFullscreen={onViewFullscreen}
+        />
+      );
+
+      // By default it is in preview mode, query for the rendered inline image
+      const inlineImg = screen.getByRole('img');
+      expect(inlineImg).toBeDefined();
+      expect(inlineImg.getAttribute('src')).toBe('data:image/png;base64,inlinedata');
+
+      // Double click inline image
+      fireEvent.dblClick(inlineImg);
+
+      expect(onViewFullscreen).toHaveBeenCalledWith('data:image/png;base64,inlinedata');
     });
   });
 });
