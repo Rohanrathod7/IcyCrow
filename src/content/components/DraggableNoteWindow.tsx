@@ -39,9 +39,13 @@ export interface DraggableNoteProps {
 }
 
 const isColorDark = (hex: string) => {
-  if (!hex || hex === '#ffffff') return false;
-  if (hex === '#000000') return true;
-  return hex === '#000000' || hex === '#3b82f6';
+  if (!hex) return false;
+  const cleanHex = hex.toLowerCase().trim();
+  if (cleanHex.startsWith('#ffffff')) return false;
+  if (cleanHex.startsWith('#000000')) return true;
+  if (cleanHex.startsWith('#3b82f6')) return true;
+  if (cleanHex === '#000' || cleanHex.startsWith('#0000')) return true;
+  return false;
 };
 
 export const DraggableNoteWindow = (props: DraggableNoteProps) => {
@@ -430,27 +434,31 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
     );
   };
 
-  const escapeRegExp = (string: string) => {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  };
-
   const updateInlineImageSize = (src: string, newWidth: number, field: 'text' | 'frontText' | 'backText') => {
     let currentText = '';
     if (field === 'text') currentText = text || '';
     else if (field === 'frontText') currentText = frontText || '';
     else if (field === 'backText') currentText = backText || '';
 
-    const regex = new RegExp(`<img[^>]*src=["']${escapeRegExp(src)}["'][^>]*>`, 'g');
-    const match = regex.exec(currentText);
-    if (match) {
-      const matchedTag = match[0];
-      let updatedTag = matchedTag;
-      if (matchedTag.includes('width=')) {
-        updatedTag = matchedTag.replace(/width=["'][^"']*["']/, `width="${newWidth}%"`);
+    const srcIndex = currentText.indexOf(src);
+    if (srcIndex === -1) return;
+
+    const tagStartIndex = currentText.lastIndexOf('<img', srcIndex);
+    const tagEndIndex = currentText.indexOf('>', srcIndex);
+    if (tagStartIndex !== -1 && tagEndIndex !== -1 && tagStartIndex < srcIndex) {
+      const imageTag = currentText.substring(tagStartIndex, tagEndIndex + 1);
+      let updatedTag = imageTag;
+      const widthMatch = imageTag.match(/width=["'][^"']*["']/);
+      if (widthMatch) {
+        updatedTag = imageTag.replace(widthMatch[0], `width="${newWidth}%"`);
       } else {
-        updatedTag = matchedTag.replace('/>', `width="${newWidth}%" />`).replace('>', ` width="${newWidth}%">`);
+        if (imageTag.endsWith('/>')) {
+          updatedTag = imageTag.substring(0, imageTag.length - 2) + ` width="${newWidth}%" />`;
+        } else {
+          updatedTag = imageTag.substring(0, imageTag.length - 1) + ` width="${newWidth}%">`;
+        }
       }
-      const newText = currentText.replace(matchedTag, updatedTag);
+      const newText = currentText.substring(0, tagStartIndex) + updatedTag + currentText.substring(tagEndIndex + 1);
       onUpdate({ [field]: newText });
     }
   };
@@ -461,10 +469,16 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
     else if (field === 'frontText') currentText = frontText || '';
     else if (field === 'backText') currentText = backText || '';
 
-    const regex = new RegExp(`<img[^>]*src=["']${escapeRegExp(src)}["'][^>]*>`, 'g');
-    const newText = currentText.replace(regex, '').trim();
-    onUpdate({ [field]: newText });
-    setActiveHoveredImg(null);
+    const srcIndex = currentText.indexOf(src);
+    if (srcIndex === -1) return;
+
+    const tagStartIndex = currentText.lastIndexOf('<img', srcIndex);
+    const tagEndIndex = currentText.indexOf('>', srcIndex);
+    if (tagStartIndex !== -1 && tagEndIndex !== -1 && tagStartIndex < srcIndex) {
+      const newText = currentText.substring(0, tagStartIndex) + currentText.substring(tagEndIndex + 1);
+      onUpdate({ [field]: newText.trim() });
+      setActiveHoveredImg(null);
+    }
   };
 
   const handlePreviewDoubleClick = (e: MouseEvent) => {
@@ -531,7 +545,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
         className="markdown-preview"
         style={{ 
           flex: 1, 
-          color: type === 'sticky' ? '#000' : '#fff', 
+          color: textColor, 
           fontSize: '14px', 
           cursor: 'text',
           wordBreak: 'break-word',
@@ -866,7 +880,23 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
       </div>
 
       {activeHoveredImg && containerRef.current && (() => {
-        const imgRect = activeHoveredImg.element.getBoundingClientRect();
+        const currentSrc = activeHoveredImg.element.getAttribute('src') || '';
+        let currentImgElement = activeHoveredImg.element;
+        if (!currentImgElement.isConnected) {
+          const allImgs = containerRef.current.querySelectorAll('img');
+          for (let i = 0; i < allImgs.length; i++) {
+            if (allImgs[i].getAttribute('src') === currentSrc) {
+              currentImgElement = allImgs[i];
+              break;
+            }
+          }
+        }
+        
+        if (!activeHoveredImg.element.isConnected && currentImgElement.isConnected) {
+          activeHoveredImg.element = currentImgElement;
+        }
+
+        const imgRect = currentImgElement.getBoundingClientRect();
         const containerRect = containerRef.current.getBoundingClientRect();
         const top = imgRect.top - containerRect.top;
         const left = imgRect.left - containerRect.left;
