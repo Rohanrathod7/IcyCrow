@@ -38,6 +38,12 @@ export interface DraggableNoteProps {
   isActive?: boolean;
 }
 
+const isColorDark = (hex: string) => {
+  if (!hex || hex === '#ffffff') return false;
+  if (hex === '#000000') return true;
+  return hex === '#000000' || hex === '#3b82f6';
+};
+
 export const DraggableNoteWindow = (props: DraggableNoteProps) => {
   const { 
     id, 
@@ -65,6 +71,10 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
     onViewFullscreen,
     isActive 
   } = props;
+
+  const isDarkBg = isColorDark(color);
+  const textColor = type === 'sticky' ? (isDarkBg ? '#fff' : '#000') : '#fff';
+  const headerColor = type === 'sticky' ? (isDarkBg ? '#fff' : '#000') : '#fff';
   
   const [isDragging, setIsDragging] = useState(false);
   const [hasDragged, setHasDragged] = useState(false);
@@ -239,15 +249,19 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
           const reader = new FileReader();
           reader.onload = (event) => {
             const dataUrl = event.target?.result as string;
-            if (type === 'flashcard') {
-              if (field === 'frontText') {
-                onUpdate({ frontImageUrl: dataUrl });
-              } else {
-                onUpdate({ backImageUrl: dataUrl });
-              }
-            } else {
-              onUpdate({ imageUrl: dataUrl });
-            }
+            const textarea = e.target as HTMLTextAreaElement;
+            const start = textarea.selectionStart ?? 0;
+            const end = textarea.selectionEnd ?? 0;
+            
+            let currentText = '';
+            if (field === 'text') currentText = text || '';
+            else if (field === 'frontText') currentText = frontText || '';
+            else if (field === 'backText') currentText = backText || '';
+            
+            const imageMarkdown = `\n![Image](${dataUrl})\n`;
+            const updatedText = currentText.substring(0, start) + imageMarkdown + currentText.substring(end);
+            
+            onUpdate({ [field]: updatedText });
           };
           reader.readAsDataURL(file);
           break;
@@ -556,14 +570,14 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.5 }}>
-            <GripHorizontal size={14} color={type === 'sticky' ? '#000' : '#fff'} />
-            <span style={{ fontSize: '12px', fontWeight: 600, color: type === 'sticky' ? '#000' : '#fff', textTransform: 'uppercase' }}>
+            <GripHorizontal size={14} color={headerColor} />
+            <span style={{ fontSize: '12px', fontWeight: 600, color: headerColor, textTransform: 'uppercase' }}>
               {type}
             </span>
           </div>
 
           <div style={{ display: 'flex', gap: '5px', marginLeft: '6px', alignItems: 'center' }}>
-            {['#fbbf24', '#4ade80', '#3b82f6', '#f87171', '#c084fc'].map(c => (
+            {['#fbbf24', '#4ade80', '#3b82f6', '#f87171', '#c084fc', '#ffffff', '#000000'].map(c => (
               <button
                 key={c}
                 onClick={(e) => {
@@ -575,7 +589,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
                   height: '10px',
                   borderRadius: '50%',
                   backgroundColor: c,
-                  border: color === c ? (type === 'sticky' ? '1px solid #000' : '1px solid #fff') : '1px solid rgba(255,255,255,0.1)',
+                  border: color === c ? (type === 'sticky' ? (isColorDark(c) ? '1px solid #fff' : '1px solid #000') : '1px solid #fff') : '1px solid rgba(255,255,255,0.1)',
                   cursor: 'pointer',
                   padding: 0,
                   outline: 'none',
@@ -590,9 +604,43 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
           </div>
         </div>
         
-        <div style={{ display: 'flex', gap: '4px' }}>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (type === 'flashcard') {
+                const newEdit = !(isEditingFront || isEditingBack);
+                setIsEditingFront(newEdit);
+                setIsEditingBack(newEdit);
+              } else {
+                setIsEditing(!isEditing);
+              }
+            }}
+            style={{
+              background: type === 'sticky' ? (isColorDark(color) ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)') : 'rgba(255, 255, 255, 0.15)',
+              border: 'none',
+              borderRadius: '4px',
+              color: headerColor,
+              padding: '2px 6px',
+              fontSize: '11px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              marginRight: '6px',
+              opacity: 0.8,
+              transition: 'opacity 0.15s'
+            }}
+            title="Toggle Edit/Preview"
+          >
+            {(() => {
+              if (type === 'flashcard') {
+                return (isEditingFront || isEditingBack) ? 'Preview' : 'Edit';
+              }
+              return isEditing ? 'Preview' : 'Edit';
+            })()}
+          </button>
+
           <label style={{ cursor: 'pointer', display: 'flex', padding: '4px', opacity: 0.7 }}>
-            <ImageIcon size={14} color={type === 'sticky' ? '#000' : '#fff'} />
+            <ImageIcon size={14} color={headerColor} />
             <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
           </label>
           <button 
@@ -600,14 +648,14 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
             onClick={(e) => { e.stopPropagation(); onUpdate({ isExpanded: false }); }}
             title="Compress to icon"
           >
-            <Minimize2 size={14} color={type === 'sticky' ? '#000' : '#fff'} />
+            <Minimize2 size={14} color={headerColor} />
           </button>
           <button 
             style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', opacity: 0.7 }}
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
             title="Delete"
           >
-            <Trash2 size={14} color={type === 'sticky' ? '#000' : '#fff'} />
+            <Trash2 size={14} color={headerColor} />
           </button>
         </div>
       </div>
@@ -741,7 +789,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
                   onBlur?.();
                 }}
                 placeholder={`Type ${type} text...`}
-                style={{ flex: 1, background: 'transparent', border: 'none', resize: 'none', color: type === 'sticky' ? '#000' : '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
+                style={{ flex: 1, background: 'transparent', border: 'none', resize: 'none', color: textColor, fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
               />
             ) : (
               renderMarkdownPreview(text || '', `Type ${type} text... (Click to edit)`, () => {

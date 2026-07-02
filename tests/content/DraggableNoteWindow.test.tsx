@@ -28,7 +28,7 @@ describe('DraggableNoteWindow Component', () => {
     
     // Check that color buttons exist (we can query them by title or element style)
     const colorButtons = screen.getAllByTitle('Change color');
-    expect(colorButtons.length).toBe(5);
+    expect(colorButtons.length).toBe(7);
   });
 
   it('triggers color update when a color circle is clicked', () => {
@@ -109,7 +109,7 @@ describe('DraggableNoteWindow Component', () => {
       // Wait for FileReader onload to execute
       await new Promise(resolve => setTimeout(resolve, 20));
 
-      expect(onUpdate).toHaveBeenCalledWith({ imageUrl: 'data:image/png;base64,mockdata' });
+      expect(onUpdate).toHaveBeenCalledWith({ text: 'Hello world\n![Image](data:image/png;base64,mockdata)\n' });
     });
 
     it('supports grab-to-resize handle for dragging image size', () => {
@@ -220,7 +220,7 @@ describe('DraggableNoteWindow Component', () => {
       fireEvent(frontTextarea, pasteEventFront);
       
       await new Promise(resolve => setTimeout(resolve, 20));
-      expect(onUpdate).toHaveBeenCalledWith({ frontImageUrl: 'data:image/png;base64,mockdata' });
+      expect(onUpdate).toHaveBeenCalledWith({ frontText: 'Front question\n![Image](data:image/png;base64,mockdata)\n' });
 
       onUpdate.mockClear();
 
@@ -229,7 +229,7 @@ describe('DraggableNoteWindow Component', () => {
       fireEvent(backTextarea, pasteEventBack);
       
       await new Promise(resolve => setTimeout(resolve, 20));
-      expect(onUpdate).toHaveBeenCalledWith({ backImageUrl: 'data:image/png;base64,mockdata' });
+      expect(onUpdate).toHaveBeenCalledWith({ backText: 'Back answer\n![Image](data:image/png;base64,mockdata)\n' });
     });
 
     it('renders Markdown preview for note content and toggles editing on click/blur', () => {
