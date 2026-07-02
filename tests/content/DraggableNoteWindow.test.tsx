@@ -259,8 +259,9 @@ describe('DraggableNoteWindow Component', () => {
       expect(textarea).toBeDefined();
       expect(textarea.value).toBe('**hello** markdown');
 
-      // Blur the textarea to return to preview mode
-      fireEvent.blur(textarea);
+      // Click the toggle button in header to return to preview mode
+      const toggleBtn = screen.getByText('Preview');
+      fireEvent.click(toggleBtn);
 
       // Textarea should be gone again
       expect(screen.queryByPlaceholderText('Type sticky text...')).toBeNull();

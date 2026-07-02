@@ -693,10 +693,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
                   value={frontText}
                   onInput={(e) => onUpdate({ frontText: (e.target as HTMLTextAreaElement).value })}
                   onPaste={(e) => handlePaste(e, 'frontText')}
-                  onBlur={() => {
-                    setIsEditingFront(false);
-                    onBlur?.();
-                  }}
+                  onBlur={onBlur}
                   placeholder="Front (Question)..."
                   style={{ flex: 1, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
                 />
@@ -755,10 +752,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
                   value={backText}
                   onInput={(e) => onUpdate({ backText: (e.target as HTMLTextAreaElement).value })}
                   onPaste={(e) => handlePaste(e, 'backText')}
-                  onBlur={() => {
-                    setIsEditingBack(false);
-                    onBlur?.();
-                  }}
+                  onBlur={onBlur}
                   placeholder="Back (Answer)..."
                   style={{ flex: 1, minHeight: '30px', background: 'transparent', border: 'none', resize: 'none', color: '#fff', fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
                 />
@@ -784,10 +778,7 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
                 value={text}
                 onInput={(e) => onUpdate({ text: (e.target as HTMLTextAreaElement).value })}
                 onPaste={(e) => handlePaste(e, 'text')}
-                onBlur={() => {
-                  setIsEditing(false);
-                  onBlur?.();
-                }}
+                onBlur={onBlur}
                 placeholder={`Type ${type} text...`}
                 style={{ flex: 1, background: 'transparent', border: 'none', resize: 'none', color: textColor, fontFamily: 'inherit', fontSize: '14px', outline: 'none' }}
               />
