@@ -77,9 +77,9 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
   const resizeStartPointerX = useRef(0);
   const resizeStartWidthPercent = useRef(100);
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [isEditingFront, setIsEditingFront] = useState(false);
-  const [isEditingBack, setIsEditingBack] = useState(false);
+  const [isEditing, setIsEditing] = useState(isExpanded && !text);
+  const [isEditingFront, setIsEditingFront] = useState(isExpanded && !frontText);
+  const [isEditingBack, setIsEditingBack] = useState(isExpanded && !backText);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const frontTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -102,6 +102,24 @@ export const DraggableNoteWindow = (props: DraggableNoteProps) => {
       backTextareaRef.current?.focus();
     }
   }, [isEditingBack]);
+
+  useEffect(() => {
+    if (isExpanded) {
+      if (!text) setIsEditing(true);
+    } else {
+      setIsEditing(false);
+    }
+  }, [isExpanded, text]);
+
+  useEffect(() => {
+    if (isExpanded) {
+      if (!frontText) setIsEditingFront(true);
+      if (!backText) setIsEditingBack(true);
+    } else {
+      setIsEditingFront(false);
+      setIsEditingBack(false);
+    }
+  }, [isExpanded, frontText, backText]);
 
   // Sync prop changes if updated externally
   useEffect(() => {
